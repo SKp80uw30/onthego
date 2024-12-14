@@ -1,13 +1,38 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { Auth } from '@supabase/auth-ui-react';
+import { ThemeSupa } from '@supabase/auth-ui-shared';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import { VoiceButton } from '@/components/VoiceButton';
 import { OnboardingCard } from '@/components/OnboardingCard';
 import { MessageSquare, Mic, Slack } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
 const Index = () => {
   const [isListening, setIsListening] = useState(false);
+  const [session, setSession] = useState(null);
+  const navigate = useNavigate();
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session) {
+        toast.success('Successfully logged in!');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handleStartListening = () => {
     setIsListening(true);
@@ -18,6 +43,34 @@ const Index = () => {
     setIsListening(false);
     // TODO: Stop voice recognition
   };
+
+  if (!session) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background to-secondary/20 flex items-center justify-center p-4">
+        <div className="w-full max-w-md space-y-8">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold tracking-tight mb-2">Welcome Back</h1>
+            <p className="text-muted-foreground">Sign in to manage your Slack messages</p>
+          </div>
+          <Auth
+            supabaseClient={supabase}
+            appearance={{
+              theme: ThemeSupa,
+              variables: {
+                default: {
+                  colors: {
+                    brand: 'rgb(var(--primary))',
+                    brandAccent: 'rgb(var(--primary))',
+                  },
+                },
+              },
+            }}
+            providers={[]}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-secondary/20">
