@@ -9,7 +9,136 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      messages: {
+        Row: {
+          channel_id: string | null
+          id: string
+          message_content: string
+          processed: boolean | null
+          received_at: string | null
+          sender_id: string | null
+          slack_account_id: string | null
+        }
+        Insert: {
+          channel_id?: string | null
+          id?: string
+          message_content: string
+          processed?: boolean | null
+          received_at?: string | null
+          sender_id?: string | null
+          slack_account_id?: string | null
+        }
+        Update: {
+          channel_id?: string | null
+          id?: string
+          message_content?: string
+          processed?: boolean | null
+          received_at?: string | null
+          sender_id?: string | null
+          slack_account_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_slack_account_id_fkey"
+            columns: ["slack_account_id"]
+            isOneToOne: false
+            referencedRelation: "slack_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      settings: {
+        Row: {
+          created_at: string | null
+          default_workspace_id: string | null
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          default_workspace_id?: string | null
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          default_workspace_id?: string | null
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "settings_default_workspace_id_fkey"
+            columns: ["default_workspace_id"]
+            isOneToOne: false
+            referencedRelation: "slack_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      slack_accounts: {
+        Row: {
+          created_at: string | null
+          id: string
+          slack_bot_token: string
+          slack_workspace_id: string
+          slack_workspace_name: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          slack_bot_token: string
+          slack_workspace_id: string
+          slack_workspace_name?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          slack_bot_token?: string
+          slack_workspace_id?: string
+          slack_workspace_name?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slack_accounts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          password_hash: string
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id?: string
+          password_hash: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          password_hash?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
