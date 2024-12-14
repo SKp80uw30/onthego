@@ -41,18 +41,26 @@ export const VoiceButton = ({
     <button
       onClick={handleClick}
       onMouseDown={createRipple}
+      onTouchStart={(e) => {
+        const touch = e.touches[0];
+        createRipple({
+          clientX: touch.clientX,
+          clientY: touch.clientY,
+          currentTarget: e.currentTarget,
+        } as React.MouseEvent<HTMLButtonElement>);
+      }}
       className={cn(
-        'relative overflow-hidden rounded-full p-4 transition-all duration-300',
+        'relative overflow-hidden rounded-full p-5 md:p-6 transition-all duration-300',
         isListening ? 'bg-primary text-white' : 'bg-secondary text-foreground',
-        'hover:shadow-lg active:scale-95',
+        'hover:shadow-lg active:scale-95 touch-none',
         className
       )}
     >
       <div className="relative z-10">
         {isListening ? (
-          <Mic className="h-6 w-6 animate-pulse" />
+          <Mic className="h-7 w-7 md:h-8 md:w-8 animate-pulse" />
         ) : (
-          <MicOff className="h-6 w-6" />
+          <MicOff className="h-7 w-7 md:h-8 md:w-8" />
         )}
       </div>
       {ripples.map(({ id, x, y }) => (
