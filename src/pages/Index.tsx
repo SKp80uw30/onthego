@@ -5,11 +5,12 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { VoiceButton } from '@/components/VoiceButton';
 import { OnboardingCard } from '@/components/OnboardingCard';
-import { MessageSquare, Mic, Slack } from 'lucide-react';
+import { MessageSquare, Mic, Slack, LogOut } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 
 const Index = () => {
   const [isListening, setIsListening] = useState(false);
@@ -33,6 +34,15 @@ const Index = () => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      toast.success('Successfully logged out!');
+    } catch (error) {
+      toast.error('Error logging out');
+    }
+  };
 
   const handleStartListening = () => {
     setIsListening(true);
@@ -66,6 +76,8 @@ const Index = () => {
               },
             }}
             providers={[]}
+            view="magic_link"
+            showLinks={true}
           />
         </div>
       </div>
@@ -75,18 +87,28 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-secondary/20">
       <div className="container mx-auto px-4 py-6 md:py-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center space-y-3 mb-8"
-        >
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-            On-the-Go AI
-          </h1>
-          <p className="text-base md:text-lg text-muted-foreground max-w-md mx-auto">
-            Manage your Slack messages hands-free with voice commands
-          </p>
-        </motion.div>
+        <div className="flex justify-between items-center mb-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center space-y-3"
+          >
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+              On-the-Go AI
+            </h1>
+            <p className="text-base md:text-lg text-muted-foreground max-w-md">
+              Manage your Slack messages hands-free with voice commands
+            </p>
+          </motion.div>
+          <Button 
+            variant="outline" 
+            onClick={handleLogout}
+            className="gap-2"
+          >
+            <LogOut className="h-4 w-4" />
+            Logout
+          </Button>
+        </div>
 
         <div className="grid gap-4 md:gap-6 mb-8">
           <OnboardingCard
