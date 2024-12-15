@@ -11,6 +11,7 @@ const clientId = Deno.env.get('SLACK_CLIENT_ID')
 const clientSecret = Deno.env.get('SLACK_CLIENT_SECRET')
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -18,6 +19,8 @@ Deno.serve(async (req) => {
   try {
     const supabase = createClient(supabaseUrl!, supabaseKey!)
     const { code } = await req.json()
+
+    console.log('Received code:', code)
 
     // Exchange the code for an access token
     const response = await fetch('https://slack.com/api/oauth.v2.access', {
@@ -34,29 +37,68 @@ Deno.serve(async (req) => {
     console.log('Slack OAuth response:', data)
 
     if (!data.ok) {
-      throw new Error(data.error || 'Failed to authenticate with Slack')
+      throw new Error(`Slack OAuth error: ${data.error || 'Unknown error'}`)
     }
 
     // Get the user's ID from the auth header
     const authHeader = req.headers.get('Authorization')?.split(' ')[1]
+    console.log('Auth header:', authHeader)
+    
     const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader)
     
-    if (userError || !user) {
-      throw new Error('Unauthorized')
+    if (userError) {
+      console.error('User error:', userError)
+      throw new Error(`Authentication error: ${userError.message}`)
+    }
+    
+    if (!user) {
+      throw new Error('No authenticated user found')
     }
 
-    // Store the workspace connection
-    const { error: insertError } = await supabase
-      .from('slack_accounts')
-      .insert({
-        user_id: user.id,
-        slack_workspace_id: data.team.id,
-        slack_workspace_name: data.team.name,
-        slack_bot_token: data.access_token,
-      })
+    console.log('User found:', user.id)
 
-    if (insertError) {
-      throw new Error('Failed to store workspace connection')
+    // Check if workspace already exists for this user
+    const { data: existingWorkspace, error: checkError } = await supabase
+      .from('slack_accounts')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('slack_workspace_id', data.team.id)
+      .single()
+
+    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "not found" which is expected
+      console.error('Check workspace error:', checkError)
+      throw new Error(`Database check error: ${checkError.message}`)
+    }
+
+    if (existingWorkspace) {
+      // Update existing workspace
+      const { error: updateError } = await supabase
+        .from('slack_accounts')
+        .update({
+          slack_workspace_name: data.team.name,
+          slack_bot_token: data.access_token,
+        })
+        .eq('id', existingWorkspace.id)
+
+      if (updateError) {
+        console.error('Update workspace error:', updateError)
+        throw new Error(`Failed to update workspace: ${updateError.message}`)
+      }
+    } else {
+      // Insert new workspace
+      const { error: insertError } = await supabase
+        .from('slack_accounts')
+        .insert({
+          user_id: user.id,
+          slack_workspace_id: data.team.id,
+          slack_workspace_name: data.team.name,
+          slack_bot_token: data.access_token,
+        })
+
+      if (insertError) {
+        console.error('Insert workspace error:', insertError)
+        throw new Error(`Failed to store workspace: ${insertError.message}`)
+      }
     }
 
     return new Response(
@@ -64,7 +106,7 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
-    console.error('Error:', error)
+    console.error('Error in slack-oauth function:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
