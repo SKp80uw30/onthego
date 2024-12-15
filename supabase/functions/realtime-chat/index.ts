@@ -13,13 +13,18 @@ serve(async (req) => {
   console.log(`[${requestId}] Received request:`, {
     method: req.method,
     url: req.url,
-    headers: Object.fromEntries(req.headers.entries())
   });
 
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     console.log(`[${requestId}] Handling CORS preflight request`);
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { 
+      status: 204,
+      headers: {
+        ...corsHeaders,
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      }
+    });
   }
 
   try {
@@ -85,10 +90,12 @@ serve(async (req) => {
         const data = JSON.parse(event.data);
         console.log(`[${requestId}] Message data:`, data);
         
+        // Echo the message back for now
         socket.send(JSON.stringify({
           type: 'echo',
           data: data,
-          userId: user.id
+          userId: user.id,
+          timestamp: new Date().toISOString()
         }));
       } catch (error) {
         console.error(`[${requestId}] Error processing message:`, error);
