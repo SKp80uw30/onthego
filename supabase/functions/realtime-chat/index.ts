@@ -36,7 +36,7 @@ serve(async (req) => {
       console.log(`[${requestId}] Not a WebSocket upgrade request`);
       return new Response('Expected WebSocket upgrade', { 
         status: 426,
-        headers: { ...corsHeaders, 'Content-Type': 'text/plain' }
+        headers: { ...corsHeaders }
       });
     }
 

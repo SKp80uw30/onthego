@@ -35,9 +35,11 @@ export class WebSocketService {
       console.log(`[WebSocket ${this.connectionId}] Got valid session token`);
 
       // Create WebSocket URL with the token
-      const wsUrl = `wss://slomrtdygughdpenilco.functions.supabase.co/realtime-chat?token=${session.access_token}`;
+      const wsUrl = new URL('/realtime-chat', 'wss://slomrtdygughdpenilco.functions.supabase.co');
+      wsUrl.searchParams.set('token', session.access_token);
+      
       console.log(`[WebSocket ${this.connectionId}] Connecting to:`, 
-        wsUrl.substring(0, wsUrl.indexOf('?')) + '?token=[REDACTED]');
+        wsUrl.toString().replace(/token=([^&]+)/, 'token=[REDACTED]'));
 
       if (this.ws) {
         console.log(`[WebSocket ${this.connectionId}] Closing existing connection`);
