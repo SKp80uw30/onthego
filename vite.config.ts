@@ -8,7 +8,10 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
-    https: true,
+    https: {
+      key: undefined,
+      cert: undefined,
+    },
   },
   plugins: [
     react(),
