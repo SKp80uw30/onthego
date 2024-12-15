@@ -25,7 +25,7 @@ serve(async (req) => {
       console.error('Not a WebSocket upgrade request');
       return new Response('Expected WebSocket upgrade', { 
         status: 426,
-        headers: corsHeaders 
+        headers: { ...corsHeaders, 'Upgrade': 'WebSocket' }
       });
     }
 
@@ -33,7 +33,11 @@ serve(async (req) => {
     const { response, socket } = Deno.upgradeWebSocket(req);
 
     console.log('Connecting to OpenAI WebSocket');
-    const openAIWs = new WebSocket('wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01');
+    const openAIWs = new WebSocket('wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01', [
+      'realtime',
+      `openai-insecure-api-key.${openAIApiKey}`,
+      'openai-beta.realtime-v1',
+    ]);
     
     openAIWs.onopen = () => {
       console.log('Connected to OpenAI WebSocket');

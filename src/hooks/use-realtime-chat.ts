@@ -9,22 +9,29 @@ export const useRealtimeChat = () => {
   useEffect(() => {
     let retryCount = 0;
     const maxRetries = 3;
-    let retryTimeout: NodeJS.Timeout; // Changed from number to NodeJS.Timeout
+    let retryTimeout: NodeJS.Timeout;
 
     const connectWebSocket = () => {
       console.log('Initializing WebSocket connection...');
+      
+      // Close existing connection if any
+      if (ws) {
+        ws.close();
+      }
+      
       const socket = new WebSocket(`wss://slomrtdygughdpenilco.functions.supabase.co/functions/v1/realtime-chat`);
       
-      socket.onopen = () => {
+      socket.onopen = async () => {
         console.log('Connected to chat server');
         setIsConnected(true);
-        retryCount = 0; // Reset retry count on successful connection
+        retryCount = 0;
         
         // Initialize AudioContext only after connection is established
         try {
           const context = new AudioContext({
             sampleRate: 24000,
           });
+          await context.resume(); // Ensure audio context is running
           setAudioContext(context);
         } catch (error) {
           console.error('Error creating AudioContext:', error);
@@ -33,28 +40,32 @@ export const useRealtimeChat = () => {
       };
 
       socket.onmessage = async (event) => {
-        const data = JSON.parse(event.data);
-        console.log('Received message:', data);
+        try {
+          const data = JSON.parse(event.data);
+          console.log('Received message:', data);
 
-        if (data.type === 'response.audio.delta') {
-          // Handle audio response
-          const audioData = atob(data.delta);
-          const audioArray = new Uint8Array(audioData.length);
-          for (let i = 0; i < audioData.length; i++) {
-            audioArray[i] = audioData.charCodeAt(i);
-          }
-          
-          if (audioContext && audioContext.state === 'running') {
-            try {
-              const audioBuffer = await audioContext.decodeAudioData(audioArray.buffer);
-              const source = audioContext.createBufferSource();
-              source.buffer = audioBuffer;
-              source.connect(audioContext.destination);
-              source.start();
-            } catch (error) {
-              console.error('Error playing audio:', error);
+          if (data.type === 'response.audio.delta') {
+            // Handle audio response
+            const audioData = atob(data.delta);
+            const audioArray = new Uint8Array(audioData.length);
+            for (let i = 0; i < audioData.length; i++) {
+              audioArray[i] = audioData.charCodeAt(i);
+            }
+            
+            if (audioContext && audioContext.state === 'running') {
+              try {
+                const audioBuffer = await audioContext.decodeAudioData(audioArray.buffer);
+                const source = audioContext.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(audioContext.destination);
+                source.start();
+              } catch (error) {
+                console.error('Error playing audio:', error);
+              }
             }
           }
+        } catch (error) {
+          console.error('Error processing message:', error);
         }
       };
 
