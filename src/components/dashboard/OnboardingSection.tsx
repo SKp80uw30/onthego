@@ -25,7 +25,8 @@ export const OnboardingSection = () => {
       if (error) throw error;
       
       const clientId = secrets.SLACK_CLIENT_ID;
-      const redirectUri = `https://localhost:8080/`;
+      // Use the current window location as the redirect URI
+      const redirectUri = `${window.location.origin}${window.location.pathname}`;
       const scope = 'channels:history channels:read chat:write users:read';
       
       const state = Math.random().toString(36).substring(7);
