@@ -73,6 +73,16 @@ export class WebSocketService {
     this.ws.send(JSON.stringify({ message }));
   }
 
+  sendAudioData(audioData: number[]): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      console.error('WebSocket is not connected');
+      throw new Error('WebSocket is not connected');
+    }
+
+    console.log('Sending audio data...');
+    this.ws.send(JSON.stringify({ type: 'audio', data: audioData }));
+  }
+
   isConnected(): boolean {
     return this.ws?.readyState === WebSocket.OPEN;
   }
