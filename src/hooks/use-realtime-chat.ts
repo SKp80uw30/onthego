@@ -8,12 +8,15 @@ export const useRealtimeChat = () => {
 
   useEffect(() => {
     console.log('Initializing WebSocket connection...');
-    const socket = new WebSocket(`wss://slomrtdygughdpenilco.functions.supabase.co/realtime-chat`);
-    const context = new AudioContext();
+    // Fix the WebSocket URL format - add /functions/v1/
+    const socket = new WebSocket(`wss://slomrtdygughdpenilco.functions.supabase.co/functions/v1/realtime-chat`);
     
     socket.onopen = () => {
       console.log('Connected to chat server');
       setIsConnected(true);
+      // Initialize AudioContext only after connection is established
+      const context = new AudioContext();
+      setAudioContext(context);
     };
 
     socket.onmessage = async (event) => {
@@ -28,12 +31,12 @@ export const useRealtimeChat = () => {
           audioArray[i] = audioData.charCodeAt(i);
         }
         
-        if (context) {
+        if (audioContext && audioContext.state === 'running') {
           try {
-            const audioBuffer = await context.decodeAudioData(audioArray.buffer);
-            const source = context.createBufferSource();
+            const audioBuffer = await audioContext.decodeAudioData(audioArray.buffer);
+            const source = audioContext.createBufferSource();
             source.buffer = audioBuffer;
-            source.connect(context.destination);
+            source.connect(audioContext.destination);
             source.start();
           } catch (error) {
             console.error('Error playing audio:', error);
@@ -54,12 +57,11 @@ export const useRealtimeChat = () => {
     };
 
     setWs(socket);
-    setAudioContext(context);
 
     return () => {
       socket.close();
-      if (context) {
-        context.close();
+      if (audioContext) {
+        audioContext.close();
       }
     };
   }, []);

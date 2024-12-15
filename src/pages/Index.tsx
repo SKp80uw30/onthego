@@ -15,7 +15,7 @@ const Index = () => {
   const [session, setSession] = useState(null);
   const isMobile = useIsMobile();
   const [audioRecorder, setAudioRecorder] = useState<AudioRecorder | null>(null);
-  const { ws, isConnected } = useRealtimeChat();
+  const { ws, audioContext, isConnected } = useRealtimeChat();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -41,6 +41,11 @@ const Index = () => {
     }
 
     try {
+      // Resume AudioContext after user gesture
+      if (audioContext && audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+
       const recorder = new AudioRecorder((audioData: Float32Array) => {
         if (ws && ws.readyState === WebSocket.OPEN) {
           const encodedAudio = encodeAudioForAPI(audioData);
