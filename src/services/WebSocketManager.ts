@@ -20,7 +20,8 @@ export class WebSocketManager {
         this.ws.close();
       }
 
-      const wsUrl = new URL('realtime-chat', 'wss://slomrtdygughdpenilco.supabase.co/functions/v1/');
+      // Updated WebSocket URL to use the correct functions domain
+      const wsUrl = new URL('realtime-chat', 'wss://slomrtdygughdpenilco.functions.supabase.co/');
       wsUrl.searchParams.set('token', session.access_token);
 
       this.ws = new WebSocket(wsUrl);
