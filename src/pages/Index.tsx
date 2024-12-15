@@ -12,7 +12,7 @@ const Index = () => {
   const [isListening, setIsListening] = useState(false);
   const [session, setSession] = useState(null);
   const isMobile = useIsMobile();
-  const { wsService, audioService, isConnected } = useRealtimeChat();
+  const { audioService, isInitialized } = useRealtimeChat();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -32,8 +32,8 @@ const Index = () => {
   }, []);
 
   const handleStartListening = async () => {
-    if (!wsService || !audioService || !isConnected) {
-      toast.error('Connection not ready. Please try again.');
+    if (!audioService || !isInitialized) {
+      toast.error('Audio service not ready. Please try again.');
       return;
     }
 
