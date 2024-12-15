@@ -5,6 +5,9 @@ export class WebSocketService {
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectTimeout: number | null = null;
+  private onOpenCallback: (() => void) | null = null;
+  private onCloseCallback: (() => void) | null = null;
+  private onErrorCallback: (() => void) | null = null;
 
   async connect(): Promise<void> {
     try {
@@ -23,8 +26,7 @@ export class WebSocketService {
       this.ws.onopen = () => {
         console.log('WebSocket connected successfully');
         this.reconnectAttempts = 0;
-        // Send a test message
-        this.sendMessage('test message');
+        this.onOpenCallback?.();
       };
 
       this.ws.onmessage = (event) => {
@@ -38,16 +40,30 @@ export class WebSocketService {
 
       this.ws.onerror = (error) => {
         console.error('WebSocket error:', error);
+        this.onErrorCallback?.();
       };
 
       this.ws.onclose = () => {
         console.log('WebSocket closed');
+        this.onCloseCallback?.();
         this.attemptReconnect();
       };
     } catch (error) {
       console.error('Error connecting to WebSocket:', error);
       throw error;
     }
+  }
+
+  onOpen(callback: () => void): void {
+    this.onOpenCallback = callback;
+  }
+
+  onClose(callback: () => void): void {
+    this.onCloseCallback = callback;
+  }
+
+  onError(callback: () => void): void {
+    this.onErrorCallback = callback;
   }
 
   private attemptReconnect(): void {

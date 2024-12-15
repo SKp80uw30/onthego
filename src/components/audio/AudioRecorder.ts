@@ -1,7 +1,7 @@
 export class AudioRecorder {
   private stream: MediaStream | null = null;
   private audioContext: AudioContext | null = null;
-  private processor: ScriptProcessorNode | null = null;
+  private worklet: AudioWorkletNode | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
 
   constructor(private onAudioData: (audioData: Float32Array) => void) {}
@@ -17,17 +17,25 @@ export class AudioRecorder {
           autoGainControl: true
         }
       });
+
       this.audioContext = new AudioContext({
         sampleRate: 24000,
       });
+
+      // Load and register the audio worklet
+      await this.audioContext.audioWorklet.addModule('/src/components/audio/processor.js');
+      
       this.source = this.audioContext.createMediaStreamSource(this.stream);
-      this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
-      this.processor.onaudioprocess = (e) => {
-        const inputData = e.inputBuffer.getChannelData(0);
-        this.onAudioData(new Float32Array(inputData));
+      this.worklet = new AudioWorkletNode(this.audioContext, 'audio-processor');
+      
+      this.worklet.port.onmessage = (event) => {
+        if (event.data.type === 'audio-data') {
+          this.onAudioData(event.data.audioData);
+        }
       };
-      this.source.connect(this.processor);
-      this.processor.connect(this.audioContext.destination);
+
+      this.source.connect(this.worklet);
+      this.worklet.connect(this.audioContext.destination);
     } catch (error) {
       console.error('Error accessing microphone:', error);
       throw error;
@@ -39,9 +47,9 @@ export class AudioRecorder {
       this.source.disconnect();
       this.source = null;
     }
-    if (this.processor) {
-      this.processor.disconnect();
-      this.processor = null;
+    if (this.worklet) {
+      this.worklet.disconnect();
+      this.worklet = null;
     }
     if (this.stream) {
       this.stream.getTracks().forEach(track => track.stop());

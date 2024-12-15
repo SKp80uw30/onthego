@@ -1,24 +1,52 @@
 import { AudioRecorder } from '@/components/audio/AudioRecorder';
 import { WebSocketService } from './WebSocketService';
+import { toast } from 'sonner';
 
 export class AudioService {
   private audioContext: AudioContext | null = null;
   private recorder: AudioRecorder | null = null;
   private webSocketService: WebSocketService | null = null;
+  private isWebSocketReady = false;
 
   constructor() {
     this.webSocketService = new WebSocketService();
+    this.setupWebSocketListeners();
+  }
+
+  private setupWebSocketListeners() {
+    if (!this.webSocketService) return;
+
+    this.webSocketService.onOpen(() => {
+      console.log('WebSocket connected and ready');
+      this.isWebSocketReady = true;
+    });
+
+    this.webSocketService.onClose(() => {
+      console.log('WebSocket closed');
+      this.isWebSocketReady = false;
+    });
+
+    this.webSocketService.onError(() => {
+      console.error('WebSocket error');
+      this.isWebSocketReady = false;
+    });
   }
 
   async initialize(): Promise<void> {
-    // Don't create AudioContext until explicitly needed
-    if (!this.audioContext) {
-      this.audioContext = new AudioContext({ sampleRate: 24000 });
+    try {
+      await this.webSocketService?.connect();
+    } catch (error) {
+      console.error('Error initializing audio service:', error);
+      throw error;
     }
-    await this.webSocketService?.connect();
   }
 
   async startRecording(): Promise<void> {
+    if (!this.isWebSocketReady) {
+      toast.error('Connection not ready. Please try again.');
+      return;
+    }
+
     if (!this.audioContext) {
       this.audioContext = new AudioContext({ sampleRate: 24000 });
       await this.audioContext.resume();
