@@ -5,6 +5,10 @@ export class WebSocketManager {
   private ws: WebSocket | null = null;
   private connectionId: string;
   private onMessageCallback: ((data: any) => void) | null = null;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 5;
+  private reconnectDelay = 1000;
+  private isConnecting = false;
 
   constructor() {
     this.connectionId = Math.random().toString(36).substring(7);
@@ -15,19 +19,27 @@ export class WebSocketManager {
       throw new Error('No valid session token');
     }
 
+    if (this.isConnecting) {
+      console.log('Already attempting to connect');
+      return;
+    }
+
+    this.isConnecting = true;
+
     try {
       if (this.ws) {
         this.ws.close();
       }
 
-      // Updated WebSocket URL to use the correct functions domain
       const wsUrl = new URL('realtime-chat', 'wss://slomrtdygughdpenilco.functions.supabase.co/');
       wsUrl.searchParams.set('token', session.access_token);
 
-      this.ws = new WebSocket(wsUrl);
+      this.ws = new WebSocket(wsUrl.toString());
 
       this.ws.onopen = () => {
         console.log('WebSocket connected');
+        this.isConnecting = false;
+        this.reconnectAttempts = 0;
         toast.success('Connected to audio service');
       };
 
@@ -44,15 +56,26 @@ export class WebSocketManager {
 
       this.ws.onerror = (error) => {
         console.error('WebSocket error:', error);
-        toast.error('Connection error');
+        this.isConnecting = false;
       };
 
       this.ws.onclose = () => {
         console.log('WebSocket closed');
-        toast.error('Connection closed');
+        this.isConnecting = false;
+        this.ws = null;
+
+        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+          this.reconnectAttempts++;
+          console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
+          setTimeout(() => this.connect(session), this.reconnectDelay);
+        } else {
+          console.log('Max reconnection attempts reached');
+          toast.error('Connection lost. Please try again.');
+        }
       };
     } catch (error) {
       console.error('WebSocket connection error:', error);
+      this.isConnecting = false;
       toast.error('Failed to connect');
       throw error;
     }
@@ -60,7 +83,7 @@ export class WebSocketManager {
 
   sendAudioData(audioData: Float32Array): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.error('WebSocket not connected');
+      console.warn('WebSocket not connected');
       return;
     }
 
@@ -83,5 +106,9 @@ export class WebSocketManager {
       this.ws.close();
       this.ws = null;
     }
+  }
+
+  isConnected(): boolean {
+    return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
   }
 }

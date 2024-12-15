@@ -1,11 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-console.log('Edge Function: realtime-chat loaded');
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
 const supabase = createClient(
@@ -16,110 +15,88 @@ const supabase = createClient(
 serve(async (req) => {
   const requestId = crypto.randomUUID();
   console.log(`[${requestId}] Incoming request to realtime-chat function`);
-  console.log(`[${requestId}] Method:`, req.method);
-  console.log(`[${requestId}] URL:`, req.url);
-  console.log(`[${requestId}] Headers:`, Object.fromEntries(req.headers.entries()));
 
-  try {
-    // Handle CORS preflight requests
-    if (req.method === 'OPTIONS') {
-      console.log(`[${requestId}] Handling CORS preflight request`);
-      return new Response(null, {
-        status: 204,
-        headers: {
-          ...corsHeaders,
-          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        }
-      });
-    }
-
-    // Check for WebSocket upgrade
-    const upgradeHeader = req.headers.get("upgrade") || '';
-    console.log(`[${requestId}] Upgrade header:`, upgradeHeader);
-    
-    if (upgradeHeader.toLowerCase() !== "websocket") {
-      console.log(`[${requestId}] Not a WebSocket upgrade request`);
-      return new Response('Expected WebSocket upgrade', { 
-        status: 426,
-        headers: corsHeaders
-      });
-    }
-
-    // Get and verify token
-    const url = new URL(req.url);
-    const token = url.searchParams.get('token');
-    console.log(`[${requestId}] Token present:`, !!token);
-    
-    if (!token) {
-      console.error(`[${requestId}] No authentication token provided`);
-      return new Response('No authentication token provided', { 
-        status: 403,
-        headers: corsHeaders
-      });
-    }
-
-    // Verify the token
-    console.log(`[${requestId}] Verifying token...`);
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
-      console.error(`[${requestId}] Token verification failed:`, authError);
-      return new Response('Invalid authentication token', { 
-        status: 401,
-        headers: corsHeaders
-      });
-    }
-
-    console.log(`[${requestId}] Token verified for user:`, user.id);
-
-    // Upgrade the connection to WebSocket
-    const { socket, response } = Deno.upgradeWebSocket(req);
-    console.log(`[${requestId}] WebSocket connection upgraded successfully`);
-    
-    socket.onopen = () => {
-      console.log(`[${requestId}] WebSocket opened for user:`, user.id);
-      socket.send(JSON.stringify({ 
-        type: 'connected',
-        userId: user.id 
-      }));
-    };
-
-    socket.onmessage = async (event) => {
-      try {
-        console.log(`[${requestId}] Received message from user:`, user.id);
-        const data = JSON.parse(event.data);
-        console.log(`[${requestId}] Message data:`, data);
-        
-        // Echo the message back for now
-        socket.send(JSON.stringify({
-          type: 'echo',
-          data: data,
-          userId: user.id,
-          timestamp: new Date().toISOString()
-        }));
-      } catch (error) {
-        console.error(`[${requestId}] Error processing message:`, error);
-        socket.send(JSON.stringify({
-          type: 'error',
-          message: 'Failed to process message'
-        }));
-      }
-    };
-
-    socket.onerror = (e) => {
-      console.error(`[${requestId}] WebSocket error for user:`, user.id, e);
-    };
-
-    socket.onclose = () => {
-      console.log(`[${requestId}] WebSocket closed for user:`, user.id);
-    };
-
-    return response;
-  } catch (error) {
-    console.error(`[${requestId}] Unhandled error:`, error);
-    return new Response(`Internal Server Error: ${error.message}`, { 
-      status: 500,
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 204,
       headers: corsHeaders
     });
   }
+
+  // Check for WebSocket upgrade
+  const upgradeHeader = req.headers.get("upgrade") || '';
+  if (upgradeHeader.toLowerCase() !== "websocket") {
+    return new Response('Expected WebSocket upgrade', { 
+      status: 426,
+      headers: corsHeaders
+    });
+  }
+
+  // Get and verify token
+  const url = new URL(req.url);
+  const token = url.searchParams.get('token');
+  
+  if (!token) {
+    console.error(`[${requestId}] No authentication token provided`);
+    return new Response('No authentication token provided', { 
+      status: 403,
+      headers: corsHeaders
+    });
+  }
+
+  // Verify the token
+  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+  
+  if (authError || !user) {
+    console.error(`[${requestId}] Token verification failed:`, authError);
+    return new Response('Invalid authentication token', { 
+      status: 401,
+      headers: corsHeaders
+    });
+  }
+
+  console.log(`[${requestId}] Token verified for user:`, user.id);
+
+  // Upgrade the connection to WebSocket
+  const { socket, response } = Deno.upgradeWebSocket(req);
+  
+  socket.onopen = () => {
+    console.log(`[${requestId}] WebSocket opened for user:`, user.id);
+    socket.send(JSON.stringify({ 
+      type: 'connected',
+      userId: user.id 
+    }));
+  };
+
+  socket.onmessage = async (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      console.log(`[${requestId}] Received message from user ${user.id}:`, data);
+      
+      // Echo the message back for now
+      socket.send(JSON.stringify({
+        type: 'echo',
+        data: data,
+        userId: user.id,
+        timestamp: new Date().toISOString()
+      }));
+    } catch (error) {
+      console.error(`[${requestId}] Error processing message:`, error);
+      socket.send(JSON.stringify({
+        type: 'error',
+        message: 'Failed to process message'
+      }));
+    }
+  };
+
+  socket.onerror = (e) => {
+    console.error(`[${requestId}] WebSocket error for user ${user.id}:`, e);
+  };
+
+  socket.onclose = () => {
+    console.log(`[${requestId}] WebSocket closed for user:`, user.id);
+  };
+
+  return response;
 });
