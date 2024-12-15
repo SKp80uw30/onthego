@@ -9,7 +9,7 @@ export const useRealtimeChat = () => {
   useEffect(() => {
     let retryCount = 0;
     const maxRetries = 3;
-    let retryTimeout: number;
+    let retryTimeout: NodeJS.Timeout; // Changed from number to NodeJS.Timeout
 
     const connectWebSocket = () => {
       console.log('Initializing WebSocket connection...');
