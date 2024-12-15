@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { VoiceButton } from '@/components/VoiceButton';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -7,15 +7,12 @@ import { LoginForm } from '@/components/auth/LoginForm';
 import { Header } from '@/components/dashboard/Header';
 import { OnboardingSection } from '@/components/dashboard/OnboardingSection';
 import { useRealtimeChat } from '@/hooks/use-realtime-chat';
-import { AudioRecorder } from '@/components/audio/AudioRecorder';
-import { encodeAudioForAPI } from '@/utils/audio';
 
 const Index = () => {
   const [isListening, setIsListening] = useState(false);
   const [session, setSession] = useState(null);
   const isMobile = useIsMobile();
-  const [audioRecorder, setAudioRecorder] = useState<AudioRecorder | null>(null);
-  const { wsManager, audioContext, isConnected } = useRealtimeChat();
+  const { wsService, audioService, isConnected } = useRealtimeChat();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -35,29 +32,13 @@ const Index = () => {
   }, []);
 
   const handleStartListening = async () => {
-    if (!wsManager || !isConnected) {
+    if (!wsService || !audioService || !isConnected) {
       toast.error('Connection not ready. Please try again.');
       return;
     }
 
     try {
-      // Resume AudioContext after user gesture
-      if (audioContext && audioContext.state === 'suspended') {
-        await audioContext.resume();
-      }
-
-      const recorder = new AudioRecorder((audioData: Float32Array) => {
-        if (wsManager && wsManager.isConnected()) {
-          const encodedAudio = encodeAudioForAPI(audioData);
-          wsManager.send({
-            type: 'input_audio_buffer.append',
-            audio: encodedAudio
-          });
-        }
-      });
-
-      await recorder.start();
-      setAudioRecorder(recorder);
+      await audioService.startRecording();
       setIsListening(true);
     } catch (error) {
       console.error('Error starting recording:', error);
@@ -66,9 +47,8 @@ const Index = () => {
   };
 
   const handleStopListening = () => {
-    if (audioRecorder) {
-      audioRecorder.stop();
-      setAudioRecorder(null);
+    if (audioService) {
+      audioService.stopRecording();
     }
     setIsListening(false);
   };
