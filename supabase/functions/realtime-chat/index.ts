@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,6 +27,34 @@ serve(async (req) => {
       return new Response('Expected WebSocket upgrade', { 
         status: 426,
         headers: { ...corsHeaders, 'Upgrade': 'WebSocket' }
+      });
+    }
+
+    // Get auth token from URL
+    const url = new URL(req.url);
+    const token = url.searchParams.get('token');
+    
+    if (!token) {
+      console.error('No authentication token provided');
+      return new Response('Authentication required', { 
+        status: 401,
+        headers: corsHeaders 
+      });
+    }
+
+    // Verify the token
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      console.error('Invalid authentication token');
+      return new Response('Invalid authentication', { 
+        status: 401,
+        headers: corsHeaders 
       });
     }
 

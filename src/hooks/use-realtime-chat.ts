@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import { supabase } from "@/integrations/supabase/client";
 
 export const useRealtimeChat = () => {
   const [ws, setWs] = useState<WebSocket | null>(null);
@@ -11,27 +12,37 @@ export const useRealtimeChat = () => {
     const maxRetries = 3;
     let retryTimeout: NodeJS.Timeout;
 
-    const connectWebSocket = () => {
+    const connectWebSocket = async () => {
       console.log('Initializing WebSocket connection...');
       
       // Close existing connection if any
       if (ws) {
         ws.close();
       }
+
+      // Get the current session
+      const { data: { session } } = await supabase.auth.getSession();
       
-      const socket = new WebSocket(`wss://slomrtdygughdpenilco.functions.supabase.co/functions/v1/realtime-chat`);
+      if (!session?.access_token) {
+        console.error('No authentication token available');
+        toast.error('Authentication required');
+        return;
+      }
+      
+      const socket = new WebSocket(
+        `wss://slomrtdygughdpenilco.functions.supabase.co/functions/v1/realtime-chat?token=${session.access_token}`
+      );
       
       socket.onopen = async () => {
         console.log('Connected to chat server');
         setIsConnected(true);
         retryCount = 0;
         
-        // Initialize AudioContext only after connection is established
         try {
           const context = new AudioContext({
             sampleRate: 24000,
           });
-          await context.resume(); // Ensure audio context is running
+          await context.resume();
           setAudioContext(context);
         } catch (error) {
           console.error('Error creating AudioContext:', error);
@@ -45,7 +56,6 @@ export const useRealtimeChat = () => {
           console.log('Received message:', data);
 
           if (data.type === 'response.audio.delta') {
-            // Handle audio response
             const audioData = atob(data.delta);
             const audioArray = new Uint8Array(audioData.length);
             for (let i = 0; i < audioData.length; i++) {
