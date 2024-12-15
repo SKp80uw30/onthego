@@ -11,6 +11,7 @@ export class WebSocketService {
     console.log('Initializing WebSocket connection...');
     
     try {
+      // Pass token as URL parameter since WebSocket API doesn't support custom headers
       this.socket = new WebSocket(`${this.url}?token=${this.token}`);
 
       this.socket.onopen = () => {
