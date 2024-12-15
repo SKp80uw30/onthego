@@ -11,6 +11,62 @@ const Index = () => {
   const [isListening, setIsListening] = useState(false);
   const [session, setSession] = useState(null);
   const isMobile = useIsMobile();
+  const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
+
+  useEffect(() => {
+    // Initialize Web Speech API
+    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognitionInstance = new SpeechRecognition();
+      recognitionInstance.continuous = false;
+      recognitionInstance.interimResults = false;
+      recognitionInstance.lang = 'en-US';
+
+      recognitionInstance.onresult = async (event) => {
+        const transcript = event.results[0][0].transcript;
+        console.log('Voice command:', transcript);
+        
+        try {
+          const { data: slackAccounts } = await supabase
+            .from('slack_accounts')
+            .select('*')
+            .limit(1)
+            .single();
+
+          if (!slackAccounts) {
+            toast.error('Please connect your Slack workspace first');
+            return;
+          }
+
+          // Send message to Slack
+          const response = await supabase.functions.invoke('send-slack-message', {
+            body: { message: transcript }
+          });
+
+          if (response.error) {
+            throw new Error(response.error.message);
+          }
+
+          toast.success('Message sent to Slack!');
+        } catch (error) {
+          console.error('Error sending message:', error);
+          toast.error('Failed to send message to Slack');
+        }
+
+        setIsListening(false);
+      };
+
+      recognitionInstance.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        toast.error('Voice recognition error. Please try again.');
+        setIsListening(false);
+      };
+
+      setRecognition(recognitionInstance);
+    } else {
+      toast.error('Speech recognition is not supported in this browser');
+    }
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -30,13 +86,17 @@ const Index = () => {
   }, []);
 
   const handleStartListening = () => {
-    setIsListening(true);
-    // TODO: Implement voice recognition
+    if (recognition) {
+      recognition.start();
+      setIsListening(true);
+    }
   };
 
   const handleStopListening = () => {
-    setIsListening(false);
-    // TODO: Stop voice recognition
+    if (recognition) {
+      recognition.stop();
+      setIsListening(false);
+    }
   };
 
   // Handle OAuth callback
@@ -65,7 +125,6 @@ const Index = () => {
       };
 
       handleSlackCallback(code);
-      // Clean URL and state
       window.history.replaceState({}, document.title, window.location.pathname);
       localStorage.removeItem('slack_oauth_state');
     }
