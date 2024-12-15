@@ -15,15 +15,24 @@ serve(async (req) => {
   try {
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
+      console.error('OpenAI API key not found');
       throw new Error('OpenAI API key not found');
     }
 
+    // Get the WebSocket upgrade header
+    const upgrade = req.headers.get('upgrade') || '';
+    if (upgrade.toLowerCase() !== 'websocket') {
+      console.error('Not a WebSocket upgrade request');
+      return new Response('Expected WebSocket upgrade', { 
+        status: 426,
+        headers: corsHeaders 
+      });
+    }
+
     console.log('Upgrading connection to WebSocket');
-    // Upgrade the request to a WebSocket connection
     const { response, socket } = Deno.upgradeWebSocket(req);
 
     console.log('Connecting to OpenAI WebSocket');
-    // Connect to OpenAI's WebSocket
     const openAIWs = new WebSocket('wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01');
     
     openAIWs.onopen = () => {
@@ -53,6 +62,9 @@ serve(async (req) => {
 
     openAIWs.onerror = (error) => {
       console.error('OpenAI WebSocket error:', error);
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'error', message: 'OpenAI connection error' }));
+      }
     };
 
     // Forward messages from OpenAI to the client
@@ -74,6 +86,10 @@ serve(async (req) => {
     socket.onclose = () => {
       console.log('Client disconnected');
       openAIWs.close();
+    };
+
+    socket.onerror = (error) => {
+      console.error('Client WebSocket error:', error);
     };
 
     return response;
