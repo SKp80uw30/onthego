@@ -25,6 +25,7 @@ export class WebSocketService {
         throw new Error('No authentication token available');
       }
 
+      // Log the full URL we're trying to connect to
       const wsUrl = `wss://slomrtdygughdpenilco.functions.supabase.co/realtime-chat?token=${session.access_token}`;
       console.log(`[WebSocket ${this.connectionId}] Connecting to URL:`, wsUrl);
       
