@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { CheckCircle2 } from 'lucide-react';
 
 interface OnboardingCardProps {
   title: string;
@@ -8,6 +9,7 @@ interface OnboardingCardProps {
   icon: React.ReactNode;
   children?: React.ReactNode;
   className?: string;
+  isCompleted?: boolean;
 }
 
 export const OnboardingCard = ({
@@ -16,6 +18,7 @@ export const OnboardingCard = ({
   icon,
   children,
   className,
+  isCompleted,
 }: OnboardingCardProps) => {
   return (
     <motion.div
@@ -33,7 +36,12 @@ export const OnboardingCard = ({
           {icon}
         </div>
         <div className="space-y-0.5 md:space-y-1 flex-grow">
-          <h3 className="text-base md:text-lg font-semibold text-foreground">{title}</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-base md:text-lg font-semibold text-foreground">{title}</h3>
+            {isCompleted && (
+              <CheckCircle2 className="h-5 w-5 text-green-500" />
+            )}
+          </div>
           <p className="text-sm text-muted-foreground">{description}</p>
           {children && <div className="mt-3">{children}</div>}
         </div>

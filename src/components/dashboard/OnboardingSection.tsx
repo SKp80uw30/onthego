@@ -25,7 +25,6 @@ export const OnboardingSection = () => {
       if (error) throw error;
       
       const clientId = secrets.SLACK_CLIENT_ID;
-      // Use the current window location as the redirect URI
       const redirectUri = `${window.location.origin}${window.location.pathname}`;
       const scope = 'channels:history channels:read chat:write users:read';
       
@@ -46,6 +45,7 @@ export const OnboardingSection = () => {
         title="Connect Slack"
         description={slackAccounts?.length ? "Connected to Slack workspace" : "Link your Slack workspace to get started"}
         icon={<Slack className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
+        isCompleted={Boolean(slackAccounts?.length)}
       >
         {!slackAccounts?.length && (
           <Button 
