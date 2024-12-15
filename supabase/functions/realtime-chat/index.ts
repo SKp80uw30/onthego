@@ -1,34 +1,39 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+console.log('Edge Function: realtime-chat loaded');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-console.log('[Edge Function] Starting realtime-chat function...');
+const supabase = createClient(
+  Deno.env.get('SUPABASE_URL') ?? '',
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+);
 
 serve(async (req) => {
   const requestId = crypto.randomUUID();
-  console.log(`[${requestId}] Received request:`, {
-    method: req.method,
-    url: req.url,
-  });
-
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    console.log(`[${requestId}] Handling CORS preflight request`);
-    return new Response(null, { 
-      status: 204,
-      headers: {
-        ...corsHeaders,
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      }
-    });
-  }
+  console.log(`[${requestId}] Incoming request to realtime-chat function`);
+  console.log(`[${requestId}] Method:`, req.method);
+  console.log(`[${requestId}] URL:`, req.url);
+  console.log(`[${requestId}] Headers:`, Object.fromEntries(req.headers.entries()));
 
   try {
-    // Check if it's a WebSocket upgrade request
+    // Handle CORS preflight requests
+    if (req.method === 'OPTIONS') {
+      console.log(`[${requestId}] Handling CORS preflight request`);
+      return new Response(null, {
+        status: 204,
+        headers: {
+          ...corsHeaders,
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        }
+      });
+    }
+
+    // Check for WebSocket upgrade
     const upgradeHeader = req.headers.get("upgrade") || '';
     console.log(`[${requestId}] Upgrade header:`, upgradeHeader);
     
@@ -36,11 +41,11 @@ serve(async (req) => {
       console.log(`[${requestId}] Not a WebSocket upgrade request`);
       return new Response('Expected WebSocket upgrade', { 
         status: 426,
-        headers: { ...corsHeaders }
+        headers: corsHeaders
       });
     }
 
-    // Get the token from URL parameters
+    // Get and verify token
     const url = new URL(req.url);
     const token = url.searchParams.get('token');
     console.log(`[${requestId}] Token present:`, !!token);
@@ -54,11 +59,6 @@ serve(async (req) => {
     }
 
     // Verify the token
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
     console.log(`[${requestId}] Verifying token...`);
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
@@ -116,8 +116,8 @@ serve(async (req) => {
 
     return response;
   } catch (error) {
-    console.error(`[${requestId}] Error handling WebSocket connection:`, error);
-    return new Response('Internal Server Error', { 
+    console.error(`[${requestId}] Unhandled error:`, error);
+    return new Response(`Internal Server Error: ${error.message}`, { 
       status: 500,
       headers: corsHeaders
     });

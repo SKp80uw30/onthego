@@ -19,3 +19,7 @@ verify_jwt = true
 [[functions]]
 name = "get-slack-client-id"
 verify_jwt = true
+
+[[functions]]
+name = "realtime-chat"
+verify_jwt = false
