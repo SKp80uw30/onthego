@@ -15,3 +15,7 @@ port = 54323
 [[functions]]
 name = "slack-oauth"
 verify_jwt = true
+
+[[functions]]
+name = "get-slack-client-id"
+verify_jwt = true

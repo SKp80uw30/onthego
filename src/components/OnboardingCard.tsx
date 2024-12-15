@@ -6,6 +6,7 @@ interface OnboardingCardProps {
   title: string;
   description: string;
   icon: React.ReactNode;
+  children?: React.ReactNode;
   className?: string;
 }
 
@@ -13,6 +14,7 @@ export const OnboardingCard = ({
   title,
   description,
   icon,
+  children,
   className,
 }: OnboardingCardProps) => {
   return (
@@ -30,9 +32,10 @@ export const OnboardingCard = ({
         <div className="rounded-full bg-primary/10 p-2 md:p-3">
           {icon}
         </div>
-        <div className="space-y-0.5 md:space-y-1">
+        <div className="space-y-0.5 md:space-y-1 flex-grow">
           <h3 className="text-base md:text-lg font-semibold text-foreground">{title}</h3>
           <p className="text-sm text-muted-foreground">{description}</p>
+          {children && <div className="mt-3">{children}</div>}
         </div>
       </div>
     </motion.div>
