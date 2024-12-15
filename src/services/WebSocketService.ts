@@ -18,10 +18,13 @@ export class WebSocketService {
         throw new Error('No authentication token available');
       }
 
-      // Use the correct path format for the Edge Function
       const wsUrl = `wss://slomrtdygughdpenilco.functions.supabase.co/realtime-chat?token=${session.access_token}`;
       console.log('Connecting to WebSocket URL:', wsUrl);
       
+      if (this.ws) {
+        this.ws.close();
+      }
+
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
@@ -47,7 +50,9 @@ export class WebSocketService {
       this.ws.onclose = (event) => {
         console.log('WebSocket closed with code:', event.code, 'reason:', event.reason);
         this.onCloseCallback?.();
-        this.attemptReconnect();
+        if (event.code !== 1000) { // Normal closure
+          this.attemptReconnect();
+        }
       };
     } catch (error) {
       console.error('Error connecting to WebSocket:', error);
@@ -71,6 +76,10 @@ export class WebSocketService {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       const backoffTime = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 10000);
       console.log(`Attempting to reconnect in ${backoffTime}ms... (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
+      
+      if (this.reconnectTimeout) {
+        clearTimeout(this.reconnectTimeout);
+      }
       
       this.reconnectTimeout = window.setTimeout(() => {
         this.reconnectAttempts++;
@@ -113,7 +122,7 @@ export class WebSocketService {
       clearTimeout(this.reconnectTimeout);
     }
     if (this.ws) {
-      this.ws.close();
+      this.ws.close(1000, 'Client disconnecting');
       this.ws = null;
     }
   }

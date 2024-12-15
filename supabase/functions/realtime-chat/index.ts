@@ -4,10 +4,10 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
-console.log('Edge Function initialized');
+console.log('WebSocket Edge Function initialized');
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -16,16 +16,16 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  // Check if it's a WebSocket upgrade request
-  if (req.headers.get("upgrade") !== "websocket") {
-    console.log('Not a WebSocket upgrade request');
-    return new Response('Expected WebSocket upgrade', { 
-      status: 426,
-      headers: { ...corsHeaders, 'Content-Type': 'text/plain' }
-    });
-  }
-
   try {
+    // Check if it's a WebSocket upgrade request
+    if (req.headers.get("upgrade") !== "websocket") {
+      console.log('Not a WebSocket upgrade request');
+      return new Response('Expected WebSocket upgrade', { 
+        status: 426,
+        headers: { ...corsHeaders, 'Content-Type': 'text/plain' }
+      });
+    }
+
     console.log('Processing WebSocket upgrade request');
     
     // Get the token from URL parameters
