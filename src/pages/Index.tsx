@@ -11,12 +11,26 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { useQuery } from '@tanstack/react-query';
 
 const Index = () => {
   const [isListening, setIsListening] = useState(false);
   const [session, setSession] = useState(null);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+
+  // Fetch Slack accounts
+  const { data: slackAccounts } = useQuery({
+    queryKey: ['slack-accounts'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('slack_accounts')
+        .select('*');
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!session,
+  });
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -54,6 +68,50 @@ const Index = () => {
     // TODO: Stop voice recognition
   };
 
+  const handleConnectSlack = async () => {
+    const clientId = 'your-client-id'; // Replace with env variable in production
+    const redirectUri = `${window.location.origin}/`;
+    const scope = 'channels:history channels:read chat:write users:read';
+    
+    const state = Math.random().toString(36).substring(7);
+    localStorage.setItem('slack_oauth_state', state);
+    
+    const slackUrl = `https://slack.com/oauth/v2/authorize?client_id=${clientId}&scope=${scope}&redirect_uri=${redirectUri}&state=${state}`;
+    window.location.href = slackUrl;
+  };
+
+  const handleSlackCallback = async (code: string) => {
+    try {
+      const response = await supabase.functions.invoke('slack-oauth', {
+        body: { code },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      toast.success('Successfully connected to Slack!');
+    } catch (error) {
+      console.error('Error connecting to Slack:', error);
+      toast.error('Failed to connect to Slack');
+    }
+  };
+
+  // Handle OAuth callback
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const state = urlParams.get('state');
+    const savedState = localStorage.getItem('slack_oauth_state');
+
+    if (code && state && state === savedState) {
+      handleSlackCallback(code);
+      // Clean URL and state
+      window.history.replaceState({}, document.title, window.location.pathname);
+      localStorage.removeItem('slack_oauth_state');
+    }
+  }, []);
+
   if (!session) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-background to-secondary/20 flex items-center justify-center p-4">
@@ -69,8 +127,8 @@ const Index = () => {
               variables: {
                 default: {
                   colors: {
-                    brand: 'rgb(var(--primary))',
-                    brandAccent: 'rgb(var(--primary))',
+                    brand: '#8B5CF6',
+                    brandAccent: '#7C3AED',
                   },
                 },
               },
@@ -113,8 +171,18 @@ const Index = () => {
         <div className="grid gap-4 md:gap-6 mb-8">
           <OnboardingCard
             title="Connect Slack"
-            description="Link your Slack workspace to get started"
+            description={slackAccounts?.length ? "Connected to Slack workspace" : "Link your Slack workspace to get started"}
             icon={<Slack className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
+            action={
+              !slackAccounts?.length && (
+                <Button 
+                  onClick={handleConnectSlack}
+                  className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white"
+                >
+                  Connect Slack
+                </Button>
+              )
+            }
           />
           <OnboardingCard
             title="Voice Commands"
