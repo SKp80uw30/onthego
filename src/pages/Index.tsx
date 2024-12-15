@@ -15,7 +15,7 @@ const Index = () => {
   const [session, setSession] = useState(null);
   const isMobile = useIsMobile();
   const [audioRecorder, setAudioRecorder] = useState<AudioRecorder | null>(null);
-  const { ws, audioContext, isConnected } = useRealtimeChat();
+  const { wsManager, audioContext, isConnected } = useRealtimeChat();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -35,7 +35,7 @@ const Index = () => {
   }, []);
 
   const handleStartListening = async () => {
-    if (!ws || !isConnected) {
+    if (!wsManager || !isConnected) {
       toast.error('Connection not ready. Please try again.');
       return;
     }
@@ -47,9 +47,9 @@ const Index = () => {
       }
 
       const recorder = new AudioRecorder((audioData: Float32Array) => {
-        if (ws && ws.readyState === WebSocket.OPEN) {
+        if (wsManager && wsManager.socket?.readyState === WebSocket.OPEN) {
           const encodedAudio = encodeAudioForAPI(audioData);
-          ws.send(JSON.stringify({
+          wsManager.send(JSON.stringify({
             type: 'input_audio_buffer.append',
             audio: encodedAudio
           }));
