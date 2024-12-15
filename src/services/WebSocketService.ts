@@ -13,9 +13,11 @@ export class WebSocketService {
     try {
       console.log('Attempting to connect to WebSocket...');
       const { data: { session } } = await supabase.auth.getSession();
+      
       if (!session?.access_token) {
-        console.error('No authentication token available');
-        throw new Error('No authentication token available');
+        const error = new Error('No authentication token available');
+        console.error(error);
+        throw error;
       }
 
       const wsUrl = `wss://slomrtdygughdpenilco.functions.supabase.co/realtime-chat?token=${session.access_token}`;
@@ -27,6 +29,9 @@ export class WebSocketService {
         console.log('WebSocket connected successfully');
         this.reconnectAttempts = 0;
         this.onOpenCallback?.();
+        
+        // Send a test message to verify connection
+        this.sendMessage('test connection');
       };
 
       this.ws.onmessage = (event) => {
@@ -43,8 +48,8 @@ export class WebSocketService {
         this.onErrorCallback?.();
       };
 
-      this.ws.onclose = () => {
-        console.log('WebSocket closed');
+      this.ws.onclose = (event) => {
+        console.log('WebSocket closed with code:', event.code, 'reason:', event.reason);
         this.onCloseCallback?.();
         this.attemptReconnect();
       };
@@ -69,10 +74,13 @@ export class WebSocketService {
   private attemptReconnect(): void {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       const backoffTime = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 10000);
-      console.log(`Attempting to reconnect in ${backoffTime}ms...`);
+      console.log(`Attempting to reconnect in ${backoffTime}ms... (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
+      
       this.reconnectTimeout = window.setTimeout(() => {
         this.reconnectAttempts++;
-        this.connect();
+        this.connect().catch(error => {
+          console.error('Reconnection attempt failed:', error);
+        });
       }, backoffTime);
     } else {
       console.log('Max reconnection attempts reached');
@@ -81,17 +89,17 @@ export class WebSocketService {
 
   sendMessage(message: string): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.error('WebSocket is not connected');
+      console.error('WebSocket is not connected. Current state:', this.ws?.readyState);
       throw new Error('WebSocket is not connected');
     }
 
     console.log('Sending message:', message);
-    this.ws.send(JSON.stringify({ message }));
+    this.ws.send(JSON.stringify({ type: 'message', data: message }));
   }
 
   sendAudioData(audioData: number[]): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.error('WebSocket is not connected');
+      console.error('WebSocket is not connected. Current state:', this.ws?.readyState);
       throw new Error('WebSocket is not connected');
     }
 
@@ -100,7 +108,9 @@ export class WebSocketService {
   }
 
   isConnected(): boolean {
-    return this.ws?.readyState === WebSocket.OPEN;
+    const connected = this.ws?.readyState === WebSocket.OPEN;
+    console.log('WebSocket connection status:', connected);
+    return connected;
   }
 
   disconnect(): void {
