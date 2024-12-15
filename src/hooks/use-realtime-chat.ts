@@ -7,6 +7,7 @@ export const useRealtimeChat = () => {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
+    console.log('Initializing WebSocket connection...');
     const socket = new WebSocket(`wss://slomrtdygughdpenilco.functions.supabase.co/realtime-chat`);
     const context = new AudioContext();
     

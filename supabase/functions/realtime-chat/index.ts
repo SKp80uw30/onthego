@@ -18,6 +18,7 @@ serve(async (req) => {
       throw new Error('OpenAI API key not found');
     }
 
+    console.log('Upgrading connection to WebSocket');
     // Upgrade the request to a WebSocket connection
     const { response, socket } = Deno.upgradeWebSocket(req);
 
@@ -27,6 +28,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    console.log('Connecting to OpenAI WebSocket');
     // Connect to OpenAI's WebSocket
     const openAIWs = new WebSocket('wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01');
     
@@ -83,8 +85,13 @@ serve(async (req) => {
       }));
     };
 
+    openAIWs.onerror = (error) => {
+      console.error('OpenAI WebSocket error:', error);
+    };
+
     // Forward messages from OpenAI to the client
     openAIWs.onmessage = (event) => {
+      console.log('Received message from OpenAI:', event.data);
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(event.data);
       }
@@ -92,6 +99,7 @@ serve(async (req) => {
 
     // Handle messages from the client
     socket.onmessage = async (event) => {
+      console.log('Received message from client:', event.data);
       const data = JSON.parse(event.data);
       
       if (data.type === 'function_call') {
