@@ -11,61 +11,61 @@ const Index = () => {
   const [isListening, setIsListening] = useState(false);
   const [session, setSession] = useState(null);
   const isMobile = useIsMobile();
-  const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
+  const [ws, setWs] = useState<WebSocket | null>(null);
+  const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
+  const [audioRecorder, setAudioRecorder] = useState<any>(null);
 
   useEffect(() => {
-    // Initialize Web Speech API
-    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
-      const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const recognitionInstance = new SpeechRecognitionAPI();
-      recognitionInstance.continuous = false;
-      recognitionInstance.interimResults = false;
-      recognitionInstance.lang = 'en-US';
+    // Initialize WebSocket connection
+    const socket = new WebSocket(`wss://slomrtdygughdpenilco.functions.supabase.co/realtime-chat`);
+    
+    socket.onopen = () => {
+      console.log('Connected to chat server');
+    };
 
-      recognitionInstance.onresult = async (event: SpeechRecognitionEvent) => {
-        const transcript = event.results[0][0].transcript;
-        console.log('Voice command:', transcript);
-        
-        try {
-          const { data: slackAccounts } = await supabase
-            .from('slack_accounts')
-            .select('*')
-            .limit(1)
-            .single();
+    socket.onmessage = async (event) => {
+      const data = JSON.parse(event.data);
+      console.log('Received message:', data);
 
-          if (!slackAccounts) {
-            toast.error('Please connect your Slack workspace first');
-            return;
-          }
-
-          // Send message to Slack
-          const response = await supabase.functions.invoke('send-slack-message', {
-            body: { message: transcript }
-          });
-
-          if (response.error) {
-            throw new Error(response.error.message);
-          }
-
-          toast.success('Message sent to Slack!');
-        } catch (error) {
-          console.error('Error sending message:', error);
-          toast.error('Failed to send message to Slack');
+      if (data.type === 'response.audio.delta') {
+        // Handle audio response
+        const audioData = atob(data.delta);
+        const audioArray = new Uint8Array(audioData.length);
+        for (let i = 0; i < audioData.length; i++) {
+          audioArray[i] = audioData.charCodeAt(i);
         }
+        
+        if (audioContext) {
+          try {
+            const audioBuffer = await audioContext.decodeAudioData(audioArray.buffer);
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioContext.destination);
+            source.start();
+          } catch (error) {
+            console.error('Error playing audio:', error);
+          }
+        }
+      }
+    };
 
-        setIsListening(false);
-      };
+    socket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+      toast.error('Connection error. Please try again.');
+    };
 
-      recognitionInstance.onerror = (event: Event) => {
-        console.error('Speech recognition error:', event);
-        toast.error('Voice recognition error. Please try again.');
-        setIsListening(false);
-      };
+    setWs(socket);
 
-      setRecognition(recognitionInstance);
-    } else {
-      toast.error('Speech recognition is not supported in this browser');
-    }
+    // Initialize AudioContext
+    const context = new AudioContext();
+    setAudioContext(context);
+
+    return () => {
+      socket.close();
+      if (audioContext) {
+        audioContext.close();
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -85,18 +85,48 @@ const Index = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleStartListening = () => {
-    if (recognition) {
-      recognition.start();
+  const handleStartListening = async () => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      toast.error('Connection not ready. Please try again.');
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          sampleRate: 24000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+
+      const recorder = new AudioRecorder((audioData: Float32Array) => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          const encodedAudio = encodeAudioForAPI(audioData);
+          ws.send(JSON.stringify({
+            type: 'input_audio_buffer.append',
+            audio: encodedAudio
+          }));
+        }
+      });
+
+      await recorder.start();
+      setAudioRecorder(recorder);
       setIsListening(true);
+    } catch (error) {
+      console.error('Error starting recording:', error);
+      toast.error('Error accessing microphone. Please check permissions.');
     }
   };
 
   const handleStopListening = () => {
-    if (recognition) {
-      recognition.stop();
-      setIsListening(false);
+    if (audioRecorder) {
+      audioRecorder.stop();
+      setAudioRecorder(null);
     }
+    setIsListening(false);
   };
 
   // Handle OAuth callback
@@ -150,6 +180,80 @@ const Index = () => {
       </div>
     </div>
   );
+};
+
+class AudioRecorder {
+  private stream: MediaStream | null = null;
+  private audioContext: AudioContext | null = null;
+  private processor: ScriptProcessorNode | null = null;
+  private source: MediaStreamAudioSourceNode | null = null;
+
+  constructor(private onAudioData: (audioData: Float32Array) => void) {}
+
+  async start() {
+    try {
+      this.stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          sampleRate: 24000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+      this.audioContext = new AudioContext({
+        sampleRate: 24000,
+      });
+      this.source = this.audioContext.createMediaStreamSource(this.stream);
+      this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
+      this.processor.onaudioprocess = (e) => {
+        const inputData = e.inputBuffer.getChannelData(0);
+        this.onAudioData(new Float32Array(inputData));
+      };
+      this.source.connect(this.processor);
+      this.processor.connect(this.audioContext.destination);
+    } catch (error) {
+      console.error('Error accessing microphone:', error);
+      throw error;
+    }
+  }
+
+  stop() {
+    if (this.source) {
+      this.source.disconnect();
+      this.source = null;
+    }
+    if (this.processor) {
+      this.processor.disconnect();
+      this.processor = null;
+    }
+    if (this.stream) {
+      this.stream.getTracks().forEach(track => track.stop());
+      this.stream = null;
+    }
+    if (this.audioContext) {
+      this.audioContext.close();
+      this.audioContext = null;
+    }
+  }
+}
+
+const encodeAudioForAPI = (float32Array: Float32Array): string => {
+  const int16Array = new Int16Array(float32Array.length);
+  for (let i = 0; i < float32Array.length; i++) {
+    const s = Math.max(-1, Math.min(1, float32Array[i]));
+    int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+  }
+  const uint8Array = new Uint8Array(int16Array.buffer);
+  let binary = '';
+  const chunkSize = 0x8000;
+  
+  for (let i = 0; i < uint8Array.length; i += chunkSize) {
+    const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+    binary += String.fromCharCode.apply(null, chunk);
+  }
+  
+  return btoa(binary);
 };
 
 export default Index;
