@@ -7,62 +7,72 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
-console.log('WebSocket Edge Function initialized');
+console.log('[Edge Function] Initializing WebSocket server...');
 
 serve(async (req) => {
+  const requestId = crypto.randomUUID();
+  console.log(`[${requestId}] Received request: ${req.method} ${req.url}`);
+  console.log(`[${requestId}] Headers:`, Object.fromEntries(req.headers.entries()));
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    console.log('Handling CORS preflight request');
+    console.log(`[${requestId}] Handling CORS preflight request`);
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
     // Check if it's a WebSocket upgrade request
-    if (req.headers.get("upgrade") !== "websocket") {
-      console.log('Not a WebSocket upgrade request');
+    const upgradeHeader = req.headers.get("upgrade");
+    console.log(`[${requestId}] Upgrade header:`, upgradeHeader);
+    
+    if (upgradeHeader !== "websocket") {
+      console.log(`[${requestId}] Not a WebSocket upgrade request`);
       return new Response('Expected WebSocket upgrade', { 
         status: 426,
         headers: { ...corsHeaders, 'Content-Type': 'text/plain' }
       });
     }
 
-    console.log('Processing WebSocket upgrade request');
+    console.log(`[${requestId}] Processing WebSocket upgrade request`);
     
     // Get the token from URL parameters
     const url = new URL(req.url);
     const token = url.searchParams.get('token');
+    console.log(`[${requestId}] Token present:`, !!token);
     
     if (!token) {
-      console.error('No authentication token provided');
+      console.error(`[${requestId}] No authentication token provided`);
       return new Response('No authentication token provided', { 
-        status: 401,
+        status: 403,
         headers: corsHeaders
       });
     }
 
     // Verify the token
-    const supabaseAdmin = createClient(
+    const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    console.log(`[${requestId}] Verifying token...`);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
-      console.error('Token verification failed:', authError);
+      console.error(`[${requestId}] Token verification failed:`, authError);
       return new Response('Invalid authentication token', { 
         status: 401,
         headers: corsHeaders
       });
     }
 
-    console.log('Token verified for user:', user.id);
+    console.log(`[${requestId}] Token verified for user:`, user.id);
 
     // Upgrade the connection to WebSocket
     const { socket, response } = Deno.upgradeWebSocket(req);
+    console.log(`[${requestId}] WebSocket connection upgraded successfully`);
     
     socket.onopen = () => {
-      console.log('WebSocket opened for user:', user.id);
+      console.log(`[${requestId}] WebSocket opened for user:`, user.id);
       socket.send(JSON.stringify({ 
         type: 'connected',
         userId: user.id 
@@ -71,9 +81,9 @@ serve(async (req) => {
 
     socket.onmessage = async (event) => {
       try {
-        console.log('Received message from user:', user.id);
+        console.log(`[${requestId}] Received message from user:`, user.id);
         const data = JSON.parse(event.data);
-        console.log('Message data:', data);
+        console.log(`[${requestId}] Message data:`, data);
         
         // Echo the message back for testing
         socket.send(JSON.stringify({
@@ -82,7 +92,7 @@ serve(async (req) => {
           userId: user.id
         }));
       } catch (error) {
-        console.error('Error processing message:', error);
+        console.error(`[${requestId}] Error processing message:`, error);
         socket.send(JSON.stringify({
           type: 'error',
           message: 'Failed to process message'
@@ -91,16 +101,16 @@ serve(async (req) => {
     };
 
     socket.onerror = (e) => {
-      console.error('WebSocket error for user:', user.id, e);
+      console.error(`[${requestId}] WebSocket error for user:`, user.id, e);
     };
 
     socket.onclose = () => {
-      console.log('WebSocket closed for user:', user.id);
+      console.log(`[${requestId}] WebSocket closed for user:`, user.id);
     };
 
     return response;
   } catch (error) {
-    console.error('Error handling WebSocket connection:', error);
+    console.error(`[${requestId}] Error handling WebSocket connection:`, error);
     return new Response('Internal Server Error', { 
       status: 500,
       headers: corsHeaders
