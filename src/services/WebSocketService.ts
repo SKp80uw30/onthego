@@ -1,83 +1,80 @@
-export class WebSocketService {
-  private socket: WebSocket | null = null;
-  private maxRetries = 3;
-  private retryDelay = 2000;
-  private currentRetry = 0;
-  private messageHandlers: ((data: any) => void)[] = [];
+import { supabase } from '@/integrations/supabase/client';
 
-  constructor(private url: string, private token: string) {}
+export class WebSocketService {
+  private ws: WebSocket | null = null;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 5;
+  private reconnectTimeout: number | null = null;
 
   async connect(): Promise<void> {
-    console.log('Initializing WebSocket connection...');
-    
     try {
-      // Pass token as URL parameter since WebSocket API doesn't support custom headers
-      this.socket = new WebSocket(`${this.url}?token=${this.token}`);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No authentication token available');
+      }
 
-      this.socket.onopen = () => {
-        console.log('WebSocket connection established');
-        this.currentRetry = 0;
+      const wsUrl = `wss://slomrtdygughdpenilco.functions.supabase.co/realtime-chat?token=${session.access_token}`;
+      
+      this.ws = new WebSocket(wsUrl);
+
+      this.ws.onopen = () => {
+        console.log('WebSocket connected');
+        this.reconnectAttempts = 0;
       };
 
-      this.socket.onmessage = (event) => {
+      this.ws.onmessage = async (event) => {
         try {
-          const data = JSON.parse(event.data);
-          this.messageHandlers.forEach(handler => handler(data));
+          const audioData = await event.data.arrayBuffer();
+          const audioService = new AudioService();
+          await audioService.playAudioData(audioData);
         } catch (error) {
-          console.error('Error processing message:', error);
+          console.error('Error processing received audio:', error);
         }
       };
 
-      this.socket.onerror = (error) => {
+      this.ws.onerror = (error) => {
         console.error('WebSocket error:', error);
-        this.reconnect();
       };
 
-      this.socket.onclose = () => {
+      this.ws.onclose = () => {
         console.log('WebSocket closed');
-        this.reconnect();
+        this.attemptReconnect();
       };
     } catch (error) {
-      console.error('Error creating WebSocket:', error);
-      this.reconnect();
+      console.error('Error connecting to WebSocket:', error);
+      throw error;
     }
   }
 
-  private reconnect(): void {
-    if (this.currentRetry < this.maxRetries) {
-      this.currentRetry++;
-      const delay = this.retryDelay * Math.pow(2, this.currentRetry - 1);
-      console.log(`Retrying connection (${this.currentRetry}/${this.maxRetries}) in ${delay}ms...`);
-      
-      setTimeout(() => {
+  private attemptReconnect(): void {
+    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      const backoffTime = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 10000);
+      this.reconnectTimeout = window.setTimeout(() => {
+        this.reconnectAttempts++;
         this.connect();
-      }, delay);
-    } else {
-      console.error('Max reconnection attempts reached');
+      }, backoffTime);
     }
   }
 
-  public isConnected(): boolean {
-    return this.socket?.readyState === WebSocket.OPEN;
-  }
-
-  public send(data: any): void {
-    if (this.isConnected()) {
-      this.socket!.send(JSON.stringify(data));
-    } else {
-      console.error('WebSocket is not connected');
+  sendAudioData(audioData: number[]): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      throw new Error('WebSocket is not connected');
     }
+
+    this.ws.send(JSON.stringify({ audio: audioData }));
   }
 
-  public onMessage(handler: (data: any) => void): void {
-    this.messageHandlers.push(handler);
+  isConnected(): boolean {
+    return this.ws?.readyState === WebSocket.OPEN;
   }
 
-  public disconnect(): void {
-    this.messageHandlers = [];
-    if (this.socket) {
-      this.socket.close();
-      this.socket = null;
+  disconnect(): void {
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+    }
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
     }
   }
 }

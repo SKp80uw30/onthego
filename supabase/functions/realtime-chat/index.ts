@@ -4,147 +4,83 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
 import { corsHeaders } from '../_shared/cors.ts';
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
 
-  try {
-    // Get auth token from URL
+  // Check if it's a WebSocket upgrade request
+  if (req.headers.get("upgrade") === "websocket") {
+    const { socket, response } = Deno.upgradeWebSocket(req);
+    
+    // Get the token from URL parameters
     const url = new URL(req.url);
     const token = url.searchParams.get('token');
     
     if (!token) {
-      console.error('No authentication token provided');
-      return new Response('Authentication required', { 
-        status: 401,
-        headers: corsHeaders 
-      });
+      socket.close(1008, 'No authentication token provided');
+      return response;
     }
 
     // Verify the token
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
-      console.error('Invalid authentication token:', authError);
-      return new Response('Invalid authentication', { 
-        status: 401,
-        headers: corsHeaders 
-      });
+      socket.close(1008, 'Invalid authentication token');
+      return response;
     }
 
-    // Check for WebSocket upgrade
-    const upgrade = req.headers.get('upgrade') || '';
-    if (upgrade.toLowerCase() !== 'websocket') {
-      console.error('Not a WebSocket upgrade request');
-      return new Response('Expected WebSocket upgrade', { 
-        status: 426,
-        headers: { ...corsHeaders, 'Upgrade': 'WebSocket' }
-      });
-    }
-
-    console.log('Upgrading connection to WebSocket for user:', user.id);
-    const { response, socket } = Deno.upgradeWebSocket(req);
-
-    // Connect to OpenAI WebSocket
-    console.log('Connecting to OpenAI WebSocket');
-    const openAIWs = new WebSocket('wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01', [
-      'realtime',
-      `openai-insecure-api-key.${openAIApiKey}`,
-      'openai-beta.realtime-v1',
-    ]);
-
-    let sessionConfigured = false;
-    
-    openAIWs.onopen = () => {
-      console.log('Connected to OpenAI WebSocket');
+    socket.onopen = () => {
+      console.log("WebSocket opened");
     };
 
-    openAIWs.onmessage = (event) => {
-      console.log('Received from OpenAI:', event.data);
-      const data = JSON.parse(event.data);
-      
-      // Configure session after receiving session.created event
-      if (data.type === 'session.created' && !sessionConfigured) {
-        console.log('Configuring session');
-        openAIWs.send(JSON.stringify({
-          "type": "session.update",
-          "session": {
-            "modalities": ["text", "audio"],
-            "instructions": "You are a helpful assistant.",
-            "voice": "alloy",
-            "input_audio_format": "pcm16",
-            "output_audio_format": "pcm16",
-            "input_audio_transcription": {
-              "model": "whisper-1"
-            },
-            "turn_detection": {
-              "type": "server_vad",
-              "threshold": 0.5,
-              "prefix_padding_ms": 300,
-              "silence_duration_ms": 1000
-            }
-          }
-        }));
-        sessionConfigured = true;
-      }
-      
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(event.data);
-      }
-    };
-
-    openAIWs.onerror = (error) => {
-      console.error('OpenAI WebSocket error:', error);
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ 
-          type: 'error', 
-          message: 'OpenAI connection error',
-          timestamp: new Date().toISOString()
-        }));
-      }
-    };
-
-    // Handle messages from client
     socket.onmessage = async (event) => {
-      console.log('Received from client:', event.data);
-      if (openAIWs.readyState === WebSocket.OPEN) {
-        openAIWs.send(event.data);
-      } else {
-        console.error('OpenAI WebSocket not ready');
-        socket.send(JSON.stringify({ 
-          type: 'error', 
-          message: 'OpenAI connection not ready',
-          timestamp: new Date().toISOString()
-        }));
+      try {
+        const data = JSON.parse(event.data);
+        
+        if (!data.audio || !Array.isArray(data.audio)) {
+          throw new Error('Invalid audio data format');
+        }
+
+        // Process audio with OpenAI API
+        const openAIResponse = await fetch('https://api.openai.com/v1/audio/speech', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openAIApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'tts-1',
+            input: data.audio,
+            voice: 'alloy',
+          }),
+        });
+
+        if (!openAIResponse.ok) {
+          throw new Error(`OpenAI API error: ${openAIResponse.statusText}`);
+        }
+
+        const audioBuffer = await openAIResponse.arrayBuffer();
+        socket.send(audioBuffer);
+      } catch (error) {
+        console.error('Error processing message:', error);
+        socket.send(JSON.stringify({ error: error.message }));
       }
     };
 
-    socket.onclose = () => {
-      console.log('Client disconnected');
-      openAIWs.close();
-    };
-
-    socket.onerror = (error) => {
-      console.error('Client WebSocket error:', error);
-    };
+    socket.onerror = (e) => console.error("WebSocket error:", e);
+    socket.onclose = () => console.log("WebSocket closed");
 
     return response;
-  } catch (error) {
-    console.error('Error in realtime-chat function:', error);
-    return new Response(JSON.stringify({ 
-      error: error.message,
-      timestamp: new Date().toISOString()
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
   }
+
+  return new Response('Expected a WebSocket connection', { 
+    status: 426,
+    headers: { ...corsHeaders, 'Content-Type': 'text/plain' }
+  });
 });

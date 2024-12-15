@@ -1,25 +1,27 @@
 import { AudioRecorder } from '@/components/audio/AudioRecorder';
-import { supabase } from '@/integrations/supabase/client';
+import { WebSocketService } from './WebSocketService';
 
 export class AudioService {
   private audioContext: AudioContext | null = null;
   private recorder: AudioRecorder | null = null;
+  private webSocketService: WebSocketService | null = null;
 
-  constructor() {}
+  constructor() {
+    this.webSocketService = new WebSocketService();
+  }
 
   async initialize(): Promise<void> {
-    try {
+    // Don't create AudioContext until explicitly needed
+    if (!this.audioContext) {
       this.audioContext = new AudioContext({ sampleRate: 24000 });
-      await this.audioContext.resume();
-    } catch (error) {
-      console.error('Error initializing AudioContext:', error);
-      throw error;
     }
+    await this.webSocketService?.connect();
   }
 
   async startRecording(): Promise<void> {
     if (!this.audioContext) {
-      throw new Error('AudioContext not initialized');
+      this.audioContext = new AudioContext({ sampleRate: 24000 });
+      await this.audioContext.resume();
     }
 
     try {
@@ -34,46 +36,27 @@ export class AudioService {
   }
 
   private async processAudioData(audioData: Float32Array): Promise<void> {
+    if (!this.webSocketService?.isConnected()) {
+      console.error('WebSocket not connected');
+      return;
+    }
+
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error('No authentication token available');
-      }
-
-      const response = await fetch(
-        'https://slomrtdygughdpenilco.functions.supabase.co/functions/v1/process-audio',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            audio: Array.from(audioData),
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const audioBlob = await response.blob();
-      await this.playAudioBlob(audioBlob);
+      this.webSocketService.sendAudioData(Array.from(audioData));
     } catch (error) {
-      console.error('Error processing audio:', error);
+      console.error('Error sending audio data:', error);
       throw error;
     }
   }
 
-  private async playAudioBlob(audioBlob: Blob): Promise<void> {
+  async playAudioData(audioData: ArrayBuffer): Promise<void> {
     if (!this.audioContext) {
-      throw new Error('AudioContext not initialized');
+      this.audioContext = new AudioContext({ sampleRate: 24000 });
+      await this.audioContext.resume();
     }
 
     try {
-      const arrayBuffer = await audioBlob.arrayBuffer();
-      const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+      const audioBuffer = await this.audioContext.decodeAudioData(audioData);
       const source = this.audioContext.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(this.audioContext.destination);
@@ -97,5 +80,6 @@ export class AudioService {
       this.audioContext.close();
       this.audioContext = null;
     }
+    this.webSocketService?.disconnect();
   }
 }
