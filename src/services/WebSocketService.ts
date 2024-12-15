@@ -17,17 +17,27 @@ export class WebSocketService {
 
   async connect(): Promise<void> {
     try {
-      console.log(`[WebSocket ${this.connectionId}] Attempting to connect...`);
-      const { data: { session } } = await supabase.auth.getSession();
+      console.log(`[WebSocket ${this.connectionId}] Starting connection process...`);
       
-      if (!session?.access_token) {
-        console.error(`[WebSocket ${this.connectionId}] No authentication token available`);
-        throw new Error('No authentication token available');
+      // Get the current session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error(`[WebSocket ${this.connectionId}] Session error:`, sessionError);
+        throw new Error('Failed to get authentication session');
       }
 
-      // Log the full URL we're trying to connect to
+      if (!session?.access_token) {
+        console.error(`[WebSocket ${this.connectionId}] No active session found`);
+        throw new Error('No authentication session available');
+      }
+
+      console.log(`[WebSocket ${this.connectionId}] Got valid session token`);
+
+      // Log the full URL we're trying to connect to (excluding the token for security)
       const wsUrl = `wss://slomrtdygughdpenilco.functions.supabase.co/realtime-chat?token=${session.access_token}`;
-      console.log(`[WebSocket ${this.connectionId}] Connecting to URL:`, wsUrl);
+      console.log(`[WebSocket ${this.connectionId}] Connecting to:`, 
+        wsUrl.substring(0, wsUrl.indexOf('?')) + '?token=[REDACTED]');
       
       if (this.ws) {
         console.log(`[WebSocket ${this.connectionId}] Closing existing connection`);
@@ -52,12 +62,16 @@ export class WebSocketService {
       };
 
       this.ws.onerror = (error) => {
-        console.error(`[WebSocket ${this.connectionId}] Error:`, error);
+        console.error(`[WebSocket ${this.connectionId}] WebSocket error:`, error);
         this.onErrorCallback?.();
       };
 
       this.ws.onclose = (event) => {
-        console.log(`[WebSocket ${this.connectionId}] Closed with code:`, event.code, 'reason:', event.reason);
+        console.log(`[WebSocket ${this.connectionId}] Connection closed:`, {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean
+        });
         this.onCloseCallback?.();
         if (event.code !== 1000) {
           this.attemptReconnect();
@@ -84,7 +98,7 @@ export class WebSocketService {
   private attemptReconnect(): void {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       const backoffTime = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 10000);
-      console.log(`[${this.connectionId}] Attempting to reconnect in ${backoffTime}ms... (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
+      console.log(`[WebSocket ${this.connectionId}] Attempting to reconnect in ${backoffTime}ms... (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
       
       if (this.reconnectTimeout) {
         clearTimeout(this.reconnectTimeout);
@@ -93,31 +107,31 @@ export class WebSocketService {
       this.reconnectTimeout = window.setTimeout(() => {
         this.reconnectAttempts++;
         this.connect().catch(error => {
-          console.error(`[${this.connectionId}] Reconnection attempt failed:`, error);
+          console.error(`[WebSocket ${this.connectionId}] Reconnection attempt failed:`, error);
         });
       }, backoffTime);
     } else {
-      console.log(`[${this.connectionId}] Max reconnection attempts reached`);
+      console.log(`[WebSocket ${this.connectionId}] Max reconnection attempts reached`);
     }
   }
 
   sendMessage(message: string): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.error('WebSocket is not connected');
+      console.error(`[WebSocket ${this.connectionId}] Cannot send message: WebSocket is not connected`);
       throw new Error('WebSocket is not connected');
     }
 
-    console.log('Sending message:', message);
+    console.log(`[WebSocket ${this.connectionId}] Sending message:`, message);
     this.ws.send(JSON.stringify({ type: 'message', data: message }));
   }
 
   sendAudioData(audioData: number[]): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.error('WebSocket is not connected');
+      console.error(`[WebSocket ${this.connectionId}] Cannot send audio: WebSocket is not connected`);
       throw new Error('WebSocket is not connected');
     }
 
-    console.log('Sending audio data...');
+    console.log(`[WebSocket ${this.connectionId}] Sending audio data...`);
     this.ws.send(JSON.stringify({ type: 'audio', data: audioData }));
   }
 
@@ -126,7 +140,7 @@ export class WebSocketService {
   }
 
   disconnect(): void {
-    console.log(`[${this.connectionId}] Disconnecting WebSocket...`);
+    console.log(`[WebSocket ${this.connectionId}] Disconnecting WebSocket...`);
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
     }

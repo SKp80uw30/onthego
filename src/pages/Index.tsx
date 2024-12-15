@@ -15,13 +15,17 @@ const Index = () => {
   const { audioService, isInitialized } = useRealtimeChat();
 
   useEffect(() => {
+    // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Current session:', session ? 'Active' : 'None');
       setSession(session);
     });
 
+    // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log('Auth state changed:', _event);
       setSession(session);
       if (session) {
         toast.success('Successfully logged in!');
@@ -32,12 +36,18 @@ const Index = () => {
   }, []);
 
   const handleStartListening = async () => {
+    if (!session) {
+      toast.error('Please log in to use this feature');
+      return;
+    }
+
     if (!audioService || !isInitialized) {
       toast.error('Audio service not ready. Please try again.');
       return;
     }
 
     try {
+      console.log('Starting recording...');
       await audioService.startRecording();
       setIsListening(true);
     } catch (error) {
@@ -47,6 +57,7 @@ const Index = () => {
   };
 
   const handleStopListening = () => {
+    console.log('Stopping recording...');
     if (audioService) {
       audioService.stopRecording();
     }
