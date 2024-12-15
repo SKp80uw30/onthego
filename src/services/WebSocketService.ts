@@ -15,11 +15,10 @@ export class WebSocketService {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.access_token) {
-        const error = new Error('No authentication token available');
-        console.error(error);
-        throw error;
+        throw new Error('No authentication token available');
       }
 
+      // Use the correct path format for the Edge Function
       const wsUrl = `wss://slomrtdygughdpenilco.functions.supabase.co/realtime-chat?token=${session.access_token}`;
       console.log('Connecting to WebSocket URL:', wsUrl);
       
@@ -29,9 +28,6 @@ export class WebSocketService {
         console.log('WebSocket connected successfully');
         this.reconnectAttempts = 0;
         this.onOpenCallback?.();
-        
-        // Send a test message to verify connection
-        this.sendMessage('test connection');
       };
 
       this.ws.onmessage = (event) => {
@@ -89,7 +85,7 @@ export class WebSocketService {
 
   sendMessage(message: string): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.error('WebSocket is not connected. Current state:', this.ws?.readyState);
+      console.error('WebSocket is not connected');
       throw new Error('WebSocket is not connected');
     }
 
@@ -99,7 +95,7 @@ export class WebSocketService {
 
   sendAudioData(audioData: number[]): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.error('WebSocket is not connected. Current state:', this.ws?.readyState);
+      console.error('WebSocket is not connected');
       throw new Error('WebSocket is not connected');
     }
 
@@ -108,9 +104,7 @@ export class WebSocketService {
   }
 
   isConnected(): boolean {
-    const connected = this.ws?.readyState === WebSocket.OPEN;
-    console.log('WebSocket connection status:', connected);
-    return connected;
+    return this.ws?.readyState === WebSocket.OPEN;
   }
 
   disconnect(): void {
