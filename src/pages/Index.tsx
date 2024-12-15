@@ -47,12 +47,12 @@ const Index = () => {
       }
 
       const recorder = new AudioRecorder((audioData: Float32Array) => {
-        if (wsManager && wsManager.socket?.readyState === WebSocket.OPEN) {
+        if (wsManager && wsManager.isConnected()) {
           const encodedAudio = encodeAudioForAPI(audioData);
-          wsManager.send(JSON.stringify({
+          wsManager.send({
             type: 'input_audio_buffer.append',
             audio: encodedAudio
-          }));
+          });
         }
       });
 

@@ -68,9 +68,13 @@ class WebSocketManager {
     }
   }
 
+  isConnected(): boolean {
+    return this.socket?.readyState === WebSocket.OPEN;
+  }
+
   send(data: any) {
-    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-      this.socket.send(JSON.stringify(data));
+    if (this.isConnected()) {
+      this.socket!.send(JSON.stringify(data));
     } else {
       console.error('WebSocket is not connected');
       toast.error('Connection not ready. Please try again.');
