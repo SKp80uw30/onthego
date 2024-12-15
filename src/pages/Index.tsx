@@ -16,13 +16,13 @@ const Index = () => {
   useEffect(() => {
     // Initialize Web Speech API
     if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const recognitionInstance = new SpeechRecognition();
+      const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognitionInstance = new SpeechRecognitionAPI();
       recognitionInstance.continuous = false;
       recognitionInstance.interimResults = false;
       recognitionInstance.lang = 'en-US';
 
-      recognitionInstance.onresult = async (event) => {
+      recognitionInstance.onresult = async (event: SpeechRecognitionEvent) => {
         const transcript = event.results[0][0].transcript;
         console.log('Voice command:', transcript);
         
@@ -56,8 +56,8 @@ const Index = () => {
         setIsListening(false);
       };
 
-      recognitionInstance.onerror = (event) => {
-        console.error('Speech recognition error:', event.error);
+      recognitionInstance.onerror = (event: Event) => {
+        console.error('Speech recognition error:', event);
         toast.error('Voice recognition error. Please try again.');
         setIsListening(false);
       };
