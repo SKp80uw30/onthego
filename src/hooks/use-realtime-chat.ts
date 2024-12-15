@@ -8,7 +8,6 @@ export const useRealtimeChat = () => {
 
   useEffect(() => {
     console.log('Initializing WebSocket connection...');
-    // Fix the WebSocket URL format - add /functions/v1/
     const socket = new WebSocket(`wss://slomrtdygughdpenilco.functions.supabase.co/functions/v1/realtime-chat`);
     
     socket.onopen = () => {
