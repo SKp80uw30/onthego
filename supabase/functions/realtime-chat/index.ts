@@ -4,28 +4,30 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
-console.log('[Edge Function] Initializing WebSocket server...');
+console.log('[Edge Function] Starting realtime-chat function...');
 
 serve(async (req) => {
   const requestId = crypto.randomUUID();
-  console.log(`[${requestId}] Received request: ${req.method} ${req.url}`);
-  console.log(`[${requestId}] Headers:`, Object.fromEntries(req.headers.entries()));
+  console.log(`[${requestId}] Received request:`, {
+    method: req.method,
+    url: req.url,
+    headers: Object.fromEntries(req.headers.entries())
+  });
 
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     console.log(`[${requestId}] Handling CORS preflight request`);
-    return new Response('ok', { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
     // Check if it's a WebSocket upgrade request
-    const upgradeHeader = req.headers.get("upgrade");
+    const upgradeHeader = req.headers.get("upgrade") || '';
     console.log(`[${requestId}] Upgrade header:`, upgradeHeader);
     
-    if (upgradeHeader !== "websocket") {
+    if (upgradeHeader.toLowerCase() !== "websocket") {
       console.log(`[${requestId}] Not a WebSocket upgrade request`);
       return new Response('Expected WebSocket upgrade', { 
         status: 426,
@@ -33,8 +35,6 @@ serve(async (req) => {
       });
     }
 
-    console.log(`[${requestId}] Processing WebSocket upgrade request`);
-    
     // Get the token from URL parameters
     const url = new URL(req.url);
     const token = url.searchParams.get('token');
@@ -85,7 +85,6 @@ serve(async (req) => {
         const data = JSON.parse(event.data);
         console.log(`[${requestId}] Message data:`, data);
         
-        // Echo the message back for testing
         socket.send(JSON.stringify({
           type: 'echo',
           data: data,

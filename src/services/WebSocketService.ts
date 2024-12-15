@@ -12,30 +12,31 @@ export class WebSocketService {
 
   constructor() {
     this.connectionId = crypto.randomUUID();
+    console.log(`[WebSocket ${this.connectionId}] Service initialized`);
   }
 
   async connect(): Promise<void> {
     try {
-      console.log(`[${this.connectionId}] Attempting to connect to WebSocket...`);
+      console.log(`[WebSocket ${this.connectionId}] Attempting to connect...`);
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.access_token) {
-        console.error(`[${this.connectionId}] No authentication token available`);
+        console.error(`[WebSocket ${this.connectionId}] No authentication token available`);
         throw new Error('No authentication token available');
       }
 
       const wsUrl = `wss://slomrtdygughdpenilco.functions.supabase.co/realtime-chat?token=${session.access_token}`;
-      console.log(`[${this.connectionId}] Connecting to WebSocket URL:`, wsUrl);
+      console.log(`[WebSocket ${this.connectionId}] Connecting to URL:`, wsUrl);
       
       if (this.ws) {
-        console.log(`[${this.connectionId}] Closing existing connection`);
+        console.log(`[WebSocket ${this.connectionId}] Closing existing connection`);
         this.ws.close();
       }
 
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
-        console.log(`[${this.connectionId}] WebSocket connected successfully`);
+        console.log(`[WebSocket ${this.connectionId}] Connected successfully`);
         this.reconnectAttempts = 0;
         this.onOpenCallback?.();
       };
@@ -43,26 +44,26 @@ export class WebSocketService {
       this.ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log(`[${this.connectionId}] Received WebSocket message:`, data);
+          console.log(`[WebSocket ${this.connectionId}] Received message:`, data);
         } catch (error) {
-          console.error(`[${this.connectionId}] Error parsing WebSocket message:`, error);
+          console.error(`[WebSocket ${this.connectionId}] Error parsing message:`, error);
         }
       };
 
       this.ws.onerror = (error) => {
-        console.error(`[${this.connectionId}] WebSocket error:`, error);
+        console.error(`[WebSocket ${this.connectionId}] Error:`, error);
         this.onErrorCallback?.();
       };
 
       this.ws.onclose = (event) => {
-        console.log(`[${this.connectionId}] WebSocket closed with code:`, event.code, 'reason:', event.reason);
+        console.log(`[WebSocket ${this.connectionId}] Closed with code:`, event.code, 'reason:', event.reason);
         this.onCloseCallback?.();
-        if (event.code !== 1000) { // Normal closure
+        if (event.code !== 1000) {
           this.attemptReconnect();
         }
       };
     } catch (error) {
-      console.error(`[${this.connectionId}] Error connecting to WebSocket:`, error);
+      console.error(`[WebSocket ${this.connectionId}] Connection error:`, error);
       throw error;
     }
   }
