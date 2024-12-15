@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { VoiceButton } from '@/components/VoiceButton';
 import { useIsMobile } from '@/hooks/use-mobile';

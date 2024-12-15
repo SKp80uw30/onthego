@@ -1,3 +1,5 @@
+import { AudioRecorder } from '@/components/audio/AudioRecorder';
+
 export class AudioService {
   private audioContext: AudioContext | null = null;
   private recorder: AudioRecorder | null = null;
