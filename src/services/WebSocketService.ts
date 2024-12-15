@@ -6,6 +6,9 @@ export class WebSocketService {
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 5;
   private reconnectDelay: number = 2000;
+  private onOpenCallback: (() => void) | null = null;
+  private onCloseCallback: (() => void) | null = null;
+  private onErrorCallback: ((error: Event) => void) | null = null;
 
   constructor() {
     this.connectionId = Math.random().toString(36).substring(7);
@@ -26,7 +29,6 @@ export class WebSocketService {
 
       console.log(`[WebSocket ${this.connectionId}] Got valid session token`);
 
-      // Create WebSocket URL with the token
       const wsUrl = new URL('realtime-chat', 'wss://slomrtdygughdpenilco.supabase.co/functions/v1/');
       wsUrl.searchParams.set('token', session.access_token);
       
@@ -37,6 +39,7 @@ export class WebSocketService {
       this.ws.onopen = () => {
         console.log(`[WebSocket ${this.connectionId}] Connection established`);
         this.reconnectAttempts = 0;
+        if (this.onOpenCallback) this.onOpenCallback();
       };
 
       this.ws.onmessage = (event) => {
@@ -50,10 +53,12 @@ export class WebSocketService {
 
       this.ws.onerror = (error) => {
         console.error(`[WebSocket ${this.connectionId}] WebSocket error:`, error);
+        if (this.onErrorCallback) this.onErrorCallback(error);
       };
 
       this.ws.onclose = () => {
         console.log(`[WebSocket ${this.connectionId}] Connection closed`);
+        if (this.onCloseCallback) this.onCloseCallback();
         this.handleReconnect(session);
       };
 
@@ -81,9 +86,33 @@ export class WebSocketService {
     }
   }
 
+  onOpen(callback: () => void) {
+    this.onOpenCallback = callback;
+  }
+
+  onClose(callback: () => void) {
+    this.onCloseCallback = callback;
+  }
+
+  onError(callback: (error: Event) => void) {
+    this.onErrorCallback = callback;
+  }
+
+  isConnected(): boolean {
+    return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
+  }
+
+  sendAudioData(audioData: number[]) {
+    if (this.isConnected()) {
+      this.ws!.send(JSON.stringify({ type: 'audio', data: audioData }));
+    } else {
+      console.error(`[WebSocket ${this.connectionId}] Cannot send audio data - connection not open`);
+    }
+  }
+
   send(message: string) {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(message);
+    if (this.isConnected()) {
+      this.ws!.send(message);
     } else {
       console.error(`[WebSocket ${this.connectionId}] Cannot send message - connection not open`);
     }

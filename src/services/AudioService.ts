@@ -1,6 +1,7 @@
 import { AudioRecorder } from '@/components/audio/AudioRecorder';
 import { WebSocketService } from './WebSocketService';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 export class AudioService {
   private audioContext: AudioContext | null = null;
@@ -34,7 +35,11 @@ export class AudioService {
 
   async initialize(): Promise<void> {
     try {
-      await this.webSocketService?.connect();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No active session');
+      }
+      await this.webSocketService?.connect(session);
     } catch (error) {
       console.error('Error initializing audio service:', error);
       throw error;
