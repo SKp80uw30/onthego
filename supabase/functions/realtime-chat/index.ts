@@ -2,6 +2,8 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
 
+const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -14,16 +16,8 @@ serve(async (req) => {
   }
 
   try {
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openAIApiKey) {
-      console.error('OpenAI API key not found');
-      throw new Error('OpenAI API key not found');
-    }
-
-    // Get the WebSocket upgrade header
     const upgrade = req.headers.get('upgrade') || '';
     if (upgrade.toLowerCase() !== 'websocket') {
-      console.error('Not a WebSocket upgrade request');
       return new Response('Expected WebSocket upgrade', { 
         status: 426,
         headers: { ...corsHeaders, 'Upgrade': 'WebSocket' }
