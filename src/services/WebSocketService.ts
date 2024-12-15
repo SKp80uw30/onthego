@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { AudioService } from './AudioService';
 
 export class WebSocketService {
   private ws: WebSocket | null = null;
