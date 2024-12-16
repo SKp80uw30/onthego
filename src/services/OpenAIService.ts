@@ -45,7 +45,7 @@ export class OpenAIService {
       const chatResponse = await axios.post(
         'https://api.openai.com/v1/chat/completions',
         {
-          model: "gpt-4",
+          model: "gpt-4o-mini",
           messages: this.conversationHistory,
           max_tokens: 150
         },
@@ -87,7 +87,7 @@ export class OpenAIService {
 
       // Play the audio response
       if (!this.audioContext) {
-        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        this.audioContext = new AudioContext();
       }
       
       const audioBuffer = await this.audioContext.decodeAudioData(speechResponse.data);

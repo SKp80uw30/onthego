@@ -14,12 +14,7 @@ export class AudioService {
 
   async initialize(): Promise<void> {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('No active session');
-      }
-      
-      await this.recorderManager.initialize(session);
+      await this.recorderManager.initialize();
       
       await this.vadService.initialize(
         // Speech start handler
