@@ -32,14 +32,16 @@ export class AudioRecorderManager {
 
     try {
       console.log('Starting audio recording...');
-      this.recorder = new AudioRecorder(async (audioData: Float32Array) => {
-        try {
-          await this.sendAudioChunk(audioData);
-        } catch (error) {
-          console.error('Error in audio data callback:', error);
-          toast.error('Error processing audio chunk');
-        }
-      });
+      if (!this.recorder) {
+        this.recorder = new AudioRecorder(async (audioData: Float32Array) => {
+          try {
+            await this.sendAudioChunk(audioData);
+          } catch (error) {
+            console.error('Error in audio data callback:', error);
+            toast.error('Error processing audio chunk');
+          }
+        });
+      }
       
       await this.recorder.start();
       console.log('Recording started successfully');
@@ -81,27 +83,32 @@ export class AudioRecorderManager {
       } else {
         toast.error('Unexpected error processing audio');
       }
+      throw error;
     }
   }
 
-  stopRecording(): void {
+  async stopRecording(): Promise<void> {
     try {
       console.log('Stopping recording...');
       if (this.recorder) {
-        this.recorder.stop();
+        await this.recorder.stop();
         this.recorder = null;
         console.log('Recording stopped successfully');
       }
     } catch (error) {
       console.error('Error stopping recording:', error);
       toast.error('Error stopping recording');
+      throw error;
     }
   }
 
   cleanup(): void {
     try {
       console.log('Cleaning up AudioRecorderManager...');
-      this.stopRecording();
+      if (this.recorder) {
+        this.recorder.stop();
+        this.recorder = null;
+      }
       this.isInitialized = false;
       this.session = null;
       console.log('AudioRecorderManager cleanup complete');
