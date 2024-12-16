@@ -15,13 +15,11 @@ const Index = () => {
   const { audioService, isInitialized } = useRealtimeChat();
 
   useEffect(() => {
-    // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       console.log('Current session:', session ? 'Active' : 'None');
       setSession(session);
     });
 
-    // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -47,19 +45,20 @@ const Index = () => {
     }
 
     try {
-      console.log('Starting recording...');
-      await audioService.startRecording();
+      console.log('Starting voice detection...');
+      await audioService.startListening();
       setIsListening(true);
     } catch (error) {
-      console.error('Error starting recording:', error);
+      console.error('Error starting voice detection:', error);
       toast.error('Error accessing microphone. Please check permissions.');
+      setIsListening(false);
     }
   };
 
   const handleStopListening = () => {
-    console.log('Stopping recording...');
+    console.log('Stopping voice detection...');
     if (audioService) {
-      audioService.stopRecording();
+      audioService.stopListening();
     }
     setIsListening(false);
   };
