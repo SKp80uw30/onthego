@@ -31,15 +31,20 @@ export class AudioRecorder {
       });
 
       console.log('Loading audio worklet...');
-      await this.audioContext.audioWorklet.addModule('/src/components/audio/processor.js');
+      const workletUrl = new URL('/src/components/audio/processor.js', window.location.origin);
+      await this.audioContext.audioWorklet.addModule(workletUrl.href);
       
       console.log('Creating media stream source...');
       this.source = this.audioContext.createMediaStreamSource(this.stream);
-      this.worklet = new AudioWorkletNode(this.audioContext, 'audio-processor');
+      this.worklet = new AudioWorkletNode(this.audioContext, 'audio-processor', {
+        numberOfInputs: 1,
+        numberOfOutputs: 1,
+        channelCount: 1,
+      });
       
       this.worklet.port.onmessage = (event) => {
         if (event.data.type === 'audio-data') {
-          this.onAudioData(event.data.audioData);
+          this.onAudioData(new Float32Array(event.data.audioData));
         }
       };
 
