@@ -9,6 +9,7 @@ export class VADService {
 
   async initialize(onSpeechStart: () => void, onSpeechEnd: () => void) {
     try {
+      console.log('Initializing VAD service...');
       this.onSpeechStart = onSpeechStart;
       this.onSpeechEnd = onSpeechEnd;
 
@@ -22,11 +23,16 @@ export class VADService {
           this.onSpeechEnd?.();
         },
         onVADMisfire: () => {
-          console.log('VAD misfire');
+          console.log('VAD misfire detected');
+        },
+        onError: (error) => {
+          console.error('VAD error:', error);
+          toast.error('Voice detection error occurred');
         },
       });
 
       this.isInitialized = true;
+      console.log('VAD service initialized successfully');
     } catch (error) {
       console.error('Error initializing VAD:', error);
       toast.error('Failed to initialize voice detection');
@@ -36,12 +42,16 @@ export class VADService {
 
   async start() {
     if (!this.isInitialized) {
-      throw new Error('VAD not initialized');
+      const error = new Error('VAD not initialized');
+      console.error(error);
+      throw error;
     }
     
     try {
+      console.log('Starting VAD service...');
       await this.vad?.start();
       toast.success('Listening for speech...');
+      console.log('VAD service started successfully');
     } catch (error) {
       console.error('Error starting VAD:', error);
       toast.error('Failed to start voice detection');
@@ -50,11 +60,17 @@ export class VADService {
   }
 
   stop() {
-    if (this.vad) {
-      // The MicVAD instance has a pause() method we can use to stop listening
-      this.vad.pause();
-      this.vad = null;
-      this.isInitialized = false;
+    try {
+      console.log('Stopping VAD service...');
+      if (this.vad) {
+        this.vad.pause();
+        this.vad = null;
+        this.isInitialized = false;
+        console.log('VAD service stopped successfully');
+      }
+    } catch (error) {
+      console.error('Error stopping VAD:', error);
+      toast.error('Error stopping voice detection');
     }
   }
 
