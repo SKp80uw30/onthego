@@ -51,7 +51,7 @@ export class VADService {
 
   stop() {
     if (this.vad) {
-      this.vad.stop();
+      this.vad.destroy();
       this.vad = null;
       this.isInitialized = false;
     }
