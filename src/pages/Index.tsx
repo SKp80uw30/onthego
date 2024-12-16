@@ -72,7 +72,7 @@ const Index = () => {
       <div className="container mx-auto px-4 py-6 md:py-8">
         <Header />
         <OnboardingSection />
-        <div className={`fixed ${isMobile ? 'bottom-6 right-6' : 'bottom-8 right-8'}`}>
+        <div className="flex justify-center mt-8">
           <VoiceButton
             isListening={isListening}
             onStart={handleStartListening}
