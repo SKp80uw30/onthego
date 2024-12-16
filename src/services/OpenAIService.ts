@@ -19,11 +19,15 @@ export class OpenAIService {
         return;
       }
 
+      console.log('Processing audio chunk with size:', audioBlob.size);
+
       // Step 1: Convert speech to text using Whisper
       const formData = new FormData();
       formData.append('file', audioBlob, 'audio.webm');
       formData.append('model', 'whisper-1');
+      formData.append('response_format', 'json');
 
+      console.log('Sending request to Whisper API...');
       const whisperResponse = await axios.post(
         'https://api.openai.com/v1/audio/transcriptions',
         formData,
@@ -42,11 +46,15 @@ export class OpenAIService {
       this.conversationHistory.push({ role: 'user', content: transcribedText });
 
       // Step 2: Get AI response
+      console.log('Getting AI response...');
       const chatResponse = await axios.post(
         'https://api.openai.com/v1/chat/completions',
         {
           model: "gpt-4o-mini",
-          messages: this.conversationHistory,
+          messages: [
+            { role: 'system', content: 'You are a helpful assistant.' },
+            ...this.conversationHistory
+          ],
           max_tokens: 150
         },
         {
@@ -69,6 +77,7 @@ export class OpenAIService {
       }
 
       // Step 3: Convert AI response to speech
+      console.log('Converting response to speech...');
       const speechResponse = await axios.post(
         'https://api.openai.com/v1/audio/speech',
         {
@@ -99,6 +108,9 @@ export class OpenAIService {
       return { transcribedText, aiResponse };
     } catch (error) {
       console.error('Error in OpenAI service:', error);
+      if (axios.isAxiosError(error) && error.response) {
+        console.error('Response data:', error.response.data);
+      }
       toast.error('Error processing audio');
       throw error;
     }
