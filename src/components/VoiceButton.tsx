@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Mic, MicOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface VoiceButtonProps {
   onStart: () => void;
@@ -17,11 +18,16 @@ export const VoiceButton = ({
 }: VoiceButtonProps) => {
   const [ripples, setRipples] = useState<{ id: number; x: number; y: number }[]>([]);
 
-  const handleClick = () => {
-    if (isListening) {
-      onStop();
-    } else {
-      onStart();
+  const handleClick = async () => {
+    try {
+      if (isListening) {
+        onStop();
+      } else {
+        onStart();
+      }
+    } catch (error) {
+      console.error('Error handling voice button click:', error);
+      toast.error('Error accessing microphone');
     }
   };
 

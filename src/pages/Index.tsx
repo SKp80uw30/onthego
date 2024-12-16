@@ -6,13 +6,13 @@ import { toast } from 'sonner';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { Header } from '@/components/dashboard/Header';
 import { OnboardingSection } from '@/components/dashboard/OnboardingSection';
-import { useRealtimeChat } from '@/hooks/use-realtime-chat';
+import { AudioService } from '@/services/AudioService';
 
 const Index = () => {
   const [isListening, setIsListening] = useState(false);
   const [session, setSession] = useState(null);
+  const [audioService] = useState(() => new AudioService());
   const isMobile = useIsMobile();
-  const { audioService, isInitialized } = useRealtimeChat();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -30,8 +30,17 @@ const Index = () => {
       }
     });
 
-    return () => subscription.unsubscribe();
-  }, []);
+    // Initialize audio service
+    audioService.initialize().catch(error => {
+      console.error('Failed to initialize audio service:', error);
+      toast.error('Failed to initialize audio. Please check microphone permissions.');
+    });
+
+    return () => {
+      subscription.unsubscribe();
+      audioService.cleanup();
+    };
+  }, [audioService]);
 
   const handleStartListening = async () => {
     if (!session) {
@@ -39,14 +48,8 @@ const Index = () => {
       return;
     }
 
-    if (!audioService || !isInitialized) {
-      toast.error('Audio service not ready. Please try again.');
-      return;
-    }
-
     try {
-      console.log('Starting voice detection...');
-      await audioService.startListening();
+      audioService.startRecording();
       setIsListening(true);
     } catch (error) {
       console.error('Error starting voice detection:', error);
@@ -56,11 +59,13 @@ const Index = () => {
   };
 
   const handleStopListening = () => {
-    console.log('Stopping voice detection...');
-    if (audioService) {
-      audioService.stopListening();
+    try {
+      audioService.stopRecording();
+      setIsListening(false);
+    } catch (error) {
+      console.error('Error stopping voice detection:', error);
+      toast.error('Error stopping recording');
     }
-    setIsListening(false);
   };
 
   if (!session) {

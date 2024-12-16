@@ -1,153 +1,94 @@
-import { AudioRecorderManager } from './AudioRecorderManager';
-import { VADService } from './VADService';
-import { toast } from 'sonner';
-
 export class AudioService {
-  private ws: WebSocket | null = null;
-  private audioContext: AudioContext | null = null;
-  private audioQueue: AudioQueue | null = null;
+  private mediaRecorder: MediaRecorder | null = null;
+  private audioChunks: Blob[] = [];
+  private isRecording: boolean = false;
 
-  async initialize(): Promise<void> {
+  async initialize() {
     try {
-      this.audioContext = new AudioContext({ sampleRate: 24000 });
-      this.audioQueue = new AudioQueue(this.audioContext);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      this.mediaRecorder = new MediaRecorder(stream);
       
-      // Connect to our Edge Function WebSocket
-      this.ws = new WebSocket(`wss://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.functions.supabase.co/realtime-chat`);
-      
-      this.ws.onmessage = async (event) => {
-        const data = JSON.parse(event.data);
-        
-        if (data.type === 'response.audio.delta') {
-          // Convert base64 to audio data and play
-          const audioData = this.base64ToUint8Array(data.delta);
-          await this.audioQueue.addToQueue(audioData);
-        } else if (data.type === 'response.audio_transcript.delta') {
-          console.log('Transcript:', data.delta);
+      this.mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          this.audioChunks.push(event.data);
         }
       };
 
-      this.ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        toast.error('Connection error');
+      this.mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+        await this.processAudio(audioBlob);
+        this.audioChunks = [];
       };
 
+      console.log('Audio service initialized successfully');
+      return true;
     } catch (error) {
       console.error('Error initializing audio service:', error);
-      throw error;
+      return false;
     }
   }
 
-  async startListening(): Promise<void> {
-    if (!this.audioContext || !this.ws) {
-      throw new Error('Audio service not initialized');
-    }
-
+  startRecording() {
+    if (!this.mediaRecorder || this.isRecording) return;
+    
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          sampleRate: 24000,
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        }
+      this.mediaRecorder.start();
+      this.isRecording = true;
+      console.log('Started recording');
+    } catch (error) {
+      console.error('Error starting recording:', error);
+    }
+  }
+
+  stopRecording() {
+    if (!this.mediaRecorder || !this.isRecording) return;
+    
+    try {
+      this.mediaRecorder.stop();
+      this.isRecording = false;
+      console.log('Stopped recording');
+    } catch (error) {
+      console.error('Error stopping recording:', error);
+    }
+  }
+
+  private async processAudio(audioBlob: Blob) {
+    try {
+      const formData = new FormData();
+      formData.append('file', audioBlob, 'audio.webm');
+      formData.append('model', 'whisper-1');
+      
+      const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+        body: formData,
       });
 
-      const source = this.audioContext.createMediaStreamSource(stream);
-      const processor = this.audioContext.createScriptProcessor(4096, 1, 1);
+      if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Transcription:', data.text);
       
-      processor.onaudioprocess = (e) => {
-        if (this.ws?.readyState === WebSocket.OPEN) {
-          const inputData = e.inputBuffer.getChannelData(0);
-          const audioData = this.encodeAudioData(inputData);
-          
-          this.ws.send(JSON.stringify({
-            type: 'input_audio_buffer.append',
-            audio: audioData
-          }));
-        }
-      };
-
-      source.connect(processor);
-      processor.connect(this.audioContext.destination);
+      // Here you can add logic to handle the transcribed text
+      // For example, sending it to a Slack channel or processing it further
       
-      toast.success('Listening...');
     } catch (error) {
-      console.error('Error starting listening:', error);
-      throw error;
+      console.error('Error processing audio:', error);
     }
   }
 
-  stopListening(): void {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.close();
+  cleanup() {
+    if (this.mediaRecorder) {
+      if (this.isRecording) {
+        this.mediaRecorder.stop();
+      }
+      this.mediaRecorder = null;
     }
-    if (this.audioContext) {
-      this.audioContext.close();
-      this.audioContext = null;
-    }
-    this.audioQueue = null;
-  }
-
-  cleanup(): void {
-    this.stopListening();
-    this.ws = null;
-    this.audioContext = null;
-    this.audioQueue = null;
-  }
-
-  private encodeAudioData(float32Array: Float32Array): string {
-    const int16Array = new Int16Array(float32Array.length);
-    for (let i = 0; i < float32Array.length; i++) {
-      const s = Math.max(-1, Math.min(1, float32Array[i]));
-      int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-    }
-    return btoa(String.fromCharCode.apply(null, new Uint8Array(int16Array.buffer)));
-  }
-
-  private base64ToUint8Array(base64: string): Uint8Array {
-    const binaryString = atob(base64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes;
-  }
-}
-
-class AudioQueue {
-  private queue: Uint8Array[] = [];
-  private isPlaying = false;
-
-  constructor(private audioContext: AudioContext) {}
-
-  async addToQueue(audioData: Uint8Array) {
-    this.queue.push(audioData);
-    if (!this.isPlaying) {
-      await this.playNext();
-    }
-  }
-
-  private async playNext() {
-    if (this.queue.length === 0) {
-      this.isPlaying = false;
-      return;
-    }
-
-    this.isPlaying = true;
-    const audioData = this.queue.shift()!;
-
-    try {
-      const audioBuffer = await this.audioContext.decodeAudioData(audioData.buffer);
-      const source = this.audioContext.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(this.audioContext.destination);
-      source.onended = () => this.playNext();
-      source.start(0);
-    } catch (error) {
-      console.error('Error playing audio:', error);
-      this.playNext();
-    }
+    this.audioChunks = [];
+    this.isRecording = false;
   }
 }
