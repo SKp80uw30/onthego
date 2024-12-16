@@ -13,13 +13,21 @@ enabled = true
 port = 54323
 
 [[functions]]
-name = "slack-oauth"
 verify_jwt = true
+slug = "slack-oauth"
 
 [[functions]]
-name = "get-slack-client-id"
 verify_jwt = true
+slug = "get-slack-client-id"
 
 [[functions]]
-name = "realtime-chat"
 verify_jwt = false
+slug = "realtime-chat"
+
+[[functions]]
+verify_jwt = false
+slug = "get-openai-key"
+
+[[functions]]
+verify_jwt = false
+slug = "process-audio"

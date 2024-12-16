@@ -90,6 +90,13 @@ export class AudioService {
     this.audioQueue = null;
   }
 
+  cleanup(): void {
+    this.stopListening();
+    this.ws = null;
+    this.audioContext = null;
+    this.audioQueue = null;
+  }
+
   private encodeAudioData(float32Array: Float32Array): string {
     const int16Array = new Int16Array(float32Array.length);
     for (let i = 0; i < float32Array.length; i++) {
