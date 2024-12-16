@@ -24,11 +24,13 @@ export class VADService {
         },
         onVADMisfire: () => {
           console.log('VAD misfire detected');
-        },
-        onError: (error) => {
-          console.error('VAD error:', error);
-          toast.error('Voice detection error occurred');
-        },
+        }
+      });
+
+      // Add error handling through the promise chain
+      this.vad.start().catch((error) => {
+        console.error('VAD error:', error);
+        toast.error('Voice detection error occurred');
       });
 
       this.isInitialized = true;
