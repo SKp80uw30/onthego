@@ -5,12 +5,12 @@ const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
-serve(async (req) => {
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  };
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
+serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -32,40 +32,38 @@ serve(async (req) => {
       return new Response('Unauthorized', { status: 401 });
     }
 
-    // Process audio with OpenAI API
-    const response = await fetch('https://api.openai.com/v1/audio/speech', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'tts-1',
-        input: audio,
-        voice: 'alloy',
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.statusText}`);
-    }
-
-    const audioResponse = await response.arrayBuffer();
+    // Process the audio chunk here
+    // For now, we'll just echo back the received data
+    // In a real implementation, you would send this to your AI service
     
-    return new Response(audioResponse, {
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'audio/mpeg',
-      },
-    });
+    return new Response(
+      JSON.stringify({ 
+        status: 'success',
+        message: 'Audio chunk received',
+        timestamp: new Date().toISOString()
+      }),
+      { 
+        headers: { 
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
   } catch (error) {
-    console.error('Error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json',
-      },
-    });
+    console.error('Error processing audio:', error);
+    
+    return new Response(
+      JSON.stringify({ 
+        error: 'Failed to process audio',
+        details: error.message
+      }),
+      { 
+        headers: { 
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        },
+        status: 500
+      }
+    );
   }
 });
