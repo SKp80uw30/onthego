@@ -38,8 +38,7 @@ export class AudioRecorder {
         }
 
         console.log('Loading audio worklet...');
-        const workletUrl = new URL('/src/components/audio/processor.js', window.location.origin);
-        await this.audioContext.audioWorklet.addModule(workletUrl.href);
+        await this.audioContext.audioWorklet.addModule('/src/components/audio/processor.js');
         
         console.log('Creating media stream source...');
         this.source = this.audioContext.createMediaStreamSource(this.stream);
@@ -89,15 +88,12 @@ export class AudioRecorder {
       this.stream = null;
     }
     
-    if (this.audioContext) {
-      if (this.audioContext.state !== 'closed') {
-        try {
-          await this.audioContext.close();
-        } catch (error) {
-          console.error('Error closing audio context:', error);
-        }
+    if (this.audioContext && this.audioContext.state !== 'closed') {
+      try {
+        await this.audioContext.suspend(); // Changed from close() to suspend()
+      } catch (error) {
+        console.error('Error suspending audio context:', error);
       }
-      this.audioContext = null;
     }
     
     this.isInitialized = false;
