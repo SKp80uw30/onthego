@@ -1,45 +1,41 @@
 import { AudioRecorder } from '@/components/audio/AudioRecorder';
-import { Session } from '@supabase/supabase-js';
+import { OpenAIService } from './OpenAIService';
 import { toast } from 'sonner';
-import { encodeAudioForAPI } from '@/utils/audio';
-import { supabase } from '@/integrations/supabase/client';
 
 export class AudioRecorderManager {
   private recorder: AudioRecorder | null = null;
+  private openAIService: OpenAIService;
   private isInitialized = false;
-  private session: Session | null = null;
+  private audioChunks: Blob[] = [];
 
-  async initialize(session: Session): Promise<void> {
+  constructor() {
+    this.openAIService = new OpenAIService();
+  }
+
+  async initialize(): Promise<void> {
+    if (this.isInitialized) {
+      console.log('AudioRecorderManager already initialized');
+      return;
+    }
+
     try {
       console.log('Initializing AudioRecorderManager...');
-      this.session = session;
       this.isInitialized = true;
       console.log('AudioRecorderManager initialized successfully');
     } catch (error) {
-      console.error('Failed to initialize audio recorder:', error);
-      toast.error('Failed to initialize audio service');
+      console.error('Error initializing AudioRecorderManager:', error);
+      this.isInitialized = false;
       throw error;
     }
   }
 
   async startRecording(): Promise<void> {
-    if (!this.isInitialized) {
-      const error = new Error('Audio service not initialized');
-      console.error(error);
-      toast.error('Audio service not initialized');
-      throw error;
-    }
-
     try {
       console.log('Starting audio recording...');
       if (!this.recorder) {
         this.recorder = new AudioRecorder(async (audioData: Float32Array) => {
-          try {
-            await this.sendAudioChunk(audioData);
-          } catch (error) {
-            console.error('Error in audio data callback:', error);
-            toast.error('Error processing audio chunk');
-          }
+          const blob = new Blob([audioData], { type: 'audio/webm' });
+          this.audioChunks.push(blob);
         });
       }
       
@@ -47,42 +43,7 @@ export class AudioRecorderManager {
       console.log('Recording started successfully');
     } catch (error) {
       console.error('Failed to start recording:', error);
-      toast.error('Failed to start recording');
-      throw error;
-    }
-  }
-
-  private async sendAudioChunk(audioData: Float32Array) {
-    if (!this.session) {
-      console.error('No active session found');
-      return;
-    }
-
-    try {
-      console.log('Encoding audio chunk...');
-      const base64Audio = encodeAudioForAPI(audioData);
-      
-      console.log('Sending audio chunk to process-audio function...');
-      const { data, error } = await supabase.functions.invoke('process-audio', {
-        body: { audio: base64Audio }
-      });
-
-      if (error) {
-        console.error('Supabase function error:', error);
-        toast.error('Error processing audio');
-        return;
-      }
-
-      console.log('Audio chunk processed successfully:', data);
-    } catch (error) {
-      console.error('Error sending audio chunk:', error);
-      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-        toast.error('Network error - Failed to send audio chunk');
-      } else if (error instanceof SyntaxError) {
-        toast.error('Error parsing server response');
-      } else {
-        toast.error('Unexpected error processing audio');
-      }
+      toast.error('Error starting recording');
       throw error;
     }
   }
@@ -93,7 +54,15 @@ export class AudioRecorderManager {
       if (this.recorder) {
         await this.recorder.stop();
         this.recorder = null;
-        console.log('Recording stopped successfully');
+
+        // Process the collected audio chunks
+        if (this.audioChunks.length > 0) {
+          const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+          this.audioChunks = []; // Clear the chunks
+
+          // Process with OpenAI
+          await this.openAIService.processAudioChunk(audioBlob);
+        }
       }
     } catch (error) {
       console.error('Error stopping recording:', error);
@@ -109,12 +78,12 @@ export class AudioRecorderManager {
         this.recorder.stop();
         this.recorder = null;
       }
+      this.openAIService.cleanup();
       this.isInitialized = false;
-      this.session = null;
+      this.audioChunks = [];
       console.log('AudioRecorderManager cleanup complete');
     } catch (error) {
       console.error('Error during cleanup:', error);
-      toast.error('Error cleaning up audio recorder');
     }
   }
 }
