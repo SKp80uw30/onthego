@@ -4,6 +4,11 @@ export class AudioRecorder {
   private source: MediaStreamAudioSourceNode | null = null;
   private processor: AudioWorkletNode | null = null;
   private isInitialized = false;
+  private onAudioData: ((data: Float32Array) => void) | null = null;
+
+  constructor(onAudioData?: (data: Float32Array) => void) {
+    this.onAudioData = onAudioData || null;
+  }
 
   async start() {
     if (this.isInitialized) {
@@ -27,6 +32,12 @@ export class AudioRecorder {
 
       console.log('Creating audio processor...');
       this.processor = new AudioWorkletNode(this.audioContext, 'audio-processor');
+
+      if (this.onAudioData) {
+        this.processor.port.onmessage = (event) => {
+          this.onAudioData?.(event.data);
+        };
+      }
 
       this.source.connect(this.processor);
       this.processor.connect(this.audioContext.destination);
