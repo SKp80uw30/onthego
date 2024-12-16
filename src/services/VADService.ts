@@ -51,7 +51,8 @@ export class VADService {
 
   stop() {
     if (this.vad) {
-      this.vad.destroy();
+      // The MicVAD instance has a pause() method we can use to stop listening
+      this.vad.pause();
       this.vad = null;
       this.isInitialized = false;
     }
