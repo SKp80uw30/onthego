@@ -27,12 +27,6 @@ export class VADService {
         }
       });
 
-      // Add error handling through the promise chain
-      this.vad.start().catch((error) => {
-        console.error('VAD error:', error);
-        toast.error('Voice detection error occurred');
-      });
-
       this.isInitialized = true;
       console.log('VAD service initialized successfully');
     } catch (error) {
@@ -51,9 +45,11 @@ export class VADService {
     
     try {
       console.log('Starting VAD service...');
-      await this.vad?.start();
-      toast.success('Listening for speech...');
-      console.log('VAD service started successfully');
+      if (this.vad) {
+        await this.vad.start();
+        toast.success('Listening for speech...');
+        console.log('VAD service started successfully');
+      }
     } catch (error) {
       console.error('Error starting VAD:', error);
       toast.error('Failed to start voice detection');
