@@ -67,6 +67,7 @@ Deno.serve(async (req) => {
     )
 
   } catch (error) {
+    console.error('Error in send-slack-message function:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
