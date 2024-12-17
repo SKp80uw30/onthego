@@ -1,21 +1,23 @@
-import axios from 'axios';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export class OpenAIService {
   private conversationHistory: { role: string; content: string }[] = [];
   private audioContext: AudioContext | null = null;
+  private slackAccountId: string | null = null;
 
   constructor() {
     this.conversationHistory = [];
   }
 
+  setSlackAccountId(id: string) {
+    this.slackAccountId = id;
+  }
+
   async processAudioChunk(audioBlob: Blob) {
     try {
-      const { data: { OPENAI_API_KEY } } = await supabase.functions.invoke('get-openai-key');
-      
-      if (!OPENAI_API_KEY) {
-        toast.error('OpenAI API key not found');
+      if (!this.slackAccountId) {
+        toast.error('No Slack account selected');
         return;
       }
 
@@ -27,59 +29,39 @@ export class OpenAIService {
       formData.append('model', 'whisper-1');
       formData.append('response_format', 'json');
 
-      console.log('Sending request to Whisper API...');
-      const whisperResponse = await axios.post(
-        'https://api.openai.com/v1/audio/transcriptions',
-        formData,
-        {
-          headers: {
-            'Authorization': `Bearer ${OPENAI_API_KEY}`,
-            'Content-Type': 'multipart/form-data'
-          }
-        }
-      );
+      console.log('Sending request to process-audio function...');
+      const { data: transcriptionData, error: transcriptionError } = await supabase.functions.invoke('process-audio', {
+        body: formData,
+      });
 
-      const transcribedText = whisperResponse.data.text;
-      console.log('Transcribed text:', transcribedText);
-      
-      // Add user message to history
-      this.conversationHistory.push({ role: 'user', content: transcribedText });
-
-      // Step 2: Get AI response
-      console.log('Getting AI response...');
-      const chatResponse = await axios.post(
-        'https://api.openai.com/v1/chat/completions',
-        {
-          model: "gpt-4o-mini",
-          messages: [
-            { role: 'system', content: 'You are a helpful assistant.' },
-            ...this.conversationHistory
-          ],
-          max_tokens: 150
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${OPENAI_API_KEY}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      const aiResponse = chatResponse.data.choices[0].message.content;
-      console.log('AI response:', aiResponse);
-      
-      // Add AI response to history
-      this.conversationHistory.push({ role: 'assistant', content: aiResponse });
-
-      // Trim conversation history if needed
-      if (this.conversationHistory.length > 50) {
-        this.conversationHistory = this.conversationHistory.slice(-50);
+      if (transcriptionError) {
+        throw new Error(`Error transcribing audio: ${transcriptionError.message}`);
       }
 
-      // Step 3: Convert AI response to speech using our Edge Function
+      const transcribedText = transcriptionData.text;
+      console.log('Transcribed text:', transcribedText);
+
+      // Step 2: Process with AI chat
+      console.log('Sending to chat-with-ai function...');
+      const { data: chatResponse, error: chatError } = await supabase.functions.invoke('chat-with-ai', {
+        body: {
+          message: transcribedText,
+          slackAccountId: this.slackAccountId,
+          conversationHistory: this.conversationHistory,
+        },
+      });
+
+      if (chatError) {
+        throw new Error(`Error in AI chat: ${chatError.message}`);
+      }
+
+      // Update conversation history
+      this.conversationHistory = chatResponse.conversationHistory;
+
+      // Step 3: Convert AI response to speech
       console.log('Converting response to speech...');
       const { data: audioArrayBuffer } = await supabase.functions.invoke('text-to-speech', {
-        body: { text: aiResponse }
+        body: { text: chatResponse.response }
       });
 
       // Play the audio response
@@ -93,12 +75,9 @@ export class OpenAIService {
       source.connect(this.audioContext.destination);
       source.start(0);
 
-      return { transcribedText, aiResponse };
+      return { transcribedText, aiResponse: chatResponse.response };
     } catch (error) {
       console.error('Error in OpenAI service:', error);
-      if (axios.isAxiosError(error) && error.response) {
-        console.error('Response data:', error.response.data);
-      }
       toast.error('Error processing audio');
       throw error;
     }
