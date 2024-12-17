@@ -76,30 +76,18 @@ export class OpenAIService {
         this.conversationHistory = this.conversationHistory.slice(-50);
       }
 
-      // Step 3: Convert AI response to speech
+      // Step 3: Convert AI response to speech using our Edge Function
       console.log('Converting response to speech...');
-      const speechResponse = await axios.post(
-        'https://api.openai.com/v1/audio/speech',
-        {
-          model: "tts-1",
-          voice: "alloy",
-          input: aiResponse
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${OPENAI_API_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          responseType: 'arraybuffer'
-        }
-      );
+      const { data: audioArrayBuffer } = await supabase.functions.invoke('text-to-speech', {
+        body: { text: aiResponse }
+      });
 
       // Play the audio response
       if (!this.audioContext) {
         this.audioContext = new AudioContext();
       }
       
-      const audioBuffer = await this.audioContext.decodeAudioData(speechResponse.data);
+      const audioBuffer = await this.audioContext.decodeAudioData(audioArrayBuffer);
       const source = this.audioContext.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(this.audioContext.destination);
