@@ -3,6 +3,17 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}I see the issue - the Slack bot is not in the channel where it's trying to send messages. Let's update the Edge Function to handle this by having the bot join the channel before sending messages.
+
+<lov-code>
+Let's update the send-slack-message Edge Function:
+
+<lov-write file_path="supabase/functions/send-slack-message/index.ts">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
 Deno.serve(async (req) => {
@@ -42,7 +53,47 @@ Deno.serve(async (req) => {
       throw new Error('No Slack account found')
     }
 
+    const channelName = 'general' // You might want to make this configurable
+
+    // First, try to join the channel
+    console.log('Attempting to join channel:', channelName)
+    const joinResponse = await fetch('https://slack.com/api/conversations.join', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${slackAccount.slack_bot_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        channel: channelName,
+      }),
+    })
+
+    const joinResult = await joinResponse.json()
+    console.log('Join channel response:', joinResult)
+
+    // Get channel ID (whether we just joined or were already in it)
+    console.log('Getting channel ID for:', channelName)
+    const channelListResponse = await fetch('https://slack.com/api/conversations.list', {
+      headers: {
+        'Authorization': `Bearer ${slackAccount.slack_bot_token}`,
+        'Content-Type': 'application/json',
+      },
+    })
+
+    const channelList = await channelListResponse.json()
+    console.log('Channel list response:', channelList)
+
+    if (!channelList.ok) {
+      throw new Error(`Slack API error: ${channelList.error}`)
+    }
+
+    const channel = channelList.channels.find((c: any) => c.name === channelName)
+    if (!channel) {
+      throw new Error(`Channel ${channelName} not found`)
+    }
+
     // Send message to Slack
+    console.log('Sending message to channel:', channel.id)
     const response = await fetch('https://slack.com/api/chat.postMessage', {
       method: 'POST',
       headers: {
@@ -50,12 +101,13 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        channel: 'general', // You might want to make this configurable
+        channel: channel.id,
         text: message,
       }),
     })
 
     const slackResponse = await response.json()
+    console.log('Slack post message response:', slackResponse)
     
     if (!slackResponse.ok) {
       throw new Error(`Slack API error: ${slackResponse.error}`)
@@ -67,7 +119,7 @@ Deno.serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error in send-slack-message function:', error);
+    console.error('Error in send-slack-message function:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
