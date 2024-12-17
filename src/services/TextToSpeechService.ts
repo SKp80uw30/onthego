@@ -6,16 +6,24 @@ export class TextToSpeechService {
 
   async speakText(text: string): Promise<void> {
     try {
-      console.log('Converting response to speech...');
-      const { data: audioArrayBuffer } = await supabase.functions.invoke('text-to-speech', {
+      console.log('Converting text to speech:', text);
+      
+      const { data: audioArrayBuffer, error } = await supabase.functions.invoke('text-to-speech', {
         body: { text }
       });
+
+      if (error) {
+        throw error;
+      }
 
       if (!this.audioContext) {
         this.audioContext = new AudioContext();
       }
-      
+
+      console.log('Decoding audio data...');
       const audioBuffer = await this.audioContext.decodeAudioData(audioArrayBuffer);
+      
+      console.log('Playing audio...');
       const source = this.audioContext.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(this.audioContext.destination);

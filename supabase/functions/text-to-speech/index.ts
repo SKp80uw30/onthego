@@ -1,4 +1,7 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -6,19 +9,19 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    console.log('Received request to text-to-speech function');
     const { text } = await req.json();
-    console.log('Received text for TTS:', text);
+    console.log('Converting text to speech:', text);
 
     const response = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+        'Authorization': `Bearer ${openAIApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -34,11 +37,11 @@ serve(async (req) => {
       throw new Error(`OpenAI API error: ${error.error?.message || 'Unknown error'}`);
     }
 
-    // Get the audio data as an ArrayBuffer
     const audioData = await response.arrayBuffer();
+    console.log('Successfully generated audio response');
 
     return new Response(audioData, {
-      headers: {
+      headers: { 
         ...corsHeaders,
         'Content-Type': 'audio/mpeg',
       },

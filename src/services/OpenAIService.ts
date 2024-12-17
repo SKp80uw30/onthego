@@ -10,6 +10,7 @@ export class OpenAIService {
   private audioTranscriptionService: AudioTranscriptionService;
   private textToSpeechService: TextToSpeechService;
   private slackService: SlackService;
+  private pendingMessage: { content: string; channelName: string } | null = null;
 
   constructor() {
     this.conversationHistory = [];
@@ -29,11 +30,30 @@ export class OpenAIService {
         return;
       }
 
-      // Step 1: Convert speech to text
+      console.log('Processing audio chunk...');
       const transcribedText = await this.audioTranscriptionService.transcribeAudio(audioBlob);
       console.log('User said:', transcribedText);
 
-      // Step 2: Process with AI chat
+      // Check if we have a pending message waiting for confirmation
+      if (this.pendingMessage) {
+        if (transcribedText.toLowerCase().includes('yes') || transcribedText.toLowerCase().includes('confirm')) {
+          console.log('User confirmed message, sending to Slack...');
+          await this.slackService.sendMessage(
+            this.pendingMessage.content,
+            this.pendingMessage.channelName,
+            this.slackAccountId
+          );
+          await this.textToSpeechService.speakText('Message sent successfully.');
+          this.pendingMessage = null;
+          return;
+        } else if (transcribedText.toLowerCase().includes('no') || transcribedText.toLowerCase().includes('cancel')) {
+          console.log('User cancelled message send');
+          await this.textToSpeechService.speakText('Message cancelled.');
+          this.pendingMessage = null;
+          return;
+        }
+      }
+
       console.log('Sending to chat-with-ai function...');
       const { data: chatResponse, error: chatError } = await supabase.functions.invoke('chat-with-ai', {
         body: {
@@ -48,22 +68,36 @@ export class OpenAIService {
       }
 
       // Update conversation history
-      this.conversationHistory = chatResponse.conversationHistory;
+      this.conversationHistory.push(
+        { role: 'user', content: transcribedText },
+        { role: 'assistant', content: chatResponse.response }
+      );
 
-      // Step 3: Convert AI response to speech and play it
+      // Speak the AI's response
       await this.textToSpeechService.speakText(chatResponse.response);
 
-      // Step 4: Handle any actions from the AI response
-      if (chatResponse.action === 'SEND_MESSAGE' && chatResponse.confirmed) {
-        const { channelName, messageContent } = chatResponse;
-        await this.slackService.sendMessage(messageContent, channelName, this.slackAccountId);
+      // Handle AI actions
+      if (chatResponse.action === 'SEND_MESSAGE') {
+        console.log('AI suggested sending message:', chatResponse);
+        this.pendingMessage = {
+          content: chatResponse.messageContent,
+          channelName: chatResponse.channelName
+        };
       } else if (chatResponse.action === 'FETCH_MESSAGES') {
-        const messages = await this.slackService.fetchMessages(chatResponse.channelName, this.slackAccountId);
+        console.log('Fetching messages from Slack...');
+        const messages = await this.slackService.fetchMessages(
+          chatResponse.channelName,
+          this.slackAccountId
+        );
         // Add fetched messages to conversation history
         this.conversationHistory.push({
           role: 'system',
           content: `Here are the messages from #${chatResponse.channelName}:\n${messages.join('\n')}`
         });
+        // Read the messages to the user
+        await this.textToSpeechService.speakText(
+          `Here are the recent messages from ${chatResponse.channelName}: ${messages.join('. Next message: ')}`
+        );
       }
 
       return { transcribedText, aiResponse: chatResponse.response };
@@ -77,5 +111,6 @@ export class OpenAIService {
   cleanup() {
     this.textToSpeechService.cleanup();
     this.conversationHistory = [];
+    this.pendingMessage = null;
   }
 }
