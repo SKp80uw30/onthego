@@ -1,13 +1,21 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { AudioTranscriptionService } from "./AudioTranscriptionService";
+import { TextToSpeechService } from "./TextToSpeechService";
+import { SlackService } from "./SlackService";
 
 export class OpenAIService {
   private conversationHistory: { role: string; content: string }[] = [];
-  private audioContext: AudioContext | null = null;
   private slackAccountId: string | null = null;
+  private audioTranscriptionService: AudioTranscriptionService;
+  private textToSpeechService: TextToSpeechService;
+  private slackService: SlackService;
 
   constructor() {
     this.conversationHistory = [];
+    this.audioTranscriptionService = new AudioTranscriptionService();
+    this.textToSpeechService = new TextToSpeechService();
+    this.slackService = new SlackService();
   }
 
   setSlackAccountId(id: string) {
@@ -21,25 +29,9 @@ export class OpenAIService {
         return;
       }
 
-      console.log('Processing audio chunk with size:', audioBlob.size);
-
-      // Step 1: Convert speech to text using Whisper
-      const formData = new FormData();
-      formData.append('file', audioBlob, 'audio.webm');
-      formData.append('model', 'whisper-1');
-      formData.append('response_format', 'json');
-
-      console.log('Sending request to process-audio function...');
-      const { data: transcriptionData, error: transcriptionError } = await supabase.functions.invoke('process-audio', {
-        body: formData,
-      });
-
-      if (transcriptionError) {
-        throw new Error(`Error transcribing audio: ${transcriptionError.message}`);
-      }
-
-      const transcribedText = transcriptionData.text;
-      console.log('Transcribed text:', transcribedText);
+      // Step 1: Convert speech to text
+      const transcribedText = await this.audioTranscriptionService.transcribeAudio(audioBlob);
+      console.log('User said:', transcribedText);
 
       // Step 2: Process with AI chat
       console.log('Sending to chat-with-ai function...');
@@ -58,22 +50,21 @@ export class OpenAIService {
       // Update conversation history
       this.conversationHistory = chatResponse.conversationHistory;
 
-      // Step 3: Convert AI response to speech
-      console.log('Converting response to speech...');
-      const { data: audioArrayBuffer } = await supabase.functions.invoke('text-to-speech', {
-        body: { text: chatResponse.response }
-      });
+      // Step 3: Convert AI response to speech and play it
+      await this.textToSpeechService.speakText(chatResponse.response);
 
-      // Play the audio response
-      if (!this.audioContext) {
-        this.audioContext = new AudioContext();
+      // Step 4: Handle any actions from the AI response
+      if (chatResponse.action === 'SEND_MESSAGE' && chatResponse.confirmed) {
+        const { channelName, messageContent } = chatResponse;
+        await this.slackService.sendMessage(messageContent, channelName, this.slackAccountId);
+      } else if (chatResponse.action === 'FETCH_MESSAGES') {
+        const messages = await this.slackService.fetchMessages(chatResponse.channelName, this.slackAccountId);
+        // Add fetched messages to conversation history
+        this.conversationHistory.push({
+          role: 'system',
+          content: `Here are the messages from #${chatResponse.channelName}:\n${messages.join('\n')}`
+        });
       }
-      
-      const audioBuffer = await this.audioContext.decodeAudioData(audioArrayBuffer);
-      const source = this.audioContext.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(this.audioContext.destination);
-      source.start(0);
 
       return { transcribedText, aiResponse: chatResponse.response };
     } catch (error) {
@@ -84,10 +75,7 @@ export class OpenAIService {
   }
 
   cleanup() {
-    if (this.audioContext) {
-      this.audioContext.close();
-      this.audioContext = null;
-    }
+    this.textToSpeechService.cleanup();
     this.conversationHistory = [];
   }
 }
