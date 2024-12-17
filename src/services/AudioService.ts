@@ -19,7 +19,10 @@ export class AudioService {
 
       this.mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-        await this.processAudio(audioBlob);
+        const transcription = await this.processAudio(audioBlob);
+        if (transcription) {
+          await this.sendToSlack(transcription);
+        }
         this.audioChunks = [];
       };
 
@@ -78,6 +81,23 @@ export class AudioService {
       console.error('Error processing audio:', error);
       toast.error('Error processing audio');
       throw error;
+    }
+  }
+
+  private async sendToSlack(message: string) {
+    try {
+      const { error } = await supabase.functions.invoke('send-slack-message', {
+        body: { message },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      toast.success('Message sent to Slack!');
+    } catch (error) {
+      console.error('Error sending message to Slack:', error);
+      toast.error('Failed to send message to Slack');
     }
   }
 
