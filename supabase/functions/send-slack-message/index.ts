@@ -3,17 +3,6 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}I see the issue - the Slack bot is not in the channel where it's trying to send messages. Let's update the Edge Function to handle this by having the bot join the channel before sending messages.
-
-<lov-code>
-Let's update the send-slack-message Edge Function:
-
-<lov-write file_path="supabase/functions/send-slack-message/index.ts">
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
 Deno.serve(async (req) => {
