@@ -1,10 +1,16 @@
-import { supabase } from "@/integrations/supabase/client";
+import { AudioRecorder } from "@/components/audio/AudioRecorder";
+import { OpenAIService } from "./OpenAIService";
 import { toast } from "sonner";
 
 export class AudioService {
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
   private isRecording: boolean = false;
+  private openAIService: OpenAIService;
+
+  constructor() {
+    this.openAIService = new OpenAIService();
+  }
 
   async initialize() {
     try {
@@ -19,9 +25,11 @@ export class AudioService {
 
       this.mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-        const transcription = await this.processAudio(audioBlob);
-        if (transcription) {
-          await this.sendToSlack(transcription);
+        try {
+          await this.processAudio(audioBlob);
+        } catch (error) {
+          console.error('Error processing audio:', error);
+          toast.error('Error processing audio');
         }
         this.audioChunks = [];
       };
@@ -60,44 +68,12 @@ export class AudioService {
 
   private async processAudio(audioBlob: Blob) {
     try {
-      // Create form data for the audio file
-      const formData = new FormData();
-      formData.append('file', audioBlob, 'audio.webm');
-      formData.append('model', 'whisper-1');
-
-      // Call the Supabase Edge Function to process the audio
-      const { data, error } = await supabase.functions.invoke('process-audio', {
-        body: formData,
-      });
-
-      if (error) {
-        throw new Error(`Supabase Function error: ${error.message}`);
-      }
-
-      console.log('Transcription:', data.text);
-      return data.text;
-      
+      console.log('Processing audio chunk...');
+      await this.openAIService.processAudioChunk(audioBlob);
     } catch (error) {
       console.error('Error processing audio:', error);
       toast.error('Error processing audio');
       throw error;
-    }
-  }
-
-  private async sendToSlack(message: string) {
-    try {
-      const { error } = await supabase.functions.invoke('send-slack-message', {
-        body: { message },
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      toast.success('Message sent to Slack!');
-    } catch (error) {
-      console.error('Error sending message to Slack:', error);
-      toast.error('Failed to send message to Slack');
     }
   }
 
@@ -110,5 +86,6 @@ export class AudioService {
     }
     this.audioChunks = [];
     this.isRecording = false;
+    this.openAIService.cleanup();
   }
 }

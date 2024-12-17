@@ -12,9 +12,16 @@ Important workflow:
    - Only proceed with SEND_MESSAGE command after user confirms with a clear "yes" or similar affirmative
 
 Never send messages without explicit confirmation from the user.
-Always maintain a natural conversation flow and ask follow-up questions when needed.`;
+Always maintain a natural conversation flow and ask follow-up questions when needed.
 
-export const chatWithAI = async (openAIApiKey: string, messages: any[]) => {
+When responding, use these formats for actions:
+- To fetch messages: "FETCH_MESSAGES:channel_name"
+- To send a message: "SEND_MESSAGE:channel_name:message_content"
+- For confirmation: Add "CONFIRMED" at the end if user has explicitly confirmed`;
+
+export const chatWithAI = async (openAIApiKey: string, message: string, messages: any[]) => {
+  console.log('Calling OpenAI API with message:', message);
+  
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -25,12 +32,21 @@ export const chatWithAI = async (openAIApiKey: string, messages: any[]) => {
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: systemPrompt },
-        ...messages
+        ...messages,
+        { role: 'user', content: message }
       ],
     }),
   });
 
+  if (!response.ok) {
+    const error = await response.json();
+    console.error('OpenAI API error:', error);
+    throw new Error(`OpenAI API error: ${error.error?.message || 'Unknown error'}`);
+  }
+
   const data = await response.json();
+  console.log('OpenAI API response:', data);
+  
   const aiResponse = data.choices[0].message.content;
 
   // Parse AI response for actions
@@ -50,6 +66,8 @@ export const chatWithAI = async (openAIApiKey: string, messages: any[]) => {
       confirmed = aiResponse.includes('CONFIRMED');
     }
   }
+
+  console.log('Parsed response:', { action, channelName, messageContent, confirmed });
 
   return {
     response: aiResponse.replace(/FETCH_MESSAGES:\w+|SEND_MESSAGE:\w+:.+/g, '').trim(),

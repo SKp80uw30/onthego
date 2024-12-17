@@ -20,10 +20,17 @@ serve(async (req) => {
     console.log('Request payload:', { message, slackAccountId, historyLength: conversationHistory.length });
 
     if (!message) {
+      console.error('No message provided');
       throw new Error('No message provided');
     }
 
-    const aiResponse = await chatWithAI(openAIApiKey!, conversationHistory);
+    if (!slackAccountId) {
+      console.error('No Slack account ID provided');
+      throw new Error('No Slack account ID provided');
+    }
+
+    console.log('Calling OpenAI API...');
+    const aiResponse = await chatWithAI(openAIApiKey!, message, conversationHistory);
     console.log('AI Response:', aiResponse);
 
     return new Response(
