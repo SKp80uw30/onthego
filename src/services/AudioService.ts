@@ -54,30 +54,27 @@ export class AudioService {
 
   private async processAudio(audioBlob: Blob) {
     try {
+      // Create form data for the audio file
       const formData = new FormData();
       formData.append('file', audioBlob, 'audio.webm');
       formData.append('model', 'whisper-1');
-      
-      const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-        },
+
+      // Call the Supabase Edge Function to process the audio
+      const { data, error } = await supabase.functions.invoke('process-audio', {
         body: formData,
       });
 
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
+      if (error) {
+        throw new Error(`Supabase Function error: ${error.message}`);
       }
 
-      const data = await response.json();
       console.log('Transcription:', data.text);
-      
-      // Here you can add logic to handle the transcribed text
-      // For example, sending it to a Slack channel or processing it further
+      return data.text;
       
     } catch (error) {
       console.error('Error processing audio:', error);
+      toast.error('Error processing audio');
+      throw error;
     }
   }
 

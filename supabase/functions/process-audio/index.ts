@@ -7,16 +7,8 @@ serve(async (req) => {
   }
 
   try {
-    const { audioData } = await req.json()
+    const formData = await req.formData();
     
-    // Convert base64 to blob
-    const audioBlob = await fetch(`data:audio/webm;base64,${audioData}`).then(res => res.blob())
-    
-    // Create form data
-    const formData = new FormData()
-    formData.append('file', audioBlob, 'audio.webm')
-    formData.append('model', 'whisper-1')
-
     // Send to OpenAI
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
@@ -24,9 +16,14 @@ serve(async (req) => {
         'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
       },
       body: formData,
-    })
+    });
 
-    const data = await response.json()
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(`OpenAI API error: ${response.status} - ${error.error?.message || 'Unknown error'}`);
+    }
+
+    const data = await response.json();
 
     return new Response(
       JSON.stringify(data),
@@ -34,14 +31,15 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       },
-    )
+    );
   } catch (error) {
+    console.error('Error processing audio:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
+        status: 500,
       },
-    )
+    );
   }
-})
+});
