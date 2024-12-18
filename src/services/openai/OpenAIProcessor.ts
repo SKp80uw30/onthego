@@ -125,9 +125,24 @@ export class OpenAIProcessor {
 
   private async handleChatResponse(chatResponse: ChatResponse, transcribedText: string, slackAccountId: string) {
     try {
+      console.log('Processing chat response:', {
+        action: chatResponse.action,
+        hasMessageContent: !!chatResponse.messageContent,
+        hasChannelName: !!chatResponse.channelName,
+        slackAccountId
+      });
+
       // Update conversation history
       this.state.addToConversationHistory({ role: 'user', content: transcribedText });
       this.state.addToConversationHistory({ role: 'assistant', content: chatResponse.response });
+
+      // Validate Slack connection before proceeding with Slack operations
+      if ((chatResponse.action === 'SEND_MESSAGE' || chatResponse.action === 'FETCH_MESSAGES') && 
+          !(await this.slackService.validateSlackConnection(slackAccountId))) {
+        console.error('Invalid Slack connection:', { slackAccountId });
+        await this.textToSpeechService.speakText('Sorry, there seems to be an issue with the Slack connection. Please check your workspace connection and try again.');
+        return;
+      }
 
       // Speak the AI's response if it's not empty
       if (chatResponse.response.trim()) {
@@ -136,6 +151,11 @@ export class OpenAIProcessor {
 
       // Handle specific actions
       if (chatResponse.action === 'SEND_MESSAGE' && chatResponse.messageContent && chatResponse.channelName) {
+        console.log('Preparing to send message:', {
+          channelName: chatResponse.channelName,
+          messageLength: chatResponse.messageContent.length
+        });
+        
         this.state.setPendingMessage({
           content: chatResponse.messageContent,
           channelName: chatResponse.channelName
@@ -144,10 +164,19 @@ export class OpenAIProcessor {
         const confirmationMessage = `I'll send this message to ${chatResponse.channelName}: "${chatResponse.messageContent}". Would you like to confirm sending this message?`;
         await this.textToSpeechService.speakText(confirmationMessage);
       } else if (chatResponse.action === 'FETCH_MESSAGES' && chatResponse.channelName) {
-        console.log('Fetching messages for channel:', chatResponse.channelName);
+        console.log('Initiating message fetch:', {
+          channelName: chatResponse.channelName,
+          slackAccountId
+        });
+        
         const messages = await this.slackService.fetchMessages(chatResponse.channelName, slackAccountId);
         
         if (messages && messages.length > 0) {
+          console.log('Messages fetched successfully:', {
+            count: messages.length,
+            channelName: chatResponse.channelName
+          });
+          
           this.state.addToConversationHistory({
             role: 'system',
             content: `Here are the messages from #${chatResponse.channelName}:\n${messages.join('\n')}`
@@ -156,12 +185,23 @@ export class OpenAIProcessor {
           const messageText = `Here are the recent messages from ${chatResponse.channelName}: ${messages.join('. Next message: ')}`;
           await this.textToSpeechService.speakText(messageText);
         } else {
+          console.warn('No messages found:', {
+            channelName: chatResponse.channelName,
+            slackAccountId
+          });
+          
           const noMessagesText = `No recent messages found in ${chatResponse.channelName}`;
           await this.textToSpeechService.speakText(noMessagesText);
         }
       }
     } catch (error) {
-      console.error('Error handling chat response:', error);
+      console.error('Detailed error in handleChatResponse:', {
+        error,
+        errorType: error.constructor.name,
+        stack: error.stack,
+        action: chatResponse.action,
+        slackAccountId
+      });
       toast.error('Error processing chat response');
       throw error;
     }
