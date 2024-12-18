@@ -33,9 +33,9 @@ export class OpenAIProcessor {
         return;
       }
 
-      // Process transcription
+      // Create a new FormData instance and append the audio blob
       const formData = new FormData();
-      formData.append('file', audioBlob, 'audio.webm');
+      formData.append('file', new Blob([audioBlob], { type: 'audio/webm' }), 'audio.webm');
 
       const { data: transcriptionResponse, error: transcriptionError } = await supabase.functions.invoke('process-audio', {
         body: formData,

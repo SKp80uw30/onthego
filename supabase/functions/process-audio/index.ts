@@ -13,10 +13,19 @@ serve(async (req) => {
 
   try {
     console.log('Processing audio request...');
+    
+    // Get the content type
+    const contentType = req.headers.get('content-type') || '';
+    
+    if (!contentType.includes('multipart/form-data')) {
+      console.error('Invalid content type:', contentType);
+      throw new Error('Invalid content type. Expected multipart/form-data');
+    }
+
     const formData = await req.formData();
     const audioFile = formData.get('file');
     
-    if (!audioFile || !(audioFile instanceof File)) {
+    if (!audioFile) {
       console.error('No audio file received');
       throw new Error('No audio file received');
     }
