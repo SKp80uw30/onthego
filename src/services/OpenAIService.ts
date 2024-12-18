@@ -13,46 +13,67 @@ export class OpenAIService {
   private pendingMessage: { content: string; channelName: string } | null = null;
   private initialized: boolean = false;
   private initializationPromise: Promise<void> | null = null;
+  private instanceId: string;
 
   constructor() {
-    console.log('Initializing OpenAIService...');
+    this.instanceId = Math.random().toString(36).substring(7);
+    console.log(`[OpenAIService ${this.instanceId}] Constructor called`);
     this.conversationHistory = [];
     this.audioTranscriptionService = new AudioTranscriptionService();
     this.textToSpeechService = new TextToSpeechService();
     this.slackService = new SlackService();
+    console.log(`[OpenAIService ${this.instanceId}] Initial state:`, {
+      initialized: this.initialized,
+      slackAccountId: this.slackAccountId,
+      hasInitPromise: !!this.initializationPromise
+    });
   }
 
   async initialize() {
+    console.log(`[OpenAIService ${this.instanceId}] Initialize called. Current state:`, {
+      initialized: this.initialized,
+      slackAccountId: this.slackAccountId,
+      hasInitPromise: !!this.initializationPromise
+    });
+
     if (this.initializationPromise) {
+      console.log(`[OpenAIService ${this.instanceId}] Returning existing initialization promise`);
       return this.initializationPromise;
     }
 
     this.initializationPromise = new Promise<void>(async (resolve) => {
       try {
-        console.log('Starting OpenAIService initialization...');
+        console.log(`[OpenAIService ${this.instanceId}] Starting initialization process`);
         
-        // Wait for authentication
         const { data: { session } } = await supabase.auth.getSession();
+        console.log(`[OpenAIService ${this.instanceId}] Session check:`, {
+          hasSession: !!session,
+          userId: session?.user?.id
+        });
+
         if (!session) {
-          console.log('No active session found during initialization');
+          console.log(`[OpenAIService ${this.instanceId}] No active session found`);
           this.initialized = false;
           resolve();
           return;
         }
 
-        // Fetch default workspace
         const { data: settings } = await supabase
           .from('settings')
           .select('default_workspace_id')
           .eq('user_id', session.user.id)
           .maybeSingle();
 
+        console.log(`[OpenAIService ${this.instanceId}] Settings fetch result:`, {
+          hasSettings: !!settings,
+          workspaceId: settings?.default_workspace_id
+        });
+
         if (settings?.default_workspace_id) {
           this.slackAccountId = settings.default_workspace_id;
-          console.log('Initialized with workspace ID:', this.slackAccountId);
           this.initialized = true;
+          console.log(`[OpenAIService ${this.instanceId}] Initialized with workspace ID:`, this.slackAccountId);
         } else {
-          // Try to get first available workspace
           const { data: workspaces } = await supabase
             .from('slack_accounts')
             .select('id')
@@ -60,19 +81,24 @@ export class OpenAIService {
             .limit(1)
             .maybeSingle();
 
+          console.log(`[OpenAIService ${this.instanceId}] Fallback workspace fetch:`, {
+            hasWorkspace: !!workspaces,
+            workspaceId: workspaces?.id
+          });
+
           if (workspaces?.id) {
             this.slackAccountId = workspaces.id;
-            console.log('Initialized with first available workspace ID:', this.slackAccountId);
             this.initialized = true;
+            console.log(`[OpenAIService ${this.instanceId}] Initialized with fallback workspace ID:`, this.slackAccountId);
           } else {
-            console.log('No workspace found during initialization');
+            console.log(`[OpenAIService ${this.instanceId}] No workspace found`);
             this.initialized = false;
           }
         }
 
         resolve();
       } catch (error) {
-        console.error('Error during OpenAIService initialization:', error);
+        console.error(`[OpenAIService ${this.instanceId}] Initialization error:`, error);
         this.initialized = false;
         resolve();
       }
@@ -82,16 +108,28 @@ export class OpenAIService {
   }
 
   setSlackAccountId(id: string | null) {
-    console.log('Setting Slack account ID:', id);
+    console.log(`[OpenAIService ${this.instanceId}] Setting Slack account ID:`, {
+      previousId: this.slackAccountId,
+      newId: id,
+      wasInitialized: this.initialized
+    });
     this.slackAccountId = id;
     this.initialized = true;
   }
 
   getSlackAccountId(): string | null {
+    console.log(`[OpenAIService ${this.instanceId}] Getting Slack account ID:`, {
+      currentId: this.slackAccountId,
+      isInitialized: this.initialized
+    });
     return this.slackAccountId;
   }
 
   isInitialized(): boolean {
+    console.log(`[OpenAIService ${this.instanceId}] Checking initialization:`, {
+      initialized: this.initialized,
+      hasSlackId: !!this.slackAccountId
+    });
     return this.initialized && this.slackAccountId !== null;
   }
 
@@ -201,11 +239,17 @@ export class OpenAIService {
   }
 
   cleanup() {
-    console.log('OpenAIService: Cleaning up...');
+    console.log(`[OpenAIService ${this.instanceId}] Cleaning up. State before cleanup:`, {
+      initialized: this.initialized,
+      slackAccountId: this.slackAccountId,
+      hasInitPromise: !!this.initializationPromise
+    });
     this.textToSpeechService.cleanup();
     this.conversationHistory = [];
     this.pendingMessage = null;
     this.slackAccountId = null;
     this.initialized = false;
+    this.initializationPromise = null;
+    console.log(`[OpenAIService ${this.instanceId}] Cleanup complete`);
   }
 }
