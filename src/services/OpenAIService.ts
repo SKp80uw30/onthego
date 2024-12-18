@@ -12,6 +12,7 @@ export class OpenAIService {
   private slackService: SlackService;
   private pendingMessage: { content: string; channelName: string } | null = null;
   private initialized: boolean = false;
+  private initializationPromise: Promise<void> | null = null;
 
   constructor() {
     console.log('Initializing OpenAIService...');
@@ -19,6 +20,65 @@ export class OpenAIService {
     this.audioTranscriptionService = new AudioTranscriptionService();
     this.textToSpeechService = new TextToSpeechService();
     this.slackService = new SlackService();
+  }
+
+  async initialize() {
+    if (this.initializationPromise) {
+      return this.initializationPromise;
+    }
+
+    this.initializationPromise = new Promise<void>(async (resolve) => {
+      try {
+        console.log('Starting OpenAIService initialization...');
+        
+        // Wait for authentication
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          console.log('No active session found during initialization');
+          this.initialized = false;
+          resolve();
+          return;
+        }
+
+        // Fetch default workspace
+        const { data: settings } = await supabase
+          .from('settings')
+          .select('default_workspace_id')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+
+        if (settings?.default_workspace_id) {
+          this.slackAccountId = settings.default_workspace_id;
+          console.log('Initialized with workspace ID:', this.slackAccountId);
+          this.initialized = true;
+        } else {
+          // Try to get first available workspace
+          const { data: workspaces } = await supabase
+            .from('slack_accounts')
+            .select('id')
+            .eq('user_id', session.user.id)
+            .limit(1)
+            .maybeSingle();
+
+          if (workspaces?.id) {
+            this.slackAccountId = workspaces.id;
+            console.log('Initialized with first available workspace ID:', this.slackAccountId);
+            this.initialized = true;
+          } else {
+            console.log('No workspace found during initialization');
+            this.initialized = false;
+          }
+        }
+
+        resolve();
+      } catch (error) {
+        console.error('Error during OpenAIService initialization:', error);
+        this.initialized = false;
+        resolve();
+      }
+    });
+
+    return this.initializationPromise;
   }
 
   setSlackAccountId(id: string | null) {
@@ -32,7 +92,7 @@ export class OpenAIService {
   }
 
   isInitialized(): boolean {
-    return this.initialized;
+    return this.initialized && this.slackAccountId !== null;
   }
 
   async processAudioChunk(audioBlob: Blob) {
