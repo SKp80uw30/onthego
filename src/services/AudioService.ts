@@ -1,39 +1,34 @@
 import { AudioRecorder } from "@/components/audio/AudioRecorder";
-import { OpenAIService } from "./OpenAIService";
+import { AudioTranscriptionService } from "./AudioTranscriptionService";
 import { toast } from "sonner";
 
 export class AudioService {
-  private mediaRecorder: MediaRecorder | null = null;
-  private audioChunks: Blob[] = [];
-  private isRecording: boolean = false;
-  private openAIService: OpenAIService;
+  private recorder: AudioRecorder | null = null;
+  private transcriptionService: AudioTranscriptionService;
+  private isInitialized = false;
 
   constructor() {
-    this.openAIService = new OpenAIService();
+    this.transcriptionService = new AudioTranscriptionService();
   }
 
   async initialize() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      this.mediaRecorder = new MediaRecorder(stream);
-      
-      this.mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          this.audioChunks.push(event.data);
-        }
-      };
+      if (this.isInitialized) {
+        console.log('Audio service already initialized');
+        return true;
+      }
 
-      this.mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+      console.log('Initializing audio service...');
+      this.recorder = new AudioRecorder(async (audioBlob) => {
         try {
           await this.processAudio(audioBlob);
         } catch (error) {
           console.error('Error processing audio:', error);
           toast.error('Error processing audio');
         }
-        this.audioChunks = [];
-      };
+      });
 
+      this.isInitialized = true;
       console.log('Audio service initialized successfully');
       return true;
     } catch (error) {
@@ -42,34 +37,42 @@ export class AudioService {
     }
   }
 
-  startRecording() {
-    if (!this.mediaRecorder || this.isRecording) return;
+  async startRecording() {
+    if (!this.recorder) {
+      console.error('Audio service not initialized');
+      throw new Error('Audio service not initialized');
+    }
     
     try {
-      this.mediaRecorder.start();
-      this.isRecording = true;
+      await this.recorder.start();
       console.log('Started recording');
     } catch (error) {
       console.error('Error starting recording:', error);
+      throw error;
     }
   }
 
-  stopRecording() {
-    if (!this.mediaRecorder || !this.isRecording) return;
+  async stopRecording() {
+    if (!this.recorder) {
+      console.error('Audio service not initialized');
+      return;
+    }
     
     try {
-      this.mediaRecorder.stop();
-      this.isRecording = false;
+      await this.recorder.stop();
       console.log('Stopped recording');
     } catch (error) {
       console.error('Error stopping recording:', error);
+      toast.error('Error stopping recording');
     }
   }
 
   private async processAudio(audioBlob: Blob) {
     try {
-      console.log('Processing audio chunk...');
-      await this.openAIService.processAudioChunk(audioBlob);
+      console.log('Processing audio...', { blobSize: audioBlob.size });
+      const transcribedText = await this.transcriptionService.transcribeAudio(audioBlob);
+      console.log('Transcription completed:', transcribedText);
+      return transcribedText;
     } catch (error) {
       console.error('Error processing audio:', error);
       toast.error('Error processing audio');
@@ -78,14 +81,10 @@ export class AudioService {
   }
 
   cleanup() {
-    if (this.mediaRecorder) {
-      if (this.isRecording) {
-        this.mediaRecorder.stop();
-      }
-      this.mediaRecorder = null;
+    if (this.recorder) {
+      this.recorder.stop();
+      this.recorder = null;
     }
-    this.audioChunks = [];
-    this.isRecording = false;
-    this.openAIService.cleanup();
+    this.isInitialized = false;
   }
 }
