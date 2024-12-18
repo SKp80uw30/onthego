@@ -11,21 +11,18 @@ export class AudioService {
 
   async initialize() {
     try {
-      console.log('Requesting microphone access...');
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-      console.log('Creating media recorder...');
+      console.log('Initializing audio service...');
       this.audioRecorder = new AudioRecorder();
-      await this.audioRecorder.initialize();
       
       // Set up the callback for when audio data is available
-      this.audioRecorder.onAudioAvailable = async (audioBlob: Blob) => {
+      this.audioRecorder.setOnDataAvailable(async (audioBlob: Blob) => {
         console.log('Processing audio...', { blobSize: audioBlob.size });
         try {
           await this.openAIService.processAudioChunk(audioBlob);
         } catch (error) {
           console.error('Error processing audio chunk:', error);
         }
-      };
+      });
     } catch (error) {
       console.error('Error initializing audio service:', error);
       throw error;
@@ -37,7 +34,7 @@ export class AudioService {
       throw new Error('Audio recorder not initialized');
     }
     console.log('Started recording');
-    this.audioRecorder.startRecording();
+    this.audioRecorder.start();
   }
 
   stopRecording() {
@@ -45,12 +42,12 @@ export class AudioService {
       throw new Error('Audio recorder not initialized');
     }
     console.log('Stopped recording');
-    this.audioRecorder.stopRecording();
+    this.audioRecorder.stop();
   }
 
   cleanup() {
     if (this.audioRecorder) {
-      this.audioRecorder.cleanup();
+      this.audioRecorder.cleanupResources();
       this.audioRecorder = null;
     }
     this.openAIService.cleanup();

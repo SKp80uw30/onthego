@@ -48,7 +48,7 @@ export class AudioRecorder {
       console.log('Recording started successfully');
     } catch (error) {
       console.error('Error starting recording:', error);
-      await this.cleanup();
+      await this.cleanupResources();
       throw error;
     }
   }
@@ -58,12 +58,13 @@ export class AudioRecorder {
     if (this.mediaRecorder && this.isRecording) {
       this.mediaRecorder.stop();
       this.isRecording = false;
-      await this.cleanup();
+      await this.cleanupResources();
       console.log('Recording stopped successfully');
     }
   }
 
-  private async cleanup() {
+  // Renamed from private cleanup to public cleanupResources
+  async cleanupResources() {
     console.log('Cleaning up audio recorder...');
     
     if (this.stream) {
@@ -80,5 +81,9 @@ export class AudioRecorder {
 
     this.audioChunks = [];
     this.isRecording = false;
+  }
+
+  setOnDataAvailable(callback: (blob: Blob) => void) {
+    this.onDataAvailable = callback;
   }
 }
