@@ -11,6 +11,7 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -27,6 +28,7 @@ serve(async (req) => {
       }
 
       try {
+        console.log('Fetching Slack account details...');
         const { data: slackAccount } = await supabase
           .from('slack_accounts')
           .select('slack_bot_token')
@@ -40,15 +42,15 @@ serve(async (req) => {
 
         console.log('Fetching messages from Slack channel:', channelName);
         const messages = await fetchSlackMessages(channelName, slackAccount.slack_bot_token);
-        console.log('Successfully fetched messages:', messages);
+        console.log('Successfully fetched messages:', messages.length);
 
         return new Response(
           JSON.stringify({ messages }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (slackError) {
-        console.error('Error fetching Slack messages:', slackError);
-        throw new Error(`Failed to fetch Slack messages: ${slackError.message}`);
+        console.error('Error in Slack operation:', slackError);
+        throw new Error(`Slack operation failed: ${slackError.message}`);
       }
     }
 
@@ -59,7 +61,11 @@ serve(async (req) => {
 
     console.log('Calling OpenAI API...');
     const aiResponse = await chatWithAI(openAIApiKey!, message, conversationHistory);
-    console.log('AI Response:', aiResponse);
+    console.log('AI Response:', {
+      action: aiResponse.action,
+      channelName: aiResponse.channelName,
+      hasMessageContent: !!aiResponse.messageContent
+    });
 
     return new Response(
       JSON.stringify(aiResponse),
