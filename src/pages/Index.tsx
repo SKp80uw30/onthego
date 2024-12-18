@@ -7,18 +7,17 @@ import { LoginForm } from '@/components/auth/LoginForm';
 import { Header } from '@/components/dashboard/Header';
 import { OnboardingSection } from '@/components/dashboard/OnboardingSection';
 import { AudioService } from '@/services/AudioService';
-import { OpenAIService } from '@/services/OpenAIService';
 
 const Index = () => {
   const [isListening, setIsListening] = useState(false);
   const [session, setSession] = useState(null);
   const [audioService] = useState(() => new AudioService());
+  const [isAudioInitialized, setIsAudioInitialized] = useState(false);
   const isMobile = useIsMobile();
 
   const fetchDefaultWorkspace = async (userId: string) => {
     try {
       console.log('Fetching slack accounts...');
-      // First try to get user settings
       const { data: settings, error: settingsError } = await supabase
         .from('settings')
         .select('default_workspace_id')
@@ -35,7 +34,6 @@ const Index = () => {
         return;
       }
 
-      // If no settings or no default workspace, try to get the first available workspace
       const { data: workspaces, error: workspacesError } = await supabase
         .from('slack_accounts')
         .select('id')
@@ -52,7 +50,6 @@ const Index = () => {
         console.log('Using first available workspace:', workspaces.id);
         audioService.getOpenAIService().setSlackAccountId(workspaces.id);
         
-        // Create settings with this workspace as default
         const { error: createError } = await supabase
           .from('settings')
           .upsert({
@@ -75,6 +72,16 @@ const Index = () => {
   };
 
   useEffect(() => {
+    const initializeAudio = async () => {
+      try {
+        await audioService.initialize();
+        setIsAudioInitialized(true);
+      } catch (error) {
+        console.error('Failed to initialize audio service:', error);
+        toast.error('Failed to initialize audio. Please check microphone permissions.');
+      }
+    };
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       console.log('Current session:', session ? 'Active' : 'None');
       setSession(session);
@@ -95,10 +102,7 @@ const Index = () => {
     });
 
     // Initialize audio service
-    audioService.initialize().catch(error => {
-      console.error('Failed to initialize audio service:', error);
-      toast.error('Failed to initialize audio. Please check microphone permissions.');
-    });
+    initializeAudio();
 
     return () => {
       subscription.unsubscribe();
@@ -109,6 +113,11 @@ const Index = () => {
   const handleStartListening = async () => {
     if (!session) {
       toast.error('Please log in to use this feature');
+      return;
+    }
+
+    if (!isAudioInitialized) {
+      toast.error('Audio service is still initializing. Please try again in a moment.');
       return;
     }
 
