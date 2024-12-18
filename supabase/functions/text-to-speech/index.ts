@@ -37,15 +37,19 @@ serve(async (req) => {
       throw new Error(`OpenAI API error: ${error.error?.message || 'Unknown error'}`);
     }
 
+    // Convert the audio data to base64
     const audioData = await response.arrayBuffer();
-    console.log('Successfully generated audio response');
+    const base64Audio = btoa(String.fromCharCode(...new Uint8Array(audioData)));
 
-    return new Response(audioData, {
-      headers: { 
-        ...corsHeaders,
-        'Content-Type': 'audio/mpeg',
-      },
-    });
+    return new Response(
+      JSON.stringify({ data: base64Audio }),
+      {
+        headers: { 
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
   } catch (error) {
     console.error('Error in text-to-speech function:', error);
     return new Response(

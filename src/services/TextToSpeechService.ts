@@ -8,13 +8,21 @@ export class TextToSpeechService {
     try {
       console.log('Converting text to speech:', text);
       
-      const { data: audioArrayBuffer, error } = await supabase.functions.invoke('text-to-speech', {
+      const { data, error } = await supabase.functions.invoke('text-to-speech', {
         body: { text }
       });
 
       if (error) {
         throw error;
       }
+
+      // Convert base64 to ArrayBuffer
+      const binaryString = atob(data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const audioArrayBuffer = bytes.buffer;
 
       if (!this.audioContext) {
         this.audioContext = new AudioContext();
