@@ -49,32 +49,53 @@ const Index = () => {
 
   const fetchDefaultWorkspace = async (userId: string) => {
     try {
-      const { data: settings, error } = await supabase
+      // First try to get user settings
+      const { data: settings, error: settingsError } = await supabase
         .from('settings')
         .select('default_workspace_id')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle(); // Use maybeSingle instead of single to handle no results
 
-      if (error) throw error;
+      if (settingsError && settingsError.code !== 'PGRST116') {
+        throw settingsError;
+      }
 
       if (settings?.default_workspace_id) {
+        console.log('Found default workspace:', settings.default_workspace_id);
         openAIService.setSlackAccountId(settings.default_workspace_id);
-      } else {
-        // If no default workspace, try to get the first available workspace
-        const { data: workspaces, error: workspacesError } = await supabase
-          .from('slack_accounts')
-          .select('id')
-          .eq('user_id', userId)
-          .limit(1)
-          .single();
+        return;
+      }
 
-        if (workspacesError) throw workspacesError;
+      // If no settings or no default workspace, try to get the first available workspace
+      const { data: workspaces, error: workspacesError } = await supabase
+        .from('slack_accounts')
+        .select('id')
+        .eq('user_id', userId)
+        .limit(1)
+        .maybeSingle();
 
-        if (workspaces) {
-          openAIService.setSlackAccountId(workspaces.id);
-        } else {
-          toast.error('No Slack workspace connected. Please connect a workspace first.');
+      if (workspacesError && workspacesError.code !== 'PGRST116') {
+        throw workspacesError;
+      }
+
+      if (workspaces?.id) {
+        console.log('Using first available workspace:', workspaces.id);
+        openAIService.setSlackAccountId(workspaces.id);
+        
+        // Create settings with this workspace as default
+        const { error: createError } = await supabase
+          .from('settings')
+          .insert({
+            user_id: userId,
+            default_workspace_id: workspaces.id
+          });
+
+        if (createError) {
+          console.error('Error creating settings:', createError);
         }
+      } else {
+        console.log('No Slack workspace connected');
+        toast.error('Please connect a Slack workspace to use voice commands');
       }
     } catch (error) {
       console.error('Error fetching default workspace:', error);
