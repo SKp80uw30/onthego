@@ -33,8 +33,8 @@ export class AudioRecorderManager {
     try {
       console.log('Starting audio recording...');
       if (!this.recorder) {
-        this.recorder = new AudioRecorder(async (audioData: Float32Array) => {
-          const blob = new Blob([audioData], { type: 'audio/webm' });
+        this.recorder = new AudioRecorder(async (blob: Blob) => {
+          console.log('Received audio blob:', blob);
           this.audioChunks.push(blob);
         });
       }
