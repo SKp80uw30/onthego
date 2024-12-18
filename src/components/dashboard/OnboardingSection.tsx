@@ -7,14 +7,21 @@ import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 
 export const OnboardingSection = () => {
-  // Fetch Slack accounts
+  // Fetch Slack accounts with detailed error logging
   const { data: slackAccounts } = useQuery({
     queryKey: ['slack-accounts'],
     queryFn: async () => {
+      console.log('Fetching slack accounts...');
       const { data, error } = await supabase
         .from('slack_accounts')
         .select('*');
-      if (error) throw error;
+      
+      if (error) {
+        console.error('Error fetching slack accounts:', error);
+        throw error;
+      }
+      
+      console.log('Slack accounts fetched:', data);
       return data;
     },
   });
