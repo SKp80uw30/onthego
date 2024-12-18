@@ -24,13 +24,13 @@ const Index = () => {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       console.log('Auth state changed:', _event);
       setSession(session);
       if (session) {
         toast.success('Successfully logged in!');
         // Fetch default workspace when user logs in
-        fetchDefaultWorkspace(session.user.id);
+        await fetchDefaultWorkspace(session.user.id);
       }
     });
 
@@ -54,10 +54,10 @@ const Index = () => {
         .from('settings')
         .select('default_workspace_id')
         .eq('user_id', userId)
-        .maybeSingle(); // Use maybeSingle instead of single to handle no results
+        .maybeSingle();
 
-      if (settingsError && settingsError.code !== 'PGRST116') {
-        throw settingsError;
+      if (settingsError) {
+        console.error('Error fetching settings:', settingsError);
       }
 
       if (settings?.default_workspace_id) {
@@ -74,8 +74,9 @@ const Index = () => {
         .limit(1)
         .maybeSingle();
 
-      if (workspacesError && workspacesError.code !== 'PGRST116') {
-        throw workspacesError;
+      if (workspacesError) {
+        console.error('Error fetching workspaces:', workspacesError);
+        return;
       }
 
       if (workspaces?.id) {
@@ -85,20 +86,21 @@ const Index = () => {
         // Create settings with this workspace as default
         const { error: createError } = await supabase
           .from('settings')
-          .insert({
+          .upsert({
             user_id: userId,
             default_workspace_id: workspaces.id
           });
 
         if (createError) {
           console.error('Error creating settings:', createError);
+          toast.error('Failed to save workspace settings');
         }
       } else {
         console.log('No Slack workspace connected');
         toast.error('Please connect a Slack workspace to use voice commands');
       }
     } catch (error) {
-      console.error('Error fetching default workspace:', error);
+      console.error('Error in fetchDefaultWorkspace:', error);
       toast.error('Failed to fetch workspace settings');
     }
   };
