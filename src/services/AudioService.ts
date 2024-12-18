@@ -20,7 +20,10 @@ export class AudioService {
       }
 
       await this.openAIService.initialize();
+      console.log('[AudioService] OpenAI service initialized');
+      
       this.audioRecorder = new AudioRecorder();
+      console.log('[AudioService] Audio recorder created');
       
       // Set up the callback for when audio data is available
       this.audioRecorder.setOnDataAvailable(async (audioBlob: Blob) => {
@@ -48,19 +51,23 @@ export class AudioService {
     }
   }
 
-  startRecording() {
-    if (!this.audioRecorder) {
-      console.error('[AudioService] Audio recorder not initialized');
-      throw new Error('Audio recorder not initialized');
+  async startRecording() {
+    console.log('[AudioService] Starting recording...');
+    if (!this.audioRecorder || !this.initialized) {
+      const error = new Error('Audio recorder not initialized');
+      console.error('[AudioService] Error:', error);
+      throw error;
     }
-    console.log('[AudioService] Started recording');
-    this.audioRecorder.start();
+    console.log('[AudioService] Starting audio recorder');
+    await this.audioRecorder.start();
+    console.log('[AudioService] Recording started successfully');
   }
 
   stopRecording() {
-    if (!this.audioRecorder) {
-      console.error('[AudioService] Audio recorder not initialized');
-      throw new Error('Audio recorder not initialized');
+    if (!this.audioRecorder || !this.initialized) {
+      const error = new Error('Audio recorder not initialized');
+      console.error('[AudioService] Error:', error);
+      throw error;
     }
     console.log('[AudioService] Stopped recording');
     this.audioRecorder.stop();
