@@ -72,63 +72,98 @@ export class OpenAIProcessor {
   }
 
   private async handlePendingMessage(transcribedText: string, pendingMessage: { content: string; channelName: string }, slackAccountId: string) {
-    if (transcribedText.toLowerCase().includes('yes') || transcribedText.toLowerCase().includes('confirm')) {
-      await this.slackService.sendMessage(pendingMessage.content, pendingMessage.channelName, slackAccountId);
-      await this.textToSpeechService.speakText('Message sent successfully.');
+    try {
+      if (transcribedText.toLowerCase().includes('yes') || transcribedText.toLowerCase().includes('confirm')) {
+        await this.slackService.sendMessage(pendingMessage.content, pendingMessage.channelName, slackAccountId);
+        await this.textToSpeechService.speakText('Message sent successfully.');
+        this.state.setPendingMessage(null);
+        return;
+      } 
+      
+      if (transcribedText.toLowerCase().includes('no') || transcribedText.toLowerCase().includes('cancel')) {
+        await this.textToSpeechService.speakText('Message cancelled.');
+        this.state.setPendingMessage(null);
+        return;
+      }
+    } catch (error) {
+      console.error('Error handling pending message:', error);
+      toast.error('Error processing message confirmation');
       this.state.setPendingMessage(null);
-      return;
-    } 
-    
-    if (transcribedText.toLowerCase().includes('no') || transcribedText.toLowerCase().includes('cancel')) {
-      await this.textToSpeechService.speakText('Message cancelled.');
-      this.state.setPendingMessage(null);
-      return;
     }
   }
 
   private async processChatResponse(transcribedText: string, slackAccountId: string) {
-    const { data: chatResponse, error: chatError } = await supabase.functions.invoke('chat-with-ai', {
-      body: {
-        message: transcribedText,
-        slackAccountId: slackAccountId,
-        conversationHistory: this.state.getConversationHistory(),
-      },
-    });
+    try {
+      console.log('Sending chat request with:', { transcribedText, slackAccountId });
+      const { data: chatResponse, error: chatError } = await supabase.functions.invoke('chat-with-ai', {
+        body: {
+          message: transcribedText,
+          slackAccountId: slackAccountId,
+          conversationHistory: this.state.getConversationHistory(),
+        },
+      });
 
-    if (chatError) {
-      throw new Error(`Error in AI chat: ${chatError.message}`);
+      if (chatError) {
+        console.error('Chat API error:', chatError);
+        throw new Error(`Error in AI chat: ${chatError.message}`);
+      }
+
+      if (!chatResponse) {
+        console.error('No chat response received');
+        throw new Error('No response from chat service');
+      }
+
+      console.log('Received chat response:', chatResponse);
+      await this.handleChatResponse(chatResponse, transcribedText, slackAccountId);
+      return { transcribedText, aiResponse: chatResponse.response };
+    } catch (error) {
+      console.error('Error processing chat response:', error);
+      toast.error('Error processing your request');
+      throw error;
     }
-
-    await this.handleChatResponse(chatResponse, transcribedText, slackAccountId);
-    return { transcribedText, aiResponse: chatResponse.response };
   }
 
   private async handleChatResponse(chatResponse: ChatResponse, transcribedText: string, slackAccountId: string) {
-    // Update conversation history
-    this.state.addToConversationHistory({ role: 'user', content: transcribedText });
-    this.state.addToConversationHistory({ role: 'assistant', content: chatResponse.response });
+    try {
+      // Update conversation history
+      this.state.addToConversationHistory({ role: 'user', content: transcribedText });
+      this.state.addToConversationHistory({ role: 'assistant', content: chatResponse.response });
 
-    // Speak the AI's response
-    await this.textToSpeechService.speakText(chatResponse.response);
+      // Speak the AI's response if it's not empty
+      if (chatResponse.response.trim()) {
+        await this.textToSpeechService.speakText(chatResponse.response);
+      }
 
-    // Handle specific actions
-    if (chatResponse.action === 'SEND_MESSAGE') {
-      this.state.setPendingMessage({
-        content: chatResponse.messageContent!,
-        channelName: chatResponse.channelName!
-      });
-      await this.textToSpeechService.speakText(
-        `I'll send this message to ${chatResponse.channelName}: "${chatResponse.messageContent}". Would you like to confirm sending this message?`
-      );
-    } else if (chatResponse.action === 'FETCH_MESSAGES') {
-      const messages = await this.slackService.fetchMessages(chatResponse.channelName!, slackAccountId);
-      this.state.addToConversationHistory({
-        role: 'system',
-        content: `Here are the messages from #${chatResponse.channelName}:\n${messages.join('\n')}`
-      });
-      await this.textToSpeechService.speakText(
-        `Here are the recent messages from ${chatResponse.channelName}: ${messages.join('. Next message: ')}`
-      );
+      // Handle specific actions
+      if (chatResponse.action === 'SEND_MESSAGE' && chatResponse.messageContent && chatResponse.channelName) {
+        this.state.setPendingMessage({
+          content: chatResponse.messageContent,
+          channelName: chatResponse.channelName
+        });
+        
+        const confirmationMessage = `I'll send this message to ${chatResponse.channelName}: "${chatResponse.messageContent}". Would you like to confirm sending this message?`;
+        await this.textToSpeechService.speakText(confirmationMessage);
+      } else if (chatResponse.action === 'FETCH_MESSAGES' && chatResponse.channelName) {
+        console.log('Fetching messages for channel:', chatResponse.channelName);
+        const messages = await this.slackService.fetchMessages(chatResponse.channelName, slackAccountId);
+        
+        if (messages && messages.length > 0) {
+          this.state.addToConversationHistory({
+            role: 'system',
+            content: `Here are the messages from #${chatResponse.channelName}:\n${messages.join('\n')}`
+          });
+          
+          const messageText = `Here are the recent messages from ${chatResponse.channelName}: ${messages.join('. Next message: ')}`;
+          await this.textToSpeechService.speakText(messageText);
+        } else {
+          const noMessagesText = `No recent messages found in ${chatResponse.channelName}`;
+          await this.textToSpeechService.speakText(noMessagesText);
+        }
+      }
+    } catch (error) {
+      console.error('Error handling chat response:', error);
+      toast.error('Error processing chat response');
+      throw error;
     }
   }
 
