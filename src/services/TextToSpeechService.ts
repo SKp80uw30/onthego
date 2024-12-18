@@ -13,29 +13,46 @@ export class TextToSpeechService {
       });
 
       if (error) {
+        console.error('Edge function error:', error);
         throw error;
       }
 
-      // Convert base64 to ArrayBuffer
-      const binaryString = atob(data);
+      if (!data || !data.audioBase64) {
+        console.error('Invalid response format:', data);
+        throw new Error('Invalid response from text-to-speech service');
+      }
+
+      // Convert base64 to Uint8Array
+      console.log('Converting base64 to audio data...');
+      const binaryString = atob(data.audioBase64);
       const bytes = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
         bytes[i] = binaryString.charCodeAt(i);
       }
-      const audioArrayBuffer = bytes.buffer;
 
+      // Create AudioContext if it doesn't exist
       if (!this.audioContext) {
+        console.log('Creating new AudioContext...');
         this.audioContext = new AudioContext();
       }
 
-      console.log('Decoding audio data...');
-      const audioBuffer = await this.audioContext.decodeAudioData(audioArrayBuffer);
-      
-      console.log('Playing audio...');
-      const source = this.audioContext.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(this.audioContext.destination);
-      source.start(0);
+      console.log('Decoding audio data...', {
+        arrayBufferLength: bytes.buffer.byteLength,
+        audioContextState: this.audioContext.state
+      });
+
+      try {
+        const audioBuffer = await this.audioContext.decodeAudioData(bytes.buffer);
+        console.log('Audio successfully decoded, playing...');
+        
+        const source = this.audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(this.audioContext.destination);
+        source.start(0);
+      } catch (decodeError) {
+        console.error('Audio decoding error:', decodeError);
+        throw new Error('Failed to decode audio data');
+      }
     } catch (error) {
       console.error('Error in text-to-speech service:', error);
       toast.error('Error converting text to speech');
@@ -45,6 +62,7 @@ export class TextToSpeechService {
 
   cleanup() {
     if (this.audioContext) {
+      console.log('Cleaning up AudioContext...');
       this.audioContext.close();
       this.audioContext = null;
     }
