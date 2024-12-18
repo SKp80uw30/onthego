@@ -36,6 +36,20 @@ export class SlackService {
   async fetchMessages(channelName: string, slackAccountId: string) {
     try {
       console.log('Starting fetchMessages operation:', { channelName, slackAccountId });
+      
+      // First validate the Slack account exists
+      const { data: account, error: accountError } = await supabase
+        .from('slack_accounts')
+        .select('*')
+        .eq('id', slackAccountId)
+        .single();
+
+      if (accountError || !account) {
+        console.error('Error fetching Slack account:', { accountError, slackAccountId });
+        toast.error('Failed to validate Slack account');
+        throw new Error('Invalid Slack account');
+      }
+
       const { data, error } = await supabase.functions.invoke('chat-with-ai', {
         body: {
           command: 'FETCH_MESSAGES',
