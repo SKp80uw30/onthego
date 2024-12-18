@@ -1,90 +1,58 @@
-import { AudioRecorder } from "@/components/audio/AudioRecorder";
-import { AudioTranscriptionService } from "./AudioTranscriptionService";
-import { toast } from "sonner";
+import { AudioRecorder } from '@/components/audio/AudioRecorder';
+import { OpenAIService } from './OpenAIService';
 
 export class AudioService {
-  private recorder: AudioRecorder | null = null;
-  private transcriptionService: AudioTranscriptionService;
-  private isInitialized = false;
+  private audioRecorder: AudioRecorder | null = null;
+  private openAIService: OpenAIService;
 
   constructor() {
-    this.transcriptionService = new AudioTranscriptionService();
+    this.openAIService = new OpenAIService();
   }
 
   async initialize() {
     try {
-      if (this.isInitialized) {
-        console.log('Audio service already initialized');
-        return true;
-      }
-
-      console.log('Initializing audio service...');
-      this.recorder = new AudioRecorder(async (audioBlob) => {
+      console.log('Requesting microphone access...');
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('Creating media recorder...');
+      this.audioRecorder = new AudioRecorder();
+      await this.audioRecorder.initialize();
+      
+      // Set up the callback for when audio data is available
+      this.audioRecorder.onAudioAvailable = async (audioBlob: Blob) => {
+        console.log('Processing audio...', { blobSize: audioBlob.size });
         try {
-          await this.processAudio(audioBlob);
+          await this.openAIService.processAudioChunk(audioBlob);
         } catch (error) {
-          console.error('Error processing audio:', error);
-          toast.error('Error processing audio');
+          console.error('Error processing audio chunk:', error);
         }
-      });
-
-      this.isInitialized = true;
-      console.log('Audio service initialized successfully');
-      return true;
+      };
     } catch (error) {
       console.error('Error initializing audio service:', error);
-      return false;
-    }
-  }
-
-  async startRecording() {
-    if (!this.recorder) {
-      console.error('Audio service not initialized');
-      throw new Error('Audio service not initialized');
-    }
-    
-    try {
-      await this.recorder.start();
-      console.log('Started recording');
-    } catch (error) {
-      console.error('Error starting recording:', error);
       throw error;
     }
   }
 
-  async stopRecording() {
-    if (!this.recorder) {
-      console.error('Audio service not initialized');
-      return;
+  startRecording() {
+    if (!this.audioRecorder) {
+      throw new Error('Audio recorder not initialized');
     }
-    
-    try {
-      await this.recorder.stop();
-      console.log('Stopped recording');
-    } catch (error) {
-      console.error('Error stopping recording:', error);
-      toast.error('Error stopping recording');
-    }
+    console.log('Started recording');
+    this.audioRecorder.startRecording();
   }
 
-  private async processAudio(audioBlob: Blob) {
-    try {
-      console.log('Processing audio...', { blobSize: audioBlob.size });
-      const transcribedText = await this.transcriptionService.transcribeAudio(audioBlob);
-      console.log('Transcription completed:', transcribedText);
-      return transcribedText;
-    } catch (error) {
-      console.error('Error processing audio:', error);
-      toast.error('Error processing audio');
-      throw error;
+  stopRecording() {
+    if (!this.audioRecorder) {
+      throw new Error('Audio recorder not initialized');
     }
+    console.log('Stopped recording');
+    this.audioRecorder.stopRecording();
   }
 
   cleanup() {
-    if (this.recorder) {
-      this.recorder.stop();
-      this.recorder = null;
+    if (this.audioRecorder) {
+      this.audioRecorder.cleanup();
+      this.audioRecorder = null;
     }
-    this.isInitialized = false;
+    this.openAIService.cleanup();
   }
 }

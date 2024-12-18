@@ -7,11 +7,13 @@ import { LoginForm } from '@/components/auth/LoginForm';
 import { Header } from '@/components/dashboard/Header';
 import { OnboardingSection } from '@/components/dashboard/OnboardingSection';
 import { AudioService } from '@/services/AudioService';
+import { OpenAIService } from '@/services/OpenAIService';
 
 const Index = () => {
   const [isListening, setIsListening] = useState(false);
   const [session, setSession] = useState(null);
   const [audioService] = useState(() => new AudioService());
+  const [openAIService] = useState(() => new OpenAIService());
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -27,6 +29,8 @@ const Index = () => {
       setSession(session);
       if (session) {
         toast.success('Successfully logged in!');
+        // Fetch default workspace when user logs in
+        fetchDefaultWorkspace(session.user.id);
       }
     });
 
@@ -39,8 +43,44 @@ const Index = () => {
     return () => {
       subscription.unsubscribe();
       audioService.cleanup();
+      openAIService.cleanup();
     };
-  }, [audioService]);
+  }, [audioService, openAIService]);
+
+  const fetchDefaultWorkspace = async (userId: string) => {
+    try {
+      const { data: settings, error } = await supabase
+        .from('settings')
+        .select('default_workspace_id')
+        .eq('user_id', userId)
+        .single();
+
+      if (error) throw error;
+
+      if (settings?.default_workspace_id) {
+        openAIService.setSlackAccountId(settings.default_workspace_id);
+      } else {
+        // If no default workspace, try to get the first available workspace
+        const { data: workspaces, error: workspacesError } = await supabase
+          .from('slack_accounts')
+          .select('id')
+          .eq('user_id', userId)
+          .limit(1)
+          .single();
+
+        if (workspacesError) throw workspacesError;
+
+        if (workspaces) {
+          openAIService.setSlackAccountId(workspaces.id);
+        } else {
+          toast.error('No Slack workspace connected. Please connect a workspace first.');
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching default workspace:', error);
+      toast.error('Failed to fetch workspace settings');
+    }
+  };
 
   const handleStartListening = async () => {
     if (!session) {
