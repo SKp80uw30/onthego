@@ -34,10 +34,25 @@ export class OpenAIProcessor {
       }
 
       // Process transcription
-      const { data: transcriptionResponse } = await supabase.functions.invoke('process-audio', {
-        body: { audio: audioBlob }
+      const formData = new FormData();
+      formData.append('file', audioBlob, 'audio.webm');
+
+      const { data: transcriptionResponse, error: transcriptionError } = await supabase.functions.invoke('process-audio', {
+        body: formData,
       });
-      
+
+      if (transcriptionError || !transcriptionResponse) {
+        console.error('Transcription error:', transcriptionError || 'No response data');
+        toast.error('Error transcribing audio. Please try again.');
+        return;
+      }
+
+      if (!transcriptionResponse.text) {
+        console.error('No transcription text in response:', transcriptionResponse);
+        toast.error('Could not transcribe audio. Please try again.');
+        return;
+      }
+
       const transcribedText = transcriptionResponse.text;
       console.log(`[OpenAIProcessor ${this.state.getInstanceId()}] Transcription completed:`, transcribedText);
 
