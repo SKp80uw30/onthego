@@ -13,45 +13,11 @@ const Index = () => {
   const [isListening, setIsListening] = useState(false);
   const [session, setSession] = useState(null);
   const [audioService] = useState(() => new AudioService());
-  const [openAIService] = useState(() => new OpenAIService());
   const isMobile = useIsMobile();
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Current session:', session ? 'Active' : 'None');
-      setSession(session);
-      if (session) {
-        fetchDefaultWorkspace(session.user.id);
-      }
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      console.log('Auth state changed:', _event);
-      setSession(session);
-      if (session) {
-        toast.success('Successfully logged in!');
-        // Fetch default workspace when user logs in
-        await fetchDefaultWorkspace(session.user.id);
-      }
-    });
-
-    // Initialize audio service
-    audioService.initialize().catch(error => {
-      console.error('Failed to initialize audio service:', error);
-      toast.error('Failed to initialize audio. Please check microphone permissions.');
-    });
-
-    return () => {
-      subscription.unsubscribe();
-      audioService.cleanup();
-      openAIService.cleanup();
-    };
-  }, [audioService, openAIService]);
 
   const fetchDefaultWorkspace = async (userId: string) => {
     try {
+      console.log('Fetching slack accounts...');
       // First try to get user settings
       const { data: settings, error: settingsError } = await supabase
         .from('settings')
@@ -65,7 +31,7 @@ const Index = () => {
 
       if (settings?.default_workspace_id) {
         console.log('Found default workspace:', settings.default_workspace_id);
-        openAIService.setSlackAccountId(settings.default_workspace_id);
+        audioService.getOpenAIService().setSlackAccountId(settings.default_workspace_id);
         return;
       }
 
@@ -84,7 +50,7 @@ const Index = () => {
 
       if (workspaces?.id) {
         console.log('Using first available workspace:', workspaces.id);
-        openAIService.setSlackAccountId(workspaces.id);
+        audioService.getOpenAIService().setSlackAccountId(workspaces.id);
         
         // Create settings with this workspace as default
         const { error: createError } = await supabase
@@ -107,6 +73,38 @@ const Index = () => {
       toast.error('Failed to fetch workspace settings');
     }
   };
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Current session:', session ? 'Active' : 'None');
+      setSession(session);
+      if (session) {
+        fetchDefaultWorkspace(session.user.id);
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      console.log('Auth state changed:', _event);
+      setSession(session);
+      if (session) {
+        toast.success('Successfully logged in!');
+        await fetchDefaultWorkspace(session.user.id);
+      }
+    });
+
+    // Initialize audio service
+    audioService.initialize().catch(error => {
+      console.error('Failed to initialize audio service:', error);
+      toast.error('Failed to initialize audio. Please check microphone permissions.');
+    });
+
+    return () => {
+      subscription.unsubscribe();
+      audioService.cleanup();
+    };
+  }, [audioService]);
 
   const handleStartListening = async () => {
     if (!session) {

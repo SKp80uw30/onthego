@@ -11,6 +11,7 @@ export class OpenAIService {
   private textToSpeechService: TextToSpeechService;
   private slackService: SlackService;
   private pendingMessage: { content: string; channelName: string } | null = null;
+  private initialized: boolean = false;
 
   constructor() {
     console.log('Initializing OpenAIService...');
@@ -23,16 +24,27 @@ export class OpenAIService {
   setSlackAccountId(id: string | null) {
     console.log('Setting Slack account ID:', id);
     this.slackAccountId = id;
+    this.initialized = true;
   }
 
   getSlackAccountId(): string | null {
     return this.slackAccountId;
   }
 
+  isInitialized(): boolean {
+    return this.initialized;
+  }
+
   async processAudioChunk(audioBlob: Blob) {
     try {
       console.log('OpenAIService: Starting audio chunk processing');
       
+      if (!this.initialized) {
+        console.error('OpenAI service not initialized');
+        toast.error('Service not ready yet. Please try again in a moment.');
+        return;
+      }
+
       const currentSlackId = this.getSlackAccountId();
       if (!currentSlackId) {
         console.error('No Slack account selected');
@@ -134,5 +146,6 @@ export class OpenAIService {
     this.conversationHistory = [];
     this.pendingMessage = null;
     this.slackAccountId = null;
+    this.initialized = false;
   }
 }
