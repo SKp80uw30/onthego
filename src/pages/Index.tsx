@@ -20,6 +20,9 @@ const Index = () => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       console.log('Current session:', session ? 'Active' : 'None');
       setSession(session);
+      if (session) {
+        fetchDefaultWorkspace(session.user.id);
+      }
     });
 
     const {

@@ -20,21 +20,27 @@ export class OpenAIService {
     this.slackService = new SlackService();
   }
 
-  setSlackAccountId(id: string) {
+  setSlackAccountId(id: string | null) {
     console.log('Setting Slack account ID:', id);
     this.slackAccountId = id;
+  }
+
+  getSlackAccountId(): string | null {
+    return this.slackAccountId;
   }
 
   async processAudioChunk(audioBlob: Blob) {
     try {
       console.log('OpenAIService: Starting audio chunk processing');
       
-      if (!this.slackAccountId) {
+      const currentSlackId = this.getSlackAccountId();
+      if (!currentSlackId) {
         console.error('No Slack account selected');
         toast.error('No Slack account selected');
         return;
       }
 
+      console.log('OpenAIService: Using Slack account:', currentSlackId);
       console.log('OpenAIService: Starting transcription...');
       const transcribedText = await this.audioTranscriptionService.transcribeAudio(audioBlob);
       console.log('OpenAIService: Transcription completed:', transcribedText);
@@ -47,7 +53,7 @@ export class OpenAIService {
           await this.slackService.sendMessage(
             this.pendingMessage.content,
             this.pendingMessage.channelName,
-            this.slackAccountId
+            currentSlackId
           );
           await this.textToSpeechService.speakText('Message sent successfully.');
           this.pendingMessage = null;
@@ -64,7 +70,7 @@ export class OpenAIService {
       const { data: chatResponse, error: chatError } = await supabase.functions.invoke('chat-with-ai', {
         body: {
           message: transcribedText,
-          slackAccountId: this.slackAccountId,
+          slackAccountId: currentSlackId,
           conversationHistory: this.conversationHistory,
         },
       });
@@ -100,7 +106,7 @@ export class OpenAIService {
         console.log('OpenAIService: Fetching messages from Slack...');
         const messages = await this.slackService.fetchMessages(
           chatResponse.channelName,
-          this.slackAccountId
+          currentSlackId
         );
         // Add fetched messages to conversation history
         this.conversationHistory.push({
@@ -127,5 +133,6 @@ export class OpenAIService {
     this.textToSpeechService.cleanup();
     this.conversationHistory = [];
     this.pendingMessage = null;
+    this.slackAccountId = null;
   }
 }
