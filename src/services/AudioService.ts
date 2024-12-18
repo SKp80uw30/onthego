@@ -7,14 +7,15 @@ export class AudioService {
   private initialized: boolean = false;
 
   constructor() {
+    console.log('[AudioService] Constructor called');
     this.openAIService = new OpenAIService();
   }
 
   async initialize() {
     try {
-      console.log('Initializing audio service...');
+      console.log('[AudioService] Initializing audio service...');
       if (this.initialized) {
-        console.log('Audio service already initialized');
+        console.log('[AudioService] Audio service already initialized');
         return;
       }
 
@@ -23,43 +24,45 @@ export class AudioService {
       
       // Set up the callback for when audio data is available
       this.audioRecorder.setOnDataAvailable(async (audioBlob: Blob) => {
-        console.log('Processing audio...', { blobSize: audioBlob.size });
+        console.log('[AudioService] Processing audio...', { blobSize: audioBlob.size });
         try {
           if (!this.openAIService.isInitialized()) {
-            console.log('OpenAI service not initialized yet, retrying initialization...');
+            console.log('[AudioService] OpenAI service not initialized yet, retrying initialization...');
             await this.openAIService.initialize();
             if (!this.openAIService.isInitialized()) {
-              console.log('Still unable to initialize OpenAI service');
+              console.log('[AudioService] Still unable to initialize OpenAI service');
               return;
             }
           }
           await this.openAIService.processAudioChunk(audioBlob);
         } catch (error) {
-          console.error('Error processing audio chunk:', error);
+          console.error('[AudioService] Error processing audio chunk:', error);
         }
       });
 
       this.initialized = true;
-      console.log('Audio service initialized successfully');
+      console.log('[AudioService] Audio service initialized successfully');
     } catch (error) {
-      console.error('Error initializing audio service:', error);
+      console.error('[AudioService] Error initializing audio service:', error);
       throw error;
     }
   }
 
   startRecording() {
     if (!this.audioRecorder) {
+      console.error('[AudioService] Audio recorder not initialized');
       throw new Error('Audio recorder not initialized');
     }
-    console.log('Started recording');
+    console.log('[AudioService] Started recording');
     this.audioRecorder.start();
   }
 
   stopRecording() {
     if (!this.audioRecorder) {
+      console.error('[AudioService] Audio recorder not initialized');
       throw new Error('Audio recorder not initialized');
     }
-    console.log('Stopped recording');
+    console.log('[AudioService] Stopped recording');
     this.audioRecorder.stop();
   }
 
@@ -68,6 +71,7 @@ export class AudioService {
   }
 
   cleanup() {
+    console.log('[AudioService] Cleaning up');
     if (this.audioRecorder) {
       this.audioRecorder.cleanupResources();
       this.audioRecorder = null;
