@@ -33,7 +33,6 @@ export class OpenAIProcessor {
         return;
       }
 
-      // Create a new FormData instance and append the audio blob
       const formData = new FormData();
       formData.append('file', new Blob([audioBlob], { type: 'audio/webm' }), 'audio.webm');
 
@@ -56,39 +55,20 @@ export class OpenAIProcessor {
       const transcribedText = transcriptionResponse.text;
       console.log(`[OpenAIProcessor ${this.state.getInstanceId()}] Transcription completed:`, transcribedText);
 
-      // Handle pending message confirmation
-      const pendingMessage = this.state.getPendingMessage();
-      if (pendingMessage) {
-        return this.handlePendingMessage(transcribedText, pendingMessage, currentSlackId);
+      try {
+        const response = await this.processChatResponse(transcribedText, currentSlackId);
+        return response;
+      } catch (error) {
+        if (error.message?.includes('quota_exceeded')) {
+          toast.error('AI service is currently unavailable due to quota limits. Please try again later.');
+        } else {
+          toast.error('Error processing your request. Please try again.');
+        }
+        throw error;
       }
-
-      // Process with ChatGPT
-      return this.processChatResponse(transcribedText, currentSlackId);
     } catch (error) {
       console.error(`[OpenAIProcessor ${this.state.getInstanceId()}] Error:`, error);
-      toast.error('Error processing audio');
       throw error;
-    }
-  }
-
-  private async handlePendingMessage(transcribedText: string, pendingMessage: { content: string; channelName: string }, slackAccountId: string) {
-    try {
-      if (transcribedText.toLowerCase().includes('yes') || transcribedText.toLowerCase().includes('confirm')) {
-        await this.slackService.sendMessage(pendingMessage.content, pendingMessage.channelName, slackAccountId);
-        await this.textToSpeechService.speakText('Message sent successfully.');
-        this.state.setPendingMessage(null);
-        return;
-      } 
-      
-      if (transcribedText.toLowerCase().includes('no') || transcribedText.toLowerCase().includes('cancel')) {
-        await this.textToSpeechService.speakText('Message cancelled.');
-        this.state.setPendingMessage(null);
-        return;
-      }
-    } catch (error) {
-      console.error('Error handling pending message:', error);
-      toast.error('Error processing message confirmation');
-      this.state.setPendingMessage(null);
     }
   }
 
@@ -105,7 +85,7 @@ export class OpenAIProcessor {
 
       if (chatError) {
         console.error('Chat API error:', chatError);
-        throw new Error(`Error in AI chat: ${chatError.message}`);
+        throw chatError;
       }
 
       if (!chatResponse) {
@@ -118,7 +98,6 @@ export class OpenAIProcessor {
       return { transcribedText, aiResponse: chatResponse.response };
     } catch (error) {
       console.error('Error processing chat response:', error);
-      toast.error('Error processing your request');
       throw error;
     }
   }
