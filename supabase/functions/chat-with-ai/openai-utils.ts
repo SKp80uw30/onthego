@@ -35,6 +35,8 @@ export const chatWithAI = async (openAIApiKey: string, message: string, messages
         ...messages,
         { role: 'user', content: message }
       ],
+      temperature: 0.7,
+      max_tokens: 150,
     }),
   });
 

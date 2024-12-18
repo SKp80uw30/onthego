@@ -93,6 +93,9 @@ export class OpenAIService {
           content: chatResponse.messageContent,
           channelName: chatResponse.channelName
         };
+        await this.textToSpeechService.speakText(
+          `I'll send this message to ${chatResponse.channelName}: "${chatResponse.messageContent}". Would you like to confirm sending this message?`
+        );
       } else if (chatResponse.action === 'FETCH_MESSAGES') {
         console.log('OpenAIService: Fetching messages from Slack...');
         const messages = await this.slackService.fetchMessages(
