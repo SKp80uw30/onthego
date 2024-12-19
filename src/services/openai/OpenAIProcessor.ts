@@ -10,8 +10,10 @@ export class OpenAIProcessor {
   private chatProcessor: ChatProcessor;
   private textToSpeechService: TextToSpeechService;
   private messageHandler: MessageHandler;
+  private state: OpenAIState;
 
   constructor(state: OpenAIState) {
+    this.state = state;
     this.textToSpeechService = new TextToSpeechService();
     const slackService = new SlackService();
     this.messageHandler = new MessageHandler(state, this.textToSpeechService, slackService);
