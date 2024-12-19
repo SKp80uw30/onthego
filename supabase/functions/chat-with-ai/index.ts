@@ -2,7 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { chatWithAI } from './openai-utils.ts';
-import { fetchSlackMessages } from './slack-utils.ts';
+import { fetchSlackMessages, sendSlackMessage } from './slack-utils.ts';
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -15,7 +15,6 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -81,6 +80,23 @@ serve(async (req) => {
       console.log('Calling OpenAI API...');
       const aiResponse = await chatWithAI(openAIApiKey, message, conversationHistory);
       console.log('AI Response:', aiResponse);
+
+      // If there's a confirmed message to send, send it
+      if (aiResponse.action === 'SEND_MESSAGE' && aiResponse.confirmed && slackAccountId) {
+        const { data: slackAccount } = await supabase
+          .from('slack_accounts')
+          .select('slack_bot_token')
+          .eq('id', slackAccountId)
+          .single();
+
+        if (slackAccount?.slack_bot_token) {
+          await sendSlackMessage(
+            aiResponse.channelName!,
+            aiResponse.messageContent!,
+            slackAccount.slack_bot_token
+          );
+        }
+      }
 
       return new Response(
         JSON.stringify(aiResponse),
