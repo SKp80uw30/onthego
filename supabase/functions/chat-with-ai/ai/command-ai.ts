@@ -1,51 +1,38 @@
-import { CommandResult } from './types.ts';
+import { SlackCommand, AIResponse } from './types.ts';
 
-const commandSystemPrompt = `You are an AI that parses user commands for Slack interactions. Your role is to:
+const commandSystemPrompt = `You are a command parser that converts natural language requests into structured Slack commands. Your role is to:
 
-1. Identify when users want to:
-   - Generate and send messages
-   - Fetch messages or mentions
-   - Confirm message sending with "Pineapple confirmation"
+1. Parse user requests for Slack operations into specific commands
+2. Extract key parameters like channel names, message counts, and time periods
+3. Return structured commands without any conversation or clarification
 
-2. For message generation:
-   - Identify the target channel
-   - Parse the message content or requirements
-   - Set appropriate action type
+Command Types:
+1. FETCH_MESSAGES: Get messages from a channel
+2. FETCH_MENTIONS: Get messages where user was mentioned
+3. SEND_MESSAGE: Send a new message to a channel
 
-3. Special commands:
-   - "Pineapple confirmation" is a special command to confirm sending a pending message
-   - When "Pineapple confirmation" is received, return { action: "SEND_MESSAGE", confirmed: true }
+Guidelines for parameters:
+1. Channel names: Extract from request or use 'ALL' for cross-channel
+2. Message counts:
+   - "last/recent message" = 1
+   - "couple/few messages" = 3
+   - Specific numbers = exact count
+   - Default = 3
+3. Time periods:
+   - "today" = current day
+   - "last X hours/minutes" = specific period
+   - Default = recent (last 24 hours)
 
-Actions you can return:
-- GENERATE_MESSAGE: When user wants to create a new message
-- SEND_MESSAGE: When user confirms with "Pineapple confirmation"
-- FETCH_MESSAGES: When user wants to see channel messages
-- FETCH_MENTIONS: When user wants to see their mentions
+Return ONLY the structured command without any conversation.
+Examples:
+- "Show mentions in general" -> "FETCH_MENTIONS:general:2024-03-14T00:00:00Z"
+- "Get my last 5 messages" -> "FETCH_MESSAGES:general:5"
+- "Send hello to team" -> "SEND_MESSAGE:team:hello"`;
 
-Always return structured data with action type and relevant parameters.`;
-
-export async function parseCommand(message: string, openAIApiKey: string, pendingMessage?: { content: string; channelName: string }): Promise<CommandResult | null> {
+export async function parseCommand(message: string, openAIApiKey: string): Promise<SlackCommand | null> {
   try {
-    console.log('Parsing command:', { message, hasPendingMessage: !!pendingMessage });
-
-    // Special handling for "Pineapple confirmation"
-    if (message.toLowerCase().includes('pineapple confirmation')) {
-      if (!pendingMessage) {
-        console.log('No pending message to confirm');
-        return {
-          action: 'SEND_MESSAGE',
-          error: 'No pending message to confirm'
-        };
-      }
-      
-      return {
-        action: 'SEND_MESSAGE',
-        confirmed: true,
-        channelName: pendingMessage.channelName,
-        messageContent: pendingMessage.content
-      };
-    }
-
+    console.log('Parsing command:', message);
+    
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -53,33 +40,53 @@ export async function parseCommand(message: string, openAIApiKey: string, pendin
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4',
         messages: [
           { role: 'system', content: commandSystemPrompt },
           { role: 'user', content: message }
         ],
-        temperature: 0.3,
-        max_tokens: 150,
+        temperature: 0.3, // Lower temperature for more consistent command parsing
+        max_tokens: 100,
       }),
     });
 
     if (!response.ok) {
       const error = await response.json();
       console.error('OpenAI API error in command parsing:', error);
-      throw new Error(`OpenAI API error: ${error.error?.message || 'Unknown error'}`);
+      return null;
     }
 
     const data = await response.json();
-    const result = data.choices[0].message.content;
+    const aiResponse = data.choices[0].message.content;
     
-    try {
-      const parsedResult = JSON.parse(result);
-      console.log('Parsed command result:', parsedResult);
-      return parsedResult;
-    } catch (e) {
-      console.error('Failed to parse command result:', e);
-      return null;
+    // Parse the command string
+    let command: SlackCommand | null = null;
+    
+    if (aiResponse.includes('FETCH_MENTIONS:')) {
+      const [, channelName, timestamp] = aiResponse.match(/FETCH_MENTIONS:(\w+|ALL):(.+)/) || [];
+      command = {
+        action: 'FETCH_MENTIONS',
+        channelName,
+        timestamp
+      };
+    } else if (aiResponse.includes('FETCH_MESSAGES:')) {
+      const [, channelName, count] = aiResponse.match(/FETCH_MESSAGES:(\w+):(\d+)/) || [];
+      command = {
+        action: 'FETCH_MESSAGES',
+        channelName,
+        messageCount: parseInt(count, 10)
+      };
+    } else if (aiResponse.includes('SEND_MESSAGE:')) {
+      const [, channelName, content] = aiResponse.match(/SEND_MESSAGE:(\w+):(.+)/) || [];
+      command = {
+        action: 'SEND_MESSAGE',
+        channelName,
+        messageContent: content
+      };
     }
+
+    console.log('Parsed command:', command);
+    return command;
   } catch (error) {
     console.error('Error in command parsing:', error);
     return null;

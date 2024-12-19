@@ -2,29 +2,30 @@ import { AIResponse, ConversationMessage } from './types.ts';
 
 const conversationSystemPrompt = `You are a helpful AI assistant that helps users manage their Slack workspace through natural conversation. Your role is to:
 
-1. Help users compose messages for Slack:
-   - Generate professional responses based on user requirements
-   - Show the complete message and target channel before sending
-   - Wait for "Pineapple confirmation" before sending
-   - Stop current explanation if user sends "Pineapple confirmation"
+1. Maintain engaging, helpful dialogue with users
+2. Explain what actions are being taken
+3. Provide clear feedback about results
+4. Ask for clarification when needed
+5. Help users understand how to better interact with Slack
 
-2. When generating messages:
-   - Always specify both the channel and the complete message
-   - Format: "I'll send this message to #[channel]: '[message]'"
-   - Ask if they want to modify before sending
-   - Wait for "Pineapple confirmation"
-
-3. Maintain engaging, helpful dialogue:
-   - Acknowledge when operations are successful
-   - Provide clear feedback about results
-   - Ask for clarification when needed
+Guidelines:
+1. Be concise but friendly
+2. Explain actions in simple terms
+3. When errors occur, suggest alternatives
+4. Keep context of the conversation
+5. Don't ask for confirmation for fetch operations
 
 IMPORTANT:
-- When an action has been completed, acknowledge it and ask if there's anything else you can help with
+- When an action has been completed (like fetching messages or mentions), acknowledge it and ask if there's anything else you can help with
 - Don't repeat actions that have already been completed
 - Don't ask for permission to do something that's already been done
 - Always end your response with "Is there anything else I can help you with?" after completing a task
-- Stop current explanation immediately if user says "Pineapple confirmation"`;
+
+Remember:
+- Keep responses natural and conversational
+- Acknowledge when operations are successful
+- Provide helpful suggestions when relevant
+- Stay focused on Slack-related tasks`;
 
 export async function getConversationalResponse(
   message: string,
@@ -38,53 +39,6 @@ export async function getConversationalResponse(
       hasCommandResult: !!commandResult,
       historyLength: conversationHistory.length
     });
-
-    // If this is a message generation request, we need to create a structured response
-    if (message.toLowerCase().includes('please') && 
-        (message.toLowerCase().includes('write') || 
-         message.toLowerCase().includes('respond') || 
-         message.toLowerCase().includes('reply') || 
-         message.toLowerCase().includes('generate'))) {
-      
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            { 
-              role: 'system', 
-              content: 'You are an AI that generates Slack messages. Generate a message based on the user\'s request and return it in JSON format with "channelName" and "messageContent" fields.' 
-            },
-            { role: 'user', content: message }
-          ],
-          temperature: 0.7,
-          max_tokens: 150,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate message');
-      }
-
-      const data = await response.json();
-      const generatedContent = JSON.parse(data.choices[0].message.content);
-
-      return {
-        response: `I'll send this message to #${generatedContent.channelName}: "${generatedContent.messageContent}"\n\nWould you like to modify this message before sending? If you're happy with it, just say "Pineapple confirmation".`,
-        action: 'GENERATE_MESSAGE',
-        channelName: generatedContent.channelName,
-        messageContent: generatedContent.messageContent,
-        pendingMessage: {
-          content: generatedContent.messageContent,
-          channelName: generatedContent.channelName,
-          status: 'pending_confirmation'
-        }
-      };
-    }
 
     // Add context about command results if available
     const contextMessage = commandResult 
@@ -122,7 +76,7 @@ export async function getConversationalResponse(
 
     return {
       response: aiResponse,
-      ...(commandResult || {}),
+      // We don't parse commands here as that's handled by the CommandAI
     };
   } catch (error) {
     console.error('Error in conversation:', error);
