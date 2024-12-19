@@ -14,6 +14,7 @@ const commandSystemPrompt = `You are an AI that parses user commands for Slack i
 
 3. Special commands:
    - "Pineapple confirmation" is a special command to confirm sending a pending message
+   - When "Pineapple confirmation" is received, return { action: "SEND_MESSAGE", confirmed: true }
 
 Actions you can return:
 - GENERATE_MESSAGE: When user wants to create a new message
@@ -23,14 +24,25 @@ Actions you can return:
 
 Always return structured data with action type and relevant parameters.`;
 
-export async function parseCommand(message: string, openAIApiKey: string): Promise<CommandResult | null> {
+export async function parseCommand(message: string, openAIApiKey: string, pendingMessage?: { content: string; channelName: string }): Promise<CommandResult | null> {
   try {
-    console.log('Parsing command:', message);
+    console.log('Parsing command:', { message, hasPendingMessage: !!pendingMessage });
 
     // Special handling for "Pineapple confirmation"
     if (message.toLowerCase().includes('pineapple confirmation')) {
+      if (!pendingMessage) {
+        console.log('No pending message to confirm');
+        return {
+          action: 'SEND_MESSAGE',
+          error: 'No pending message to confirm'
+        };
+      }
+      
       return {
         action: 'SEND_MESSAGE',
+        confirmed: true,
+        channelName: pendingMessage.channelName,
+        messageContent: pendingMessage.content
       };
     }
 
@@ -61,7 +73,6 @@ export async function parseCommand(message: string, openAIApiKey: string): Promi
     const result = data.choices[0].message.content;
     
     try {
-      // Try to parse the response as JSON
       const parsedResult = JSON.parse(result);
       console.log('Parsed command result:', parsedResult);
       return parsedResult;
