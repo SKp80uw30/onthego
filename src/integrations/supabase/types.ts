@@ -15,27 +15,36 @@ export type Database = {
           id: string
           message_content: string
           processed: boolean | null
+          read_status: boolean | null
           received_at: string | null
           sender_id: string | null
+          sender_name: string | null
           slack_account_id: string | null
+          urgency_level: number | null
         }
         Insert: {
           channel_id?: string | null
           id?: string
           message_content: string
           processed?: boolean | null
+          read_status?: boolean | null
           received_at?: string | null
           sender_id?: string | null
+          sender_name?: string | null
           slack_account_id?: string | null
+          urgency_level?: number | null
         }
         Update: {
           channel_id?: string | null
           id?: string
           message_content?: string
           processed?: boolean | null
+          read_status?: boolean | null
           received_at?: string | null
           sender_id?: string | null
+          sender_name?: string | null
           slack_account_id?: string | null
+          urgency_level?: number | null
         }
         Relationships: [
           {
