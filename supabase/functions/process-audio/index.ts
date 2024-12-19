@@ -30,6 +30,12 @@ serve(async (req) => {
       throw new Error('No audio file received');
     }
 
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openAIApiKey) {
+      console.error('OpenAI API key not found');
+      throw new Error('OpenAI API key not configured');
+    }
+
     console.log('Sending request to OpenAI...');
     const openAIFormData = new FormData();
     openAIFormData.append('file', audioFile);
@@ -39,7 +45,7 @@ serve(async (req) => {
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+        'Authorization': `Bearer ${openAIApiKey}`,
       },
       body: openAIFormData,
     });
@@ -47,6 +53,20 @@ serve(async (req) => {
     if (!response.ok) {
       const error = await response.json();
       console.error('OpenAI API error:', error);
+      
+      // Check for specific error types
+      if (error.error?.type === 'insufficient_quota') {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Service temporarily unavailable due to quota limits. Please try again later.' 
+          }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 503,
+          },
+        );
+      }
+      
       throw new Error(`OpenAI API error: ${response.status} - ${error.error?.message || 'Unknown error'}`);
     }
 
@@ -62,11 +82,16 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('Error processing audio:', error);
+    
+    // Return a structured error response
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        details: error.stack
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
+        status: error.status || 500,
       },
     );
   }
