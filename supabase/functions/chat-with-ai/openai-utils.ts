@@ -29,8 +29,7 @@ export const chatWithAI = async (
         channelName: command.channelName,
         messageContent: command.messageContent,
         messageCount: command.messageCount,
-        timestamp: command.timestamp,
-        confirmed: command.confirmed
+        pendingMessage: command.pendingMessage
       })
     };
   } catch (error) {
