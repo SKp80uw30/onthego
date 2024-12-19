@@ -1,5 +1,6 @@
 import { AudioRecorder } from '@/components/audio/AudioRecorder';
 import { OpenAIService } from './OpenAIService';
+import { toast } from 'sonner';
 
 export class AudioService {
   private audioRecorder: AudioRecorder | null = null;
@@ -34,12 +35,25 @@ export class AudioService {
             await this.openAIService.initialize();
             if (!this.openAIService.isInitialized()) {
               console.log('[AudioService] Still unable to initialize OpenAI service');
+              toast.error('Service not ready. Please try again.');
               return;
             }
           }
-          await this.openAIService.processAudioChunk(audioBlob);
+
+          const result = await this.openAIService.processAudioChunk(audioBlob);
+          if (!result) {
+            console.log('[AudioService] No result from audio processing');
+            toast.error('Unable to process audio. Please try again.');
+            return;
+          }
+          console.log('[AudioService] Audio processing successful:', result);
         } catch (error) {
           console.error('[AudioService] Error processing audio chunk:', error);
+          if (error.message?.includes('Service Unavailable')) {
+            toast.error('Service temporarily unavailable. Please try again in a moment.');
+          } else {
+            toast.error('Error processing audio. Please try again.');
+          }
         }
       });
 
@@ -47,30 +61,46 @@ export class AudioService {
       console.log('[AudioService] Audio service initialized successfully');
     } catch (error) {
       console.error('[AudioService] Error initializing audio service:', error);
+      this.initialized = false;
+      toast.error('Failed to initialize audio service. Please refresh the page.');
       throw error;
     }
   }
 
   async startRecording() {
-    console.log('[AudioService] Starting recording...');
-    if (!this.audioRecorder || !this.initialized) {
-      const error = new Error('Audio recorder not initialized');
-      console.error('[AudioService] Error:', error);
+    try {
+      console.log('[AudioService] Starting recording...');
+      if (!this.audioRecorder || !this.initialized) {
+        const error = new Error('Audio recorder not initialized');
+        console.error('[AudioService] Error:', error);
+        toast.error('Audio service not ready. Please refresh the page.');
+        throw error;
+      }
+      console.log('[AudioService] Starting audio recorder');
+      await this.audioRecorder.start();
+      console.log('[AudioService] Recording started successfully');
+    } catch (error) {
+      console.error('[AudioService] Error starting recording:', error);
+      toast.error('Failed to start recording. Please check microphone permissions.');
       throw error;
     }
-    console.log('[AudioService] Starting audio recorder');
-    await this.audioRecorder.start();
-    console.log('[AudioService] Recording started successfully');
   }
 
-  stopRecording() {
-    if (!this.audioRecorder || !this.initialized) {
-      const error = new Error('Audio recorder not initialized');
-      console.error('[AudioService] Error:', error);
+  async stopRecording() {
+    try {
+      if (!this.audioRecorder || !this.initialized) {
+        const error = new Error('Audio recorder not initialized');
+        console.error('[AudioService] Error:', error);
+        toast.error('Audio service not ready. Please refresh the page.');
+        throw error;
+      }
+      console.log('[AudioService] Stopped recording');
+      await this.audioRecorder.stop();
+    } catch (error) {
+      console.error('[AudioService] Error stopping recording:', error);
+      toast.error('Failed to stop recording properly.');
       throw error;
     }
-    console.log('[AudioService] Stopped recording');
-    this.audioRecorder.stop();
   }
 
   getOpenAIService(): OpenAIService {

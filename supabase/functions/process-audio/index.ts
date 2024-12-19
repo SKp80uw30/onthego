@@ -14,12 +14,17 @@ serve(async (req) => {
   try {
     console.log('Processing audio request...');
     
-    // Get the content type
     const contentType = req.headers.get('content-type') || '';
     
     if (!contentType.includes('multipart/form-data')) {
       console.error('Invalid content type:', contentType);
-      throw new Error('Invalid content type. Expected multipart/form-data');
+      return new Response(
+        JSON.stringify({ error: 'Invalid content type. Expected multipart/form-data' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400 
+        }
+      );
     }
 
     const formData = await req.formData();
@@ -27,13 +32,25 @@ serve(async (req) => {
     
     if (!audioFile) {
       console.error('No audio file received');
-      throw new Error('No audio file received');
+      return new Response(
+        JSON.stringify({ error: 'No audio file received' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400 
+        }
+      );
     }
 
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
       console.error('OpenAI API key not found');
-      throw new Error('OpenAI API key not configured');
+      return new Response(
+        JSON.stringify({ error: 'Service configuration error' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 503 
+        }
+      );
     }
 
     console.log('Sending request to OpenAI...');
@@ -54,7 +71,6 @@ serve(async (req) => {
       const error = await response.json();
       console.error('OpenAI API error:', error);
       
-      // Check for specific error types
       if (error.error?.type === 'insufficient_quota') {
         return new Response(
           JSON.stringify({ 
@@ -67,7 +83,15 @@ serve(async (req) => {
         );
       }
       
-      throw new Error(`OpenAI API error: ${response.status} - ${error.error?.message || 'Unknown error'}`);
+      return new Response(
+        JSON.stringify({ 
+          error: `OpenAI API error: ${error.error?.message || 'Unknown error'}` 
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: response.status,
+        },
+      );
     }
 
     const data = await response.json();
@@ -83,15 +107,14 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error processing audio:', error);
     
-    // Return a structured error response
     return new Response(
       JSON.stringify({ 
-        error: error.message,
-        details: error.stack
+        error: 'Internal server error',
+        details: error.message
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: error.status || 500,
+        status: 500,
       },
     );
   }
