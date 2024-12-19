@@ -33,9 +33,9 @@ export class SlackService {
     }
   }
 
-  async fetchMessages(channelName: string, slackAccountId: string, messageCount: number = 5) {
+  async fetchMessages(channelName: string, slackAccountId: string, messageCount: number = 5, fetchMentions: boolean = false) {
     try {
-      console.log('Starting fetchMessages operation:', { channelName, slackAccountId, messageCount });
+      console.log('Starting fetchMessages operation:', { channelName, slackAccountId, messageCount, fetchMentions });
       
       // First validate the Slack account exists
       const { data: account, error: accountError } = await supabase
@@ -52,7 +52,7 @@ export class SlackService {
 
       const { data, error } = await supabase.functions.invoke('chat-with-ai', {
         body: {
-          command: 'FETCH_MESSAGES',
+          command: fetchMentions ? 'FETCH_MENTIONS' : 'FETCH_MESSAGES',
           channelName,
           slackAccountId,
           messageCount
@@ -60,7 +60,7 @@ export class SlackService {
       });
 
       if (error) {
-        console.error('Error details from chat-with-ai (FETCH_MESSAGES):', {
+        console.error(`Error details from chat-with-ai (${fetchMentions ? 'FETCH_MENTIONS' : 'FETCH_MESSAGES'}):`, {
           error,
           statusCode: error.status,
           message: error.message,
@@ -82,7 +82,8 @@ export class SlackService {
         messageCount: data.messages.length,
         requestedCount: messageCount,
         channelName,
-        slackAccountId
+        slackAccountId,
+        fetchMentions
       });
       return data.messages;
     } catch (error) {

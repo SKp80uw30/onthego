@@ -11,6 +11,7 @@ export interface MessageRow {
   sender_name: string | null;
   read_status: boolean | null;
   urgency_level: number | null;
+  mentioned_users: string[] | null;
 }
 
 export interface MessageInsert {
@@ -24,6 +25,7 @@ export interface MessageInsert {
   sender_name?: string | null;
   read_status?: boolean | null;
   urgency_level?: number | null;
+  mentioned_users?: string[] | null;
 }
 
 export interface MessageUpdate {
@@ -37,4 +39,5 @@ export interface MessageUpdate {
   sender_name?: string | null;
   read_status?: boolean | null;
   urgency_level?: number | null;
+  mentioned_users?: string[] | null;
 }

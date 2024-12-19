@@ -13,6 +13,7 @@ export type Database = {
         Row: {
           channel_id: string | null
           id: string
+          mentioned_users: string[] | null
           message_content: string
           processed: boolean | null
           read_status: boolean | null
@@ -25,6 +26,7 @@ export type Database = {
         Insert: {
           channel_id?: string | null
           id?: string
+          mentioned_users?: string[] | null
           message_content: string
           processed?: boolean | null
           read_status?: boolean | null
@@ -37,6 +39,7 @@ export type Database = {
         Update: {
           channel_id?: string | null
           id?: string
+          mentioned_users?: string[] | null
           message_content?: string
           processed?: boolean | null
           read_status?: boolean | null
