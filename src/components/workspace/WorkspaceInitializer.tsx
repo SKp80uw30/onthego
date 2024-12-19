@@ -13,14 +13,19 @@ export const WorkspaceInitializer = ({ userId, audioService }: WorkspaceInitiali
     const fetchDefaultWorkspace = async () => {
       try {
         console.log('Fetching slack accounts...');
+        
+        // First try to get the most recent settings for the user
         const { data: settings, error: settingsError } = await supabase
           .from('settings')
           .select('default_workspace_id')
           .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(1)
           .maybeSingle();
 
         if (settingsError) {
           console.error('Error fetching settings:', settingsError);
+          throw settingsError;
         }
 
         if (settings?.default_workspace_id) {
@@ -29,6 +34,7 @@ export const WorkspaceInitializer = ({ userId, audioService }: WorkspaceInitiali
           return;
         }
 
+        // If no settings found, get the first available workspace
         const { data: workspaces, error: workspacesError } = await supabase
           .from('slack_accounts')
           .select('id')
@@ -38,16 +44,27 @@ export const WorkspaceInitializer = ({ userId, audioService }: WorkspaceInitiali
 
         if (workspacesError) {
           console.error('Error fetching workspaces:', workspacesError);
-          return;
+          throw workspacesError;
         }
 
         if (workspaces?.id) {
           console.log('Using first available workspace:', workspaces.id);
           audioService.getOpenAIService().setSlackAccountId(workspaces.id);
           
+          // Clean up any existing settings before creating new one
+          const { error: deleteError } = await supabase
+            .from('settings')
+            .delete()
+            .eq('user_id', userId);
+
+          if (deleteError) {
+            console.error('Error cleaning up settings:', deleteError);
+          }
+
+          // Create new settings
           const { error: createError } = await supabase
             .from('settings')
-            .upsert({
+            .insert({
               user_id: userId,
               default_workspace_id: workspaces.id
             });

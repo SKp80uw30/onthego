@@ -21,14 +21,35 @@ export class OpenAIState {
     }
 
     try {
+      // Check for existing active session
+      const { data: existingSession, error: sessionError } = await supabase
+        .from('conversation_sessions')
+        .select('id')
+        .eq('slack_account_id', this.slackAccountId)
+        .eq('status', 'active')
+        .limit(1)
+        .maybeSingle();
+
+      if (sessionError) throw sessionError;
+
+      if (existingSession?.id) {
+        this.sessionId = existingSession.id;
+        console.log(`[OpenAIState ${this.instanceId}] Using existing session:`, this.sessionId);
+        return;
+      }
+
       // Create a new conversation session
       const { data: session, error } = await supabase
         .from('conversation_sessions')
-        .insert([{ slack_account_id: this.slackAccountId }])
+        .insert([{ 
+          slack_account_id: this.slackAccountId,
+          status: 'active'
+        }])
         .select()
         .single();
 
       if (error) throw error;
+      
       this.sessionId = session.id;
       console.log(`[OpenAIState ${this.instanceId}] Initialized session:`, this.sessionId);
     } catch (error) {
@@ -62,14 +83,6 @@ export class OpenAIState {
 
   getSlackAccountId(): string | null {
     return this.slackAccountId;
-  }
-
-  setPendingMessage(message: PendingMessage | null) {
-    this.pendingMessage = message;
-  }
-
-  getPendingMessage(): PendingMessage | null {
-    return this.pendingMessage;
   }
 
   async addToConversationHistory(message: ConversationMessage) {
@@ -139,7 +152,10 @@ export class OpenAIState {
         // Mark the session as completed
         const { error } = await supabase
           .from('conversation_sessions')
-          .update({ status: 'completed' })
+          .update({ 
+            status: 'completed',
+            last_active: new Date().toISOString()
+          })
           .eq('id', this.sessionId);
 
         if (error) throw error;
