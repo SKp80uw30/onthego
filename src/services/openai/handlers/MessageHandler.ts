@@ -82,33 +82,21 @@ export class MessageHandler {
 
   async handleFetchMentions(chatResponse: ChatResponse, slackAccountId: string) {
     try {
-      // Always fetch the user's Slack handle first
-      const { data: slackAccount } = await supabase
-        .from('slack_accounts')
-        .select('slack_user_handle')
-        .eq('id', slackAccountId)
-        .single();
-
-      if (!slackAccount?.slack_user_handle) {
-        await this.textToSpeechService.speakText("I couldn't find your Slack handle. Please make sure your Slack workspace is properly connected.");
-        return;
-      }
-
-      // If no channel specified or explicitly set to 'ALL', search across all channels
-      const channelToSearch = (!chatResponse.channelName || chatResponse.channelName.toUpperCase() === 'ALL') ? 'ALL' : chatResponse.channelName;
+      // Always search across all channels unless explicitly specified
+      const channelToSearch = chatResponse.channelName && chatResponse.channelName.toUpperCase() !== 'ALL' 
+        ? chatResponse.channelName 
+        : 'ALL';
 
       console.log('Fetching mentions:', {
         channelName: channelToSearch,
-        slackAccountId,
-        userHandle: slackAccount.slack_user_handle
+        slackAccountId
       });
       
       const messages = await this.slackService.fetchMessages(
         channelToSearch,
         slackAccountId,
         chatResponse.messageCount || 10,
-        true,
-        slackAccount.slack_user_handle
+        true // fetchMentions flag
       );
 
       if (messages && messages.length > 0) {

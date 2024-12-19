@@ -33,14 +33,13 @@ export class SlackService {
     }
   }
 
-  async fetchMessages(channelName: string, slackAccountId: string, messageCount: number = 5, fetchMentions: boolean = false, userHandle?: string) {
+  async fetchMessages(channelName: string, slackAccountId: string, messageCount: number = 5, fetchMentions: boolean = false) {
     try {
       console.log('Starting fetchMessages operation:', { 
         channelName, 
         slackAccountId, 
         messageCount, 
-        fetchMentions,
-        userHandle 
+        fetchMentions
       });
       
       // First validate the Slack account exists
@@ -61,8 +60,7 @@ export class SlackService {
           command: fetchMentions ? 'FETCH_MENTIONS' : 'FETCH_MESSAGES',
           channelName,
           slackAccountId,
-          messageCount,
-          userHandle
+          messageCount
         }
       });
 
