@@ -1,6 +1,8 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { chatWithAI } from './openai-utils.ts';
+import { fetchSlackMessages } from './slack-utils.ts';
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -47,9 +49,11 @@ serve(async (req) => {
           throw new Error('Slack account not found or missing bot token');
         }
 
-        console.log('Successfully fetched Slack account');
+        const messages = await fetchSlackMessages(channelName, slackAccount.slack_bot_token);
+        console.log('Successfully fetched messages:', messages);
+
         return new Response(
-          JSON.stringify({ messages: [] }), // Placeholder for actual Slack message fetching
+          JSON.stringify({ messages }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (slackError) {
@@ -75,54 +79,29 @@ serve(async (req) => {
 
     try {
       console.log('Calling OpenAI API...');
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            { role: 'system', content: 'You are a helpful AI assistant that helps users manage their Slack messages.' },
-            ...conversationHistory,
-            { role: 'user', content: message }
-          ],
-          temperature: 0.7,
-          max_tokens: 150,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        console.error('OpenAI API error:', error);
-        
-        if (error.error?.type === 'insufficient_quota') {
-          return new Response(
-            JSON.stringify({
-              error: 'Service temporarily unavailable due to quota limits. Please try again later.',
-              status: 'quota_exceeded'
-            }),
-            { 
-              status: 429,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-            }
-          );
-        }
-        
-        throw new Error(`OpenAI API error: ${error.error?.message || 'Unknown error'}`);
-      }
-
-      const data = await response.json();
-      const aiResponse = data.choices[0].message.content;
+      const aiResponse = await chatWithAI(openAIApiKey, message, conversationHistory);
       console.log('AI Response:', aiResponse);
 
       return new Response(
-        JSON.stringify({ response: aiResponse }),
+        JSON.stringify(aiResponse),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } catch (error) {
       console.error('OpenAI API error:', error);
+      
+      if (error.message?.includes('insufficient_quota')) {
+        return new Response(
+          JSON.stringify({
+            error: 'Service temporarily unavailable due to quota limits. Please try again later.',
+            status: 'quota_exceeded'
+          }),
+          { 
+            status: 429,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+      
       return new Response(
         JSON.stringify({ 
           error: error.message,
