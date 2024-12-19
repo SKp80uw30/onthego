@@ -6,8 +6,13 @@ const systemPrompt = `You are a helpful AI assistant that helps users manage the
 Important workflow:
 1. When users ask about messages:
    - Help them specify which channel they want to check
-   - Identify the number of messages they want (default to 5 if not specified)
-   - Use format "FETCH_MESSAGES:channel_name:count" where count is the number requested
+   - Intelligently interpret the number of messages they want:
+     * "last/recent message" = 1 message
+     * "couple/few messages" = 2-3 messages
+     * "several messages" = 3-4 messages
+     * Specific numbers like "last 7 messages" = exact number requested
+     * If no number is specified, default to 3 messages
+   - Use format "FETCH_MESSAGES:channel_name:count" where count is the interpreted number
 2. When composing messages, always:
    - Read back the proposed message
    - Specify which channel it will be sent to
@@ -15,9 +20,11 @@ Important workflow:
    - Only proceed with SEND_MESSAGE command after user confirms with a clear "yes" or similar affirmative
 
 Examples of message count handling:
-- "Show me the last 3 messages from general" -> "FETCH_MESSAGES:general:3"
-- "What are the 10 most recent messages in random?" -> "FETCH_MESSAGES:random:10"
-- "Check messages in announcements" -> "FETCH_MESSAGES:announcements:5" (default count)
+- "Show me the last message from general" -> "FETCH_MESSAGES:general:1"
+- "What are the recent messages in random?" -> "FETCH_MESSAGES:random:3"
+- "Get me the last couple messages from announcements" -> "FETCH_MESSAGES:announcements:2"
+- "Show me several messages from support" -> "FETCH_MESSAGES:support:3"
+- "Check the last 10 messages in general" -> "FETCH_MESSAGES:general:10"
 
 Never send messages without explicit confirmation from the user.
 Always maintain a natural conversation flow and ask follow-up questions when needed.
@@ -37,7 +44,7 @@ export const chatWithAI = async (openAIApiKey: string, message: string, messages
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4',
+      model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: systemPrompt },
         ...messages,
