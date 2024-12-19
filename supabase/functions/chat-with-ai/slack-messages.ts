@@ -1,4 +1,4 @@
-import { callSlackAPI } from './slack-api';
+import { callSlackAPI } from './slack-api.ts';
 
 export async function fetchSlackMessages(channelName: string, botToken: string) {
   console.log('Starting fetchSlackMessages:', { channelName });

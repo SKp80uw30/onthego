@@ -1,2 +1,2 @@
-export { corsHeaders } from './slack-api';
-export { fetchSlackMessages, sendSlackMessage } from './slack-messages';
+export { corsHeaders } from './slack-api.ts';
+export { fetchSlackMessages, sendSlackMessage } from './slack-messages.ts';

@@ -1,15 +1,15 @@
+export const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
 export interface SlackAPIResponse {
   ok: boolean;
   error?: string;
 }
 
 const MAX_RETRIES = 3;
-const RETRY_DELAY = 1000; // 1 second
-
-export const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const RETRY_DELAY = 1000;
 
 function isRetryableError(error?: string): boolean {
   const retryableErrors = [
