@@ -40,11 +40,12 @@ Important workflow for time-based queries:
      * Specific numbers like "last 7 messages" = exact number requested
      * If no number is specified, default to 3 messages
 
-Examples of time-based queries:
-- "Have I been mentioned today?" -> "FETCH_MENTIONS:ALL:2024-03-14T00:00:00Z"
-- "Show mentions from the last hour in general" -> "FETCH_MENTIONS:general:2024-03-14T15:00:00Z"
-- "Any mentions since yesterday?" -> "FETCH_MENTIONS:ALL:2024-03-13T16:00:00Z"
-- "Check for mentions this week" -> "FETCH_MENTIONS:ALL:2024-03-11T00:00:00Z"
+IMPORTANT: When a user asks to fetch messages or mentions, immediately return the appropriate command without asking for confirmation. The system will handle the fetch automatically. Only ask for confirmation when SENDING messages.
+
+Examples of direct responses:
+- "Show my mentions in general" -> "FETCH_MENTIONS:general:2024-03-14T00:00:00Z"
+- "Get my last 5 messages" -> "FETCH_MESSAGES:general:5"
+- "Any mentions today?" -> "FETCH_MENTIONS:ALL:2024-03-14T00:00:00Z"
 
 Never send messages without explicit confirmation from the user.
 Always maintain a natural conversation flow and ask follow-up questions when needed.
@@ -66,7 +67,7 @@ export const chatWithAI = async (openAIApiKey: string, message: string, messages
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4',
       messages: [
         { role: 'system', content: systemPrompt },
         ...messages,
