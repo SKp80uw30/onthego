@@ -124,13 +124,9 @@ export class OpenAIProcessor {
         return;
       }
 
-      // Speak the AI's response if it's not empty
-      if (chatResponse.response.trim()) {
-        await this.textToSpeechService.speakText(chatResponse.response);
-      }
-
       // Handle specific actions
       if (chatResponse.action === 'SEND_MESSAGE' && chatResponse.messageContent && chatResponse.channelName) {
+        // For SEND_MESSAGE, we want confirmation before proceeding
         console.log('Preparing to send message:', {
           channelName: chatResponse.channelName,
           messageLength: chatResponse.messageContent.length
@@ -144,6 +140,7 @@ export class OpenAIProcessor {
         const confirmationMessage = `I'll send this message to ${chatResponse.channelName}: "${chatResponse.messageContent}". Would you like to confirm sending this message?`;
         await this.textToSpeechService.speakText(confirmationMessage);
       } else if (chatResponse.action === 'FETCH_MESSAGES' && chatResponse.channelName) {
+        // For FETCH_MESSAGES, we proceed immediately without confirmation
         console.log('Initiating message fetch:', {
           channelName: chatResponse.channelName,
           messageCount: chatResponse.messageCount,
@@ -153,7 +150,7 @@ export class OpenAIProcessor {
         const messages = await this.slackService.fetchMessages(
           chatResponse.channelName, 
           slackAccountId,
-          chatResponse.messageCount || 5
+          chatResponse.messageCount || 3
         );
         
         if (messages && messages.length > 0) {
