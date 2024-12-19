@@ -15,6 +15,12 @@ Guidelines:
 4. Keep context of the conversation
 5. Don't ask for confirmation for fetch operations
 
+IMPORTANT:
+- When an action has been completed (like fetching messages or mentions), acknowledge it and ask if there's anything else you can help with
+- Don't repeat actions that have already been completed
+- Don't ask for permission to do something that's already been done
+- Always end your response with "Is there anything else I can help you with?" after completing a task
+
 Remember:
 - Keep responses natural and conversational
 - Acknowledge when operations are successful
@@ -36,7 +42,7 @@ export async function getConversationalResponse(
 
     // Add context about command results if available
     const contextMessage = commandResult 
-      ? `\n\nContext: ${JSON.stringify(commandResult)}`
+      ? `\n\nContext: Action has been completed. ${JSON.stringify(commandResult)}`
       : '';
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -46,7 +52,7 @@ export async function getConversationalResponse(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: conversationSystemPrompt + contextMessage },
           ...conversationHistory,
