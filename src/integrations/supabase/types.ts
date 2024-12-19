@@ -115,6 +115,7 @@ export type Database = {
           created_at: string | null
           id: string
           slack_bot_token: string
+          slack_user_handle: string | null
           slack_workspace_id: string
           slack_workspace_name: string | null
           user_id: string | null
@@ -123,6 +124,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           slack_bot_token: string
+          slack_user_handle?: string | null
           slack_workspace_id: string
           slack_workspace_name?: string | null
           user_id?: string | null
@@ -131,6 +133,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           slack_bot_token?: string
+          slack_user_handle?: string | null
           slack_workspace_id?: string
           slack_workspace_name?: string | null
           user_id?: string | null

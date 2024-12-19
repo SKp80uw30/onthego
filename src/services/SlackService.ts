@@ -33,9 +33,15 @@ export class SlackService {
     }
   }
 
-  async fetchMessages(channelName: string, slackAccountId: string, messageCount: number = 5, fetchMentions: boolean = false) {
+  async fetchMessages(channelName: string, slackAccountId: string, messageCount: number = 5, fetchMentions: boolean = false, userHandle?: string) {
     try {
-      console.log('Starting fetchMessages operation:', { channelName, slackAccountId, messageCount, fetchMentions });
+      console.log('Starting fetchMessages operation:', { 
+        channelName, 
+        slackAccountId, 
+        messageCount, 
+        fetchMentions,
+        userHandle 
+      });
       
       // First validate the Slack account exists
       const { data: account, error: accountError } = await supabase
@@ -55,7 +61,8 @@ export class SlackService {
           command: fetchMentions ? 'FETCH_MENTIONS' : 'FETCH_MESSAGES',
           channelName,
           slackAccountId,
-          messageCount
+          messageCount,
+          userHandle
         }
       });
 

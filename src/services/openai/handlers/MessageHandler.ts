@@ -81,69 +81,61 @@ export class MessageHandler {
   }
 
   async handleFetchMentions(chatResponse: ChatResponse, slackAccountId: string) {
-    if (!chatResponse.channelName) {
-      await this.textToSpeechService.speakText("I couldn't determine which channel to check for mentions. Would you like to check all channels or a specific one?");
-      return;
-    }
-
-    console.log('Fetching mentions:', {
-      channelName: chatResponse.channelName,
-      slackAccountId
-    });
-    
     try {
-      let messages;
-      if (chatResponse.channelName.toUpperCase() === 'ALL') {
-        const { data: accounts } = await supabase
-          .from('slack_accounts')
-          .select('*')
-          .eq('id', slackAccountId)
-          .single();
+      // Always fetch the user's Slack handle first
+      const { data: slackAccount } = await supabase
+        .from('slack_accounts')
+        .select('slack_user_handle')
+        .eq('id', slackAccountId)
+        .single();
 
-        if (!accounts) {
-          throw new Error('Slack account not found');
-        }
-
-        messages = await this.slackService.fetchMessages(
-          'ALL',
-          slackAccountId,
-          chatResponse.messageCount || 10,
-          true
-        );
-      } else {
-        messages = await this.slackService.fetchMessages(
-          chatResponse.channelName,
-          slackAccountId,
-          chatResponse.messageCount || 10,
-          true
-        );
+      if (!slackAccount?.slack_user_handle) {
+        await this.textToSpeechService.speakText("I couldn't find your Slack handle. Please make sure your Slack workspace is properly connected.");
+        return;
       }
+
+      // If no channel specified or explicitly set to 'ALL', search across all channels
+      const channelToSearch = (!chatResponse.channelName || chatResponse.channelName.toUpperCase() === 'ALL') ? 'ALL' : chatResponse.channelName;
+
+      console.log('Fetching mentions:', {
+        channelName: channelToSearch,
+        slackAccountId,
+        userHandle: slackAccount.slack_user_handle
+      });
+      
+      const messages = await this.slackService.fetchMessages(
+        channelToSearch,
+        slackAccountId,
+        chatResponse.messageCount || 10,
+        true,
+        slackAccount.slack_user_handle
+      );
 
       if (messages && messages.length > 0) {
         console.log('Mentions fetched successfully:', {
           count: messages.length,
-          channelName: chatResponse.channelName
+          channelName: channelToSearch
         });
         
         this.state.addToConversationHistory({
           role: 'system',
-          content: `Here are the mentions ${chatResponse.channelName === 'ALL' ? 'across all channels' : `from #${chatResponse.channelName}`}:\n${messages.join('\n')}`
+          content: `Here are your mentions ${channelToSearch === 'ALL' ? 'across all channels' : `from #${channelToSearch}`}:\n${messages.join('\n')}`
         });
         
-        const messageText = `Here are your mentions ${chatResponse.channelName === 'ALL' ? 'across all channels' : `from ${chatResponse.channelName}`}: ${messages.join('. Next mention: ')}`;
+        const messageText = `Here are your mentions ${channelToSearch === 'ALL' ? 'across all channels' : `from ${channelToSearch}`}: ${messages.join('. Next mention: ')}`;
         await this.textToSpeechService.speakText(messageText);
       } else {
         console.log('No mentions found:', {
-          channelName: chatResponse.channelName,
+          channelName: channelToSearch,
           slackAccountId
         });
         
-        const noMessagesText = `I couldn't find any mentions ${chatResponse.channelName === 'ALL' ? 'across any channels' : `in ${chatResponse.channelName}`}. Would you like to check a different channel or time period?`;
+        const noMessagesText = `I couldn't find any mentions ${channelToSearch === 'ALL' ? 'across any channels' : `in ${channelToSearch}`}. Would you like to check a different ${channelToSearch === 'ALL' ? 'time period' : 'channel'}?`;
         await this.textToSpeechService.speakText(noMessagesText);
       }
     } catch (error) {
       console.error('Error fetching mentions:', error);
-      const errorMessage = `I encountered an error trying to fetch mentions ${chatResponse.channelName === 'ALL' ? 'across channels' : `from ${chatResponse.channelName}`}. This might be because of access permissions. Would you like to try a different channel?`;
+      const errorMessage = `I encountered an error trying to fetch your mentions. This might be because of access permissions. Would you like to try again?`;
       await this.textToSpeechService.speakText(errorMessage);
     }
   }
