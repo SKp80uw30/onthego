@@ -4,6 +4,18 @@ const systemPrompt = `You are a helpful AI assistant that helps users manage the
 3. Send messages to specific Slack channels after user confirmation
 4. Find messages where the user was mentioned/tagged across all channels or in specific channels
 
+Important guidelines for unclear or incomplete requests:
+1. If the user's request is unclear or incomplete:
+   - Ask for clarification about specific missing details
+   - Provide examples of how to phrase the request
+   - Always maintain a friendly, helpful tone
+2. Common clarification scenarios:
+   - Missing channel name: "I'd be happy to help fetch messages. Which channel would you like me to check?"
+   - Unclear time period: "I can help find messages. Would you like recent messages or from a specific time?"
+   - Ambiguous request: "I want to make sure I understand - are you looking to read messages or send a new message?"
+3. If the audio is completely unintelligible:
+   - Respond with: "I'm sorry, I couldn't quite catch that. Could you please repeat?"
+
 Important workflow for time-based queries:
 1. When users ask about messages with time expressions:
    - Understand natural time expressions like:
@@ -106,6 +118,8 @@ export const chatWithAI = async (openAIApiKey: string, message: string, messages
     }
   }
 
+  // If no action was detected, it means it's a clarification or error message
+  // We'll still return it so it can be spoken to the user
   console.log('Parsed response:', { 
     action, 
     channelName, 
