@@ -15,13 +15,18 @@ export async function fetchSlackMessages(channelName: string, botToken: string) 
       }
     );
     
-    const channels = await channelListResponse.json();
+    const channelsData = await channelListResponse.json();
     console.log('Channels response:', {
-      channelCount: channels.channels?.length,
-      channelNames: channels.channels?.map((c: any) => c.name)
+      ok: channelsData.ok,
+      channelCount: channelsData.channels?.length,
+      channelNames: channelsData.channels?.map((c: any) => c.name)
     });
 
-    const channel = channels.channels?.find((c: any) => c.name === channelName);
+    if (!channelsData.ok) {
+      throw new Error(`Failed to fetch channels: ${channelsData.error}`);
+    }
+
+    const channel = channelsData.channels?.find((c: any) => c.name === channelName);
     
     if (!channel) {
       console.error(`Channel ${channelName} not found in workspace`);
@@ -46,14 +51,18 @@ export async function fetchSlackMessages(channelName: string, botToken: string) 
       }
     );
 
-    const messages = await messagesResponse.json();
+    const messagesData = await messagesResponse.json();
     console.log('Messages response:', {
-      ok: messages.ok,
-      messageCount: messages.messages?.length,
-      hasMore: messages.has_more
+      ok: messagesData.ok,
+      messageCount: messagesData.messages?.length,
+      hasMore: messagesData.has_more
     });
 
-    return messages.messages?.map((msg: any) => msg.text) || [];
+    if (!messagesData.ok) {
+      throw new Error(`Failed to fetch messages: ${messagesData.error}`);
+    }
+
+    return messagesData.messages?.map((msg: any) => msg.text) || [];
   } catch (error) {
     console.error('Detailed error in fetchSlackMessages:', {
       error: error.message,
@@ -81,15 +90,20 @@ export async function sendSlackMessage(channelName: string, message: string, bot
       }
     );
     
-    const channels = await channelListResponse.json();
-    const channel = channels.channels?.find((c: any) => c.name === channelName);
+    const channelsData = await channelListResponse.json();
+    
+    if (!channelsData.ok) {
+      throw new Error(`Failed to fetch channels: ${channelsData.error}`);
+    }
+
+    const channel = channelsData.channels?.find((c: any) => c.name === channelName);
     
     if (!channel) {
       throw new Error(`Channel ${channelName} not found`);
     }
 
     // Send message
-    const response = await callSlackAPI(
+    const messageResponse = await callSlackAPI(
       'https://slack.com/api/chat.postMessage',
       {
         method: 'POST',
@@ -104,12 +118,17 @@ export async function sendSlackMessage(channelName: string, message: string, bot
       }
     );
 
-    const result = await response.json();
-    console.log('Message sent successfully:', {
+    const result = await messageResponse.json();
+    console.log('Message sent result:', {
       ok: result.ok,
       ts: result.ts,
       channel: result.channel
     });
+
+    if (!result.ok) {
+      throw new Error(`Failed to send message: ${result.error}`);
+    }
+
     return result;
   } catch (error) {
     console.error('Error sending Slack message:', {
