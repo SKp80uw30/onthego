@@ -16,15 +16,18 @@ serve(async (req) => {
 
   try {
     console.log('Received request to chat-with-ai function');
-    const { message, slackAccountId, command, channelName, messageCount = 5, conversationHistory = [] } = await req.json();
-    console.log('Request payload:', { message, slackAccountId, command, channelName, messageCount });
+    const requestBody = await req.json();
+    console.log('Request body:', requestBody);
+
+    const { message, slackAccountId, command, channelName, messageCount = 5, conversationHistory = [] } = requestBody;
 
     if (!openAIApiKey) {
       console.error('OpenAI API key not found');
       throw new Error('OpenAI API key not configured');
     }
 
-    if (command === 'FETCH_MESSAGES') {
+    // Handle FETCH_MESSAGES and FETCH_MENTIONS commands
+    if (command === 'FETCH_MESSAGES' || command === 'FETCH_MENTIONS') {
       if (!channelName || !slackAccountId) {
         console.error('Missing required parameters:', { channelName, slackAccountId });
         throw new Error('Missing required parameters for fetching messages');
@@ -43,7 +46,13 @@ serve(async (req) => {
           throw new Error('Slack account not found or missing bot token');
         }
 
-        const messages = await fetchSlackMessages(channelName, slackAccount.slack_bot_token, messageCount);
+        const messages = await fetchSlackMessages(
+          channelName, 
+          slackAccount.slack_bot_token, 
+          messageCount,
+          command === 'FETCH_MENTIONS'
+        );
+        
         console.log('Successfully fetched messages:', { 
           count: messages.length,
           requestedCount: messageCount 
@@ -69,8 +78,9 @@ serve(async (req) => {
       }
     }
 
-    if (!message) {
-      console.error('No message provided');
+    // Handle chat messages
+    if (!message && command !== 'FETCH_MESSAGES' && command !== 'FETCH_MENTIONS') {
+      console.error('No message provided and no valid command specified');
       throw new Error('No message provided');
     }
 
