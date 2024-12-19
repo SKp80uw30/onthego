@@ -16,8 +16,8 @@ serve(async (req) => {
 
   try {
     console.log('Received request to chat-with-ai function');
-    const { message, slackAccountId, command, channelName, conversationHistory = [] } = await req.json();
-    console.log('Request payload:', { message, slackAccountId, command, channelName });
+    const { message, slackAccountId, command, channelName, messageCount = 5, conversationHistory = [] } = await req.json();
+    console.log('Request payload:', { message, slackAccountId, command, channelName, messageCount });
 
     if (!openAIApiKey) {
       console.error('OpenAI API key not found');
@@ -43,8 +43,6 @@ serve(async (req) => {
           throw new Error('Slack account not found or missing bot token');
         }
 
-        // Default to 5 messages if no count specified
-        const messageCount = parseInt(req.headers.get('X-Message-Count') || '5', 10);
         const messages = await fetchSlackMessages(channelName, slackAccount.slack_bot_token, messageCount);
         console.log('Successfully fetched messages:', { 
           count: messages.length,

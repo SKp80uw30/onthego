@@ -108,6 +108,7 @@ export class OpenAIProcessor {
         action: chatResponse.action,
         hasMessageContent: !!chatResponse.messageContent,
         hasChannelName: !!chatResponse.channelName,
+        messageCount: chatResponse.messageCount,
         slackAccountId
       });
 
@@ -145,14 +146,20 @@ export class OpenAIProcessor {
       } else if (chatResponse.action === 'FETCH_MESSAGES' && chatResponse.channelName) {
         console.log('Initiating message fetch:', {
           channelName: chatResponse.channelName,
+          messageCount: chatResponse.messageCount,
           slackAccountId
         });
         
-        const messages = await this.slackService.fetchMessages(chatResponse.channelName, slackAccountId);
+        const messages = await this.slackService.fetchMessages(
+          chatResponse.channelName, 
+          slackAccountId,
+          chatResponse.messageCount || 5
+        );
         
         if (messages && messages.length > 0) {
           console.log('Messages fetched successfully:', {
             count: messages.length,
+            requestedCount: chatResponse.messageCount,
             channelName: chatResponse.channelName
           });
           
