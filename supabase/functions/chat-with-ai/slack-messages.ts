@@ -1,7 +1,7 @@
 import { callSlackAPI } from './slack-api.ts';
 
-export async function fetchSlackMessages(channelName: string, botToken: string) {
-  console.log('Starting fetchSlackMessages:', { channelName });
+export async function fetchSlackMessages(channelName: string, botToken: string, limit: number = 5) {
+  console.log('Starting fetchSlackMessages:', { channelName, limit });
   
   try {
     // Get channel ID
@@ -37,13 +37,14 @@ export async function fetchSlackMessages(channelName: string, botToken: string) 
       channelId: channel.id, 
       channelName: channel.name,
       isMember: channel.is_member,
-      isPrivate: channel.is_private 
+      isPrivate: channel.is_private,
+      requestedMessageCount: limit
     });
 
-    // Fetch messages
-    console.log('Fetching messages for channel:', channel.id);
+    // Fetch messages with specified limit
+    console.log(`Fetching ${limit} messages for channel:`, channel.id);
     const messagesResponse = await callSlackAPI(
-      `https://slack.com/api/conversations.history?channel=${channel.id}&limit=5`,
+      `https://slack.com/api/conversations.history?channel=${channel.id}&limit=${limit}`,
       {
         headers: {
           'Authorization': `Bearer ${botToken}`,
@@ -55,6 +56,7 @@ export async function fetchSlackMessages(channelName: string, botToken: string) 
     console.log('Messages response:', {
       ok: messagesData.ok,
       messageCount: messagesData.messages?.length,
+      requestedCount: limit,
       hasMore: messagesData.has_more
     });
 
@@ -67,6 +69,7 @@ export async function fetchSlackMessages(channelName: string, botToken: string) 
     console.error('Detailed error in fetchSlackMessages:', {
       error: error.message,
       channelName,
+      requestedMessageCount: limit,
       stack: error.stack
     });
     throw error;

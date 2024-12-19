@@ -43,8 +43,13 @@ serve(async (req) => {
           throw new Error('Slack account not found or missing bot token');
         }
 
-        const messages = await fetchSlackMessages(channelName, slackAccount.slack_bot_token);
-        console.log('Successfully fetched messages:', messages);
+        // Default to 5 messages if no count specified
+        const messageCount = parseInt(req.headers.get('X-Message-Count') || '5', 10);
+        const messages = await fetchSlackMessages(channelName, slackAccount.slack_bot_token, messageCount);
+        console.log('Successfully fetched messages:', { 
+          count: messages.length,
+          requestedCount: messageCount 
+        });
 
         return new Response(
           JSON.stringify({ messages }),
