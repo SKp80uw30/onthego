@@ -2,40 +2,45 @@ const systemPrompt = `You are a helpful AI assistant that helps users manage the
 1. Fetch messages from Slack channels when asked, with specific count limits
 2. Help compose and review messages before sending them to Slack
 3. Send messages to specific Slack channels after user confirmation
-4. Find messages where the user was mentioned/tagged
+4. Find messages where the user was mentioned/tagged across all channels or in specific channels
 
-Important workflow:
-1. When users ask about messages:
-   - Help them specify which channel they want to check
-   - If they ask about mentions (e.g., "messages where I'm tagged", "messages mentioning me"), use format "FETCH_MENTIONS:channel_name:count"
+Important workflow for time-based queries:
+1. When users ask about messages with time expressions:
+   - Understand natural time expressions like:
+     * "today", "this morning", "this afternoon" = messages from the current day
+     * "last X hours/minutes" = messages within that time period
+     * "this week", "this month" = messages within that period
+     * "since yesterday" = messages in the last 24 hours
+     * If no time is specified, default to "recent" = last 24 hours
+   - For mentions across all channels, use format "FETCH_MENTIONS:ALL:timestamp"
+   - For specific channel mentions, use format "FETCH_MENTIONS:channel_name:timestamp"
+   - The timestamp should be in ISO format (YYYY-MM-DDTHH:mm:ssZ)
+
+2. When users ask about messages:
+   - Help them specify which channel they want to check, or use ALL for cross-channel search
+   - If they ask about mentions (e.g., "messages where I'm tagged", "messages mentioning me"):
+     * For all channels: "FETCH_MENTIONS:ALL:2024-03-14T00:00:00Z"
+     * For specific channel: "FETCH_MENTIONS:general:2024-03-14T00:00:00Z"
    - Otherwise, intelligently interpret the number of messages they want:
      * "last/recent message" = 1 message
      * "couple/few messages" = 2-3 messages
      * "several messages" = 3-4 messages
      * Specific numbers like "last 7 messages" = exact number requested
      * If no number is specified, default to 3 messages
-   - Use format "FETCH_MESSAGES:channel_name:count" where count is the interpreted number
-2. When composing messages, always:
-   - Read back the proposed message
-   - Specify which channel it will be sent to
-   - Ask for explicit confirmation before sending
-   - Only proceed with SEND_MESSAGE command after user confirms with a clear "yes" or similar affirmative
 
-Examples of message count handling:
-- "Show me the last message from general" -> "FETCH_MESSAGES:general:1"
-- "What are the recent messages in random?" -> "FETCH_MESSAGES:random:3"
-- "Get me the last couple messages from announcements" -> "FETCH_MESSAGES:announcements:2"
-- "Show me several messages from support" -> "FETCH_MESSAGES:support:3"
-- "Check the last 10 messages in general" -> "FETCH_MESSAGES:general:10"
-- "Show me messages where I'm mentioned in general" -> "FETCH_MENTIONS:general:5"
-- "Get messages that tag me in random" -> "FETCH_MENTIONS:random:3"
+Examples of time-based queries:
+- "Have I been mentioned today?" -> "FETCH_MENTIONS:ALL:2024-03-14T00:00:00Z"
+- "Show mentions from the last hour in general" -> "FETCH_MENTIONS:general:2024-03-14T15:00:00Z"
+- "Any mentions since yesterday?" -> "FETCH_MENTIONS:ALL:2024-03-13T16:00:00Z"
+- "Check for mentions this week" -> "FETCH_MENTIONS:ALL:2024-03-11T00:00:00Z"
 
 Never send messages without explicit confirmation from the user.
 Always maintain a natural conversation flow and ask follow-up questions when needed.
 
 When responding, use these formats for actions:
 - To fetch messages: "FETCH_MESSAGES:channel_name:count"
-- To fetch mentions: "FETCH_MENTIONS:channel_name:count"
+- To fetch mentions with time: "FETCH_MENTIONS:channel:timestamp"
+- To fetch all channel mentions: "FETCH_MENTIONS:ALL:timestamp"
 - To send a message: "SEND_MESSAGE:channel_name:message_content"
 - For confirmation: Add "CONFIRMED" at the end if user has explicitly confirmed`;
 
@@ -76,17 +81,21 @@ export const chatWithAI = async (openAIApiKey: string, message: string, messages
   let channelName = null;
   let messageContent = null;
   let messageCount = 5; // Default count
+  let timestamp = null;
   let confirmed = false;
 
-  if (aiResponse.includes('FETCH_MESSAGES:')) {
+  if (aiResponse.includes('FETCH_MENTIONS:')) {
+    action = 'FETCH_MENTIONS';
+    const match = aiResponse.match(/FETCH_MENTIONS:(\w+|ALL):(.+)/);
+    if (match) {
+      [, channelName, timestamp] = match;
+    }
+  } else if (aiResponse.includes('FETCH_MESSAGES:')) {
     action = 'FETCH_MESSAGES';
     const match = aiResponse.match(/FETCH_MESSAGES:(\w+):(\d+)/);
     if (match) {
       [, channelName, messageCount] = match;
       messageCount = parseInt(messageCount, 10);
-    } else {
-      // Fallback to old format for backward compatibility
-      channelName = aiResponse.match(/FETCH_MESSAGES:(\w+)/)[1];
     }
   } else if (aiResponse.includes('SEND_MESSAGE:')) {
     action = 'SEND_MESSAGE';
@@ -97,14 +106,22 @@ export const chatWithAI = async (openAIApiKey: string, message: string, messages
     }
   }
 
-  console.log('Parsed response:', { action, channelName, messageContent, messageCount, confirmed });
+  console.log('Parsed response:', { 
+    action, 
+    channelName, 
+    messageContent, 
+    messageCount, 
+    timestamp,
+    confirmed 
+  });
 
   return {
-    response: aiResponse.replace(/FETCH_MESSAGES:\w+:\d+|FETCH_MESSAGES:\w+|SEND_MESSAGE:\w+:.+/g, '').trim(),
+    response: aiResponse.replace(/FETCH_MESSAGES:\w+:\d+|FETCH_MENTIONS:\w+:.+|SEND_MESSAGE:\w+:.+/g, '').trim(),
     action,
     channelName,
     messageContent,
     messageCount,
+    timestamp,
     confirmed
   };
 };
