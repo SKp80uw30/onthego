@@ -21,8 +21,15 @@ function isRetryableError(error?: string): boolean {
   return error ? retryableErrors.includes(error) : false;
 }
 
-export async function callSlackAPI(url: string, options: RequestInit, retries = 0): Promise<Response> {
+export async function callSlackAPI(url: string, options: RequestInit & { params?: Record<string, string> }, retries = 0): Promise<Response> {
   try {
+    // Handle query parameters
+    if (options.params) {
+      const queryParams = new URLSearchParams(options.params).toString();
+      url = `${url}${url.includes('?') ? '&' : '?'}${queryParams}`;
+      delete options.params;
+    }
+
     console.log(`Calling Slack API: ${url}`, {
       method: options.method,
       hasBody: !!options.body,

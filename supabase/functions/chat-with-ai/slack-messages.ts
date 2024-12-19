@@ -1,9 +1,41 @@
 import { callSlackAPI } from './slack-api.ts';
 
-export async function fetchSlackMessages(channelName: string, botToken: string, limit: number = 5) {
-  console.log('Starting fetchSlackMessages:', { channelName, limit });
+export async function fetchSlackMessages(channelName: string, botToken: string, limit: number = 5, fetchMentions: boolean = false) {
+  console.log('Starting fetchSlackMessages:', { channelName, limit, fetchMentions });
   
   try {
+    if (channelName === 'ALL' && fetchMentions) {
+      // For mentions across all channels, use search.messages
+      console.log('Fetching mentions across all channels...');
+      const searchResponse = await callSlackAPI(
+        'https://slack.com/api/search.messages',
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${botToken}`,
+          },
+          params: {
+            query: '@',
+            count: limit,
+            sort: 'timestamp',
+            sort_dir: 'desc'
+          }
+        }
+      );
+      
+      const searchData = await searchResponse.json();
+      console.log('Search response:', {
+        ok: searchData.ok,
+        matchCount: searchData.messages?.matches?.length
+      });
+
+      if (!searchData.ok) {
+        throw new Error(`Failed to search messages: ${searchData.error}`);
+      }
+
+      return searchData.messages?.matches?.map((match: any) => match.text) || [];
+    }
+
     // Get channel ID
     console.log('Fetching channel list from Slack...');
     const channelListResponse = await callSlackAPI(
@@ -42,9 +74,13 @@ export async function fetchSlackMessages(channelName: string, botToken: string, 
     });
 
     // Fetch messages with specified limit
+    const apiEndpoint = fetchMentions ? 
+      `https://slack.com/api/conversations.history?channel=${channel.id}&limit=${limit * 3}` : // Fetch more messages when looking for mentions
+      `https://slack.com/api/conversations.history?channel=${channel.id}&limit=${limit}`;
+
     console.log(`Fetching ${limit} messages for channel:`, channel.id);
     const messagesResponse = await callSlackAPI(
-      `https://slack.com/api/conversations.history?channel=${channel.id}&limit=${limit}`,
+      apiEndpoint,
       {
         headers: {
           'Authorization': `Bearer ${botToken}`,
@@ -64,12 +100,21 @@ export async function fetchSlackMessages(channelName: string, botToken: string, 
       throw new Error(`Failed to fetch messages: ${messagesData.error}`);
     }
 
+    if (fetchMentions) {
+      // Filter messages to only include those with mentions
+      const mentionedMessages = messagesData.messages?.filter((msg: any) => 
+        msg.text.includes('@')
+      ).slice(0, limit);
+      return mentionedMessages?.map((msg: any) => msg.text) || [];
+    }
+
     return messagesData.messages?.map((msg: any) => msg.text) || [];
   } catch (error) {
     console.error('Detailed error in fetchSlackMessages:', {
       error: error.message,
       channelName,
       requestedMessageCount: limit,
+      fetchMentions,
       stack: error.stack
     });
     throw error;
