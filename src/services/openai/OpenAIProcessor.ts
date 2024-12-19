@@ -4,16 +4,19 @@ import { TextToSpeechService } from "../TextToSpeechService";
 import { SlackService } from "../SlackService";
 import { OpenAIState } from "./OpenAIState";
 import { ChatResponse } from "./types";
+import { MessageHandler } from "./handlers/MessageHandler";
 
 export class OpenAIProcessor {
   private state: OpenAIState;
   private textToSpeechService: TextToSpeechService;
   private slackService: SlackService;
+  private messageHandler: MessageHandler;
 
   constructor(state: OpenAIState) {
     this.state = state;
     this.textToSpeechService = new TextToSpeechService();
     this.slackService = new SlackService();
+    this.messageHandler = new MessageHandler(state, this.textToSpeechService, this.slackService);
   }
 
   async processAudioChunk(audioBlob: Blob): Promise<{ transcribedText: string; aiResponse: string } | void> {
@@ -130,125 +133,20 @@ export class OpenAIProcessor {
         return;
       }
 
-      // Handle specific actions
-      if (chatResponse.action === 'SEND_MESSAGE' && chatResponse.messageContent && chatResponse.channelName) {
-        console.log('Preparing to send message:', {
-          channelName: chatResponse.channelName,
-          messageLength: chatResponse.messageContent.length
-        });
-        
-        this.state.setPendingMessage({
-          content: chatResponse.messageContent,
-          channelName: chatResponse.channelName
-        });
-        
-        const confirmationMessage = `I'll send this message to ${chatResponse.channelName}: "${chatResponse.messageContent}". Would you like to confirm sending this message?`;
-        await this.textToSpeechService.speakText(confirmationMessage);
-      } 
-      else if (chatResponse.action === 'FETCH_MENTIONS' && chatResponse.channelName) {
-        console.log('Fetching mentions:', {
-          channelName: chatResponse.channelName,
-          timestamp: chatResponse.timestamp,
-          slackAccountId
-        });
-        
-        let messages;
-        if (chatResponse.channelName.toUpperCase() === 'ALL') {
-          // Fetch mentions across all channels
-          const { data: accounts } = await supabase
-            .from('slack_accounts')
-            .select('*')
-            .eq('id', slackAccountId)
-            .single();
-
-          if (!accounts) {
-            throw new Error('Slack account not found');
-          }
-
-          messages = await this.slackService.fetchMessages(
-            'ALL', // Special identifier for all channels
-            slackAccountId,
-            chatResponse.messageCount || 10,
-            true // fetchMentions flag
-          );
-        } else {
-          // Fetch mentions from specific channel
-          messages = await this.slackService.fetchMessages(
-            chatResponse.channelName,
-            slackAccountId,
-            chatResponse.messageCount || 10,
-            true // fetchMentions flag
-          );
-        }
-
-        if (messages && messages.length > 0) {
-          console.log('Mentions fetched successfully:', {
-            count: messages.length,
-            channelName: chatResponse.channelName
-          });
-          
-          this.state.addToConversationHistory({
-            role: 'system',
-            content: `Here are the mentions ${chatResponse.channelName === 'ALL' ? 'across all channels' : `from #${chatResponse.channelName}`}:\n${messages.join('\n')}`
-          });
-          
-          const messageText = `Here are your mentions ${chatResponse.channelName === 'ALL' ? 'across all channels' : `from ${chatResponse.channelName}`}: ${messages.join('. Next mention: ')}`;
-          await this.textToSpeechService.speakText(messageText);
-        } else {
-          console.log('No mentions found:', {
-            channelName: chatResponse.channelName,
-            slackAccountId
-          });
-          
-          const noMessagesText = `No mentions found ${chatResponse.channelName === 'ALL' ? 'across any channels' : `in ${chatResponse.channelName}`}`;
-          await this.textToSpeechService.speakText(noMessagesText);
-        }
-      }
-      else if (chatResponse.action === 'FETCH_MESSAGES' && chatResponse.channelName) {
-        console.log('Initiating message fetch:', {
-          channelName: chatResponse.channelName,
-          messageCount: chatResponse.messageCount,
-          slackAccountId
-        });
-        
-        const messages = await this.slackService.fetchMessages(
-          chatResponse.channelName, 
-          slackAccountId,
-          chatResponse.messageCount || 3
-        );
-        
-        if (messages && messages.length > 0) {
-          console.log('Messages fetched successfully:', {
-            count: messages.length,
-            requestedCount: chatResponse.messageCount,
-            channelName: chatResponse.channelName
-          });
-          
-          this.state.addToConversationHistory({
-            role: 'system',
-            content: `Here are the messages from #${chatResponse.channelName}:\n${messages.join('\n')}`
-          });
-          
-          const messageText = `Here are the recent messages from ${chatResponse.channelName}: ${messages.join('. Next message: ')}`;
-          await this.textToSpeechService.speakText(messageText);
-        } else {
-          console.warn('No messages found:', {
-            channelName: chatResponse.channelName,
-            slackAccountId
-          });
-          
-          const noMessagesText = `No recent messages found in ${chatResponse.channelName}`;
-          await this.textToSpeechService.speakText(noMessagesText);
-        }
+      // Handle specific actions using the MessageHandler
+      switch (chatResponse.action) {
+        case 'SEND_MESSAGE':
+          await this.messageHandler.handleSendMessage(chatResponse, slackAccountId);
+          break;
+        case 'FETCH_MESSAGES':
+          await this.messageHandler.handleFetchMessages(chatResponse, slackAccountId);
+          break;
+        case 'FETCH_MENTIONS':
+          await this.messageHandler.handleFetchMentions(chatResponse, slackAccountId);
+          break;
       }
     } catch (error) {
-      console.error('Detailed error in handleChatResponse:', {
-        error,
-        errorType: error.constructor.name,
-        stack: error.stack,
-        action: chatResponse.action,
-        slackAccountId
-      });
+      console.error('Error in handleChatResponse:', error);
       toast.error('Error processing chat response');
       throw error;
     }

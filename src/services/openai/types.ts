@@ -14,4 +14,5 @@ export interface ChatResponse {
   messageContent?: string;
   channelName?: string;
   messageCount?: number;
+  timestamp?: string;
 }
