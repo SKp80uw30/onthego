@@ -77,12 +77,15 @@ export class OpenAIProcessor {
 
   private async processChatResponse(transcribedText: string, slackAccountId: string) {
     try {
+      // Add user message to conversation history
+      await this.state.addToConversationHistory({ role: 'user', content: transcribedText });
+
       console.log('Sending chat request with:', { transcribedText, slackAccountId });
       const { data: chatResponse, error: chatError } = await supabase.functions.invoke('chat-with-ai', {
         body: {
           message: transcribedText,
           slackAccountId: slackAccountId,
-          conversationHistory: this.state.getConversationHistory(),
+          conversationHistory: await this.state.getConversationHistory(),
         },
       });
 
@@ -97,6 +100,10 @@ export class OpenAIProcessor {
       }
 
       console.log('Received chat response:', chatResponse);
+      
+      // Add assistant response to conversation history
+      await this.state.addToConversationHistory({ role: 'assistant', content: chatResponse.response });
+      
       await this.handleChatResponse(chatResponse, transcribedText, slackAccountId);
       
       // Always speak the AI's response
@@ -120,10 +127,6 @@ export class OpenAIProcessor {
         messageCount: chatResponse.messageCount,
         slackAccountId
       });
-
-      // Update conversation history
-      this.state.addToConversationHistory({ role: 'user', content: transcribedText });
-      this.state.addToConversationHistory({ role: 'assistant', content: chatResponse.response });
 
       // Validate Slack connection before proceeding with Slack operations
       if ((chatResponse.action === 'SEND_MESSAGE' || chatResponse.action === 'FETCH_MESSAGES' || chatResponse.action === 'FETCH_MENTIONS') && 
