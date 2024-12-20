@@ -10,6 +10,9 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 const openai = new OpenAI({
   apiKey: openAIApiKey,
+  defaultHeaders: {
+    'OpenAI-Beta': 'assistants=v2'  // Add the required header for v2
+  }
 });
 
 const corsHeaders = {
@@ -38,8 +41,11 @@ serve(async (req) => {
           .single();
 
         if (assistantError || !commandParserAssistant) {
+          console.error('Command parser assistant not found:', assistantError);
           throw new Error('Command parser assistant not found');
         }
+
+        console.log('Found command parser assistant:', commandParserAssistant);
 
         // Create a new thread
         const thread = await openai.beta.threads.create();
@@ -55,6 +61,7 @@ serve(async (req) => {
           });
 
         if (threadError) {
+          console.error('Error storing thread:', threadError);
           throw new Error(`Error storing thread: ${threadError.message}`);
         }
 
@@ -85,6 +92,7 @@ serve(async (req) => {
           .single();
 
         if (threadError || !threadData) {
+          console.error('Thread not found in database:', threadError);
           throw new Error('Thread not found in database');
         }
 
