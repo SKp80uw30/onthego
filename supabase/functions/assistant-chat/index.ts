@@ -8,13 +8,9 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// Initialize OpenAI client with explicit headers for v2 Assistants API
 const openai = new OpenAI({
   apiKey: openAIApiKey,
-  baseOptions: {
-    headers: {
-      'OpenAI-Beta': 'assistants=v2'
-    }
-  }
 });
 
 const corsHeaders = {
@@ -56,8 +52,24 @@ serve(async (req) => {
         console.log('Found command parser assistant:', commandParserAssistant);
 
         try {
-          // Create a new thread with explicit beta header
-          const thread = await openai.beta.threads.create();
+          // Create a new thread using the v2 API
+          const response = await fetch('https://api.openai.com/v1/threads', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${openAIApiKey}`,
+              'OpenAI-Beta': 'assistants=v2',
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({})
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            console.error('Error creating thread:', error);
+            throw new Error(`Failed to create thread: ${error.error?.message || 'Unknown error'}`);
+          }
+
+          const thread = await response.json();
           console.log('Created new thread:', thread.id);
 
           // Store the thread in our database
@@ -113,11 +125,24 @@ serve(async (req) => {
         console.log('Sending message to thread:', threadId);
 
         try {
-          // Add the message to the thread with explicit beta header
-          await openai.beta.threads.messages.create(threadId, {
-            role: 'user',
-            content: message
+          // Add message to thread using v2 API
+          const messageResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${openAIApiKey}`,
+              'OpenAI-Beta': 'assistants=v2',
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              role: 'user',
+              content: message
+            })
           });
+
+          if (!messageResponse.ok) {
+            const error = await messageResponse.json();
+            throw new Error(`Failed to create message: ${error.error?.message || 'Unknown error'}`);
+          }
 
           // Get the current assistant for this thread
           const { data: threadData, error: threadError } = await supabase
@@ -137,20 +162,59 @@ serve(async (req) => {
             );
           }
 
-          // Run the assistant with explicit beta header
-          const run = await openai.beta.threads.runs.create(threadId, {
-            assistant_id: threadData.assistant_id
+          // Create a run using v2 API
+          const runResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${openAIApiKey}`,
+              'OpenAI-Beta': 'assistants=v2',
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              assistant_id: threadData.assistant_id
+            })
           });
 
-          // Wait for the run to complete
-          let runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
-          while (runStatus.status === 'queued' || runStatus.status === 'in_progress') {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
+          if (!runResponse.ok) {
+            const error = await runResponse.json();
+            throw new Error(`Failed to create run: ${error.error?.message || 'Unknown error'}`);
           }
 
-          // Get the assistant's response with explicit beta header
-          const messages = await openai.beta.threads.messages.list(threadId);
+          const run = await runResponse.json();
+
+          // Poll for run completion
+          let runStatus = run;
+          while (runStatus.status === 'queued' || runStatus.status === 'in_progress') {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            const statusResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${run.id}`, {
+              headers: {
+                'Authorization': `Bearer ${openAIApiKey}`,
+                'OpenAI-Beta': 'assistants=v2'
+              }
+            });
+            
+            if (!statusResponse.ok) {
+              const error = await statusResponse.json();
+              throw new Error(`Failed to get run status: ${error.error?.message || 'Unknown error'}`);
+            }
+            
+            runStatus = await statusResponse.json();
+          }
+
+          // Get messages using v2 API
+          const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+            headers: {
+              'Authorization': `Bearer ${openAIApiKey}`,
+              'OpenAI-Beta': 'assistants=v2'
+            }
+          });
+
+          if (!messagesResponse.ok) {
+            const error = await messagesResponse.json();
+            throw new Error(`Failed to get messages: ${error.error?.message || 'Unknown error'}`);
+          }
+
+          const messages = await messagesResponse.json();
           const lastMessage = messages.data[0];
 
           return new Response(
