@@ -1,20 +1,20 @@
 import OpenAI from "npm:openai@4.26.0";
 
-export const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
 export function createOpenAIClient() {
+  console.log('Creating OpenAI client with v2 beta header');
   return new OpenAI({
     apiKey: Deno.env.get('OPENAI_API_KEY'),
-    defaultHeaders: { 'OpenAI-Beta': 'assistants=v2' },
+    baseOptions: {
+      headers: {
+        'OpenAI-Beta': 'assistants=v2'
+      }
+    }
   });
 }
 
 export async function createThread(openai: OpenAI) {
   try {
-    console.log('Creating new thread with OpenAI');
+    console.log('Creating new thread with OpenAI v2');
     const thread = await openai.beta.threads.create();
     console.log('Thread created successfully:', thread.id);
     return thread;
@@ -83,3 +83,8 @@ export async function getThreadMessages(openai: OpenAI, threadId: string) {
     throw error;
   }
 }
+
+export const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
