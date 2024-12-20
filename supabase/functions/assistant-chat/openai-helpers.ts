@@ -12,13 +12,19 @@ export function createOpenAIClient() {
     throw new Error('OpenAI API key not found in environment');
   }
   
-  // Create client without manual beta header - SDK handles it
-  const client = new OpenAI({ apiKey });
+  // Create client with explicit beta configuration
+  const client = new OpenAI({ 
+    apiKey,
+    defaultQuery: { 'openai-beta': 'assistants=v2' },
+    defaultHeaders: { 'OpenAI-Beta': 'assistants=v2' }
+  });
 
   // Test the client configuration
   console.log('OpenAI client created with configuration:', {
     hasApiKey: !!client.apiKey,
-    baseURL: client.baseURL
+    baseURL: client.baseURL,
+    defaultQuery: client.defaultQuery,
+    defaultHeaders: client.defaultHeaders
   });
 
   return client;
