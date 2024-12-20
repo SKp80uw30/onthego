@@ -10,8 +10,12 @@ const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders
+    });
   }
 
   try {
@@ -30,7 +34,13 @@ serve(async (req) => {
     if (command === 'FETCH_MESSAGES') {
       if (!channelName || !slackAccountId) {
         console.error('Missing required parameters:', { channelName, slackAccountId });
-        throw new Error('Missing required parameters for fetching messages');
+        return new Response(
+          JSON.stringify({ error: 'Missing required parameters for fetching messages' }),
+          { 
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
       }
 
       try {
@@ -43,7 +53,13 @@ serve(async (req) => {
 
         if (accountError || !slackAccount?.slack_bot_token) {
           console.error('Error fetching Slack account:', { accountError, slackAccountId });
-          throw new Error('Slack account not found or missing bot token');
+          return new Response(
+            JSON.stringify({ error: 'Slack account not found or missing bot token' }),
+            { 
+              status: 404,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            }
+          );
         }
 
         const messages = await fetchSlackMessages(
@@ -80,7 +96,13 @@ serve(async (req) => {
     // Handle chat messages
     if (!message && command !== 'FETCH_MESSAGES') {
       console.error('No message provided and no valid command specified');
-      throw new Error('No message provided');
+      return new Response(
+        JSON.stringify({ error: 'No message provided' }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     try {
