@@ -11,7 +11,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const openai = new OpenAI({
   apiKey: openAIApiKey,
   defaultHeaders: {
-    'OpenAI-Beta': 'assistants=v2'  // Add the required header for v2
+    'OpenAI-Beta': 'assistants=v2'
   }
 });
 
@@ -42,87 +42,139 @@ serve(async (req) => {
 
         if (assistantError || !commandParserAssistant) {
           console.error('Command parser assistant not found:', assistantError);
-          throw new Error('Command parser assistant not found');
+          return new Response(
+            JSON.stringify({ error: 'Command parser assistant not found' }),
+            { 
+              status: 404,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            }
+          );
         }
 
         console.log('Found command parser assistant:', commandParserAssistant);
 
-        // Create a new thread
-        const thread = await openai.beta.threads.create();
-        console.log('Created new thread:', thread.id);
+        try {
+          // Create a new thread
+          const thread = await openai.beta.threads.create();
+          console.log('Created new thread:', thread.id);
 
-        // Store the thread in our database
-        const { error: threadError } = await supabase
-          .from('assistant_threads')
-          .insert({
-            openai_thread_id: thread.id,
-            assistant_id: commandParserAssistant.openai_assistant_id,
-            session_id: slackAccountId
-          });
+          // Store the thread in our database
+          const { error: threadError } = await supabase
+            .from('assistant_threads')
+            .insert({
+              openai_thread_id: thread.id,
+              assistant_id: commandParserAssistant.openai_assistant_id,
+              session_id: slackAccountId
+            });
 
-        if (threadError) {
-          console.error('Error storing thread:', threadError);
-          throw new Error(`Error storing thread: ${threadError.message}`);
+          if (threadError) {
+            console.error('Error storing thread:', threadError);
+            return new Response(
+              JSON.stringify({ error: `Error storing thread: ${threadError.message}` }),
+              { 
+                status: 500,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+              }
+            );
+          }
+
+          return new Response(
+            JSON.stringify({ threadId: thread.id }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        } catch (error) {
+          console.error('OpenAI API error:', error);
+          return new Response(
+            JSON.stringify({ error: `OpenAI API error: ${error.message}` }),
+            { 
+              status: 500,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            }
+          );
         }
-
-        return new Response(
-          JSON.stringify({ threadId: thread.id }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
       }
 
       case 'SEND_MESSAGE': {
         if (!threadId || !message) {
-          throw new Error('Thread ID and message are required');
+          return new Response(
+            JSON.stringify({ error: 'Thread ID and message are required' }),
+            { 
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            }
+          );
         }
 
         console.log('Sending message to thread:', threadId);
 
-        // Add the message to the thread
-        await openai.beta.threads.messages.create(threadId, {
-          role: 'user',
-          content: message
-        });
+        try {
+          // Add the message to the thread
+          await openai.beta.threads.messages.create(threadId, {
+            role: 'user',
+            content: message
+          });
 
-        // Get the current assistant for this thread
-        const { data: threadData, error: threadError } = await supabase
-          .from('assistant_threads')
-          .select('assistant_id')
-          .eq('openai_thread_id', threadId)
-          .single();
+          // Get the current assistant for this thread
+          const { data: threadData, error: threadError } = await supabase
+            .from('assistant_threads')
+            .select('assistant_id')
+            .eq('openai_thread_id', threadId)
+            .single();
 
-        if (threadError || !threadData) {
-          console.error('Thread not found in database:', threadError);
-          throw new Error('Thread not found in database');
+          if (threadError || !threadData) {
+            console.error('Thread not found in database:', threadError);
+            return new Response(
+              JSON.stringify({ error: 'Thread not found in database' }),
+              { 
+                status: 404,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+              }
+            );
+          }
+
+          // Run the assistant
+          const run = await openai.beta.threads.runs.create(threadId, {
+            assistant_id: threadData.assistant_id
+          });
+
+          // Wait for the run to complete
+          let runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
+          while (runStatus.status === 'queued' || runStatus.status === 'in_progress') {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
+          }
+
+          // Get the assistant's response
+          const messages = await openai.beta.threads.messages.list(threadId);
+          const lastMessage = messages.data[0];
+
+          return new Response(
+            JSON.stringify({ 
+              response: lastMessage.content[0].text.value,
+              status: runStatus.status
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        } catch (error) {
+          console.error('OpenAI API error:', error);
+          return new Response(
+            JSON.stringify({ error: `OpenAI API error: ${error.message}` }),
+            { 
+              status: 500,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            }
+          );
         }
-
-        // Run the assistant
-        const run = await openai.beta.threads.runs.create(threadId, {
-          assistant_id: threadData.assistant_id
-        });
-
-        // Wait for the run to complete
-        let runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
-        while (runStatus.status === 'queued' || runStatus.status === 'in_progress') {
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
-        }
-
-        // Get the assistant's response
-        const messages = await openai.beta.threads.messages.list(threadId);
-        const lastMessage = messages.data[0];
-
-        return new Response(
-          JSON.stringify({ 
-            response: lastMessage.content[0].text.value,
-            status: runStatus.status
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
       }
 
       default:
-        throw new Error(`Unknown action: ${action}`);
+        return new Response(
+          JSON.stringify({ error: `Unknown action: ${action}` }),
+          { 
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
     }
   } catch (error) {
     console.error('Error in assistant-chat function:', error);
