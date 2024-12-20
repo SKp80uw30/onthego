@@ -10,8 +10,10 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 const openai = new OpenAI({
   apiKey: openAIApiKey,
-  defaultHeaders: {
-    'OpenAI-Beta': 'assistants=v2'
+  baseOptions: {
+    headers: {
+      'OpenAI-Beta': 'assistants=v2'
+    }
   }
 });
 
@@ -54,7 +56,7 @@ serve(async (req) => {
         console.log('Found command parser assistant:', commandParserAssistant);
 
         try {
-          // Create a new thread
+          // Create a new thread with explicit beta header
           const thread = await openai.beta.threads.create();
           console.log('Created new thread:', thread.id);
 
@@ -85,7 +87,10 @@ serve(async (req) => {
         } catch (error) {
           console.error('OpenAI API error:', error);
           return new Response(
-            JSON.stringify({ error: `OpenAI API error: ${error.message}` }),
+            JSON.stringify({ 
+              error: `OpenAI API error: ${error.message}`,
+              details: error
+            }),
             { 
               status: 500,
               headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -108,7 +113,7 @@ serve(async (req) => {
         console.log('Sending message to thread:', threadId);
 
         try {
-          // Add the message to the thread
+          // Add the message to the thread with explicit beta header
           await openai.beta.threads.messages.create(threadId, {
             role: 'user',
             content: message
@@ -132,7 +137,7 @@ serve(async (req) => {
             );
           }
 
-          // Run the assistant
+          // Run the assistant with explicit beta header
           const run = await openai.beta.threads.runs.create(threadId, {
             assistant_id: threadData.assistant_id
           });
@@ -144,7 +149,7 @@ serve(async (req) => {
             runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
           }
 
-          // Get the assistant's response
+          // Get the assistant's response with explicit beta header
           const messages = await openai.beta.threads.messages.list(threadId);
           const lastMessage = messages.data[0];
 
@@ -158,7 +163,10 @@ serve(async (req) => {
         } catch (error) {
           console.error('OpenAI API error:', error);
           return new Response(
-            JSON.stringify({ error: `OpenAI API error: ${error.message}` }),
+            JSON.stringify({ 
+              error: `OpenAI API error: ${error.message}`,
+              details: error
+            }),
             { 
               status: 500,
               headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -179,7 +187,10 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in assistant-chat function:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        details: error
+      }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
