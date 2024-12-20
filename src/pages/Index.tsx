@@ -43,7 +43,6 @@ const Index = () => {
       }
     });
 
-    // Initialize audio service
     initializeAudio();
 
     return () => {
