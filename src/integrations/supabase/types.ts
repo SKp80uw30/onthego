@@ -9,6 +9,81 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      assistant_threads: {
+        Row: {
+          assistant_id: string | null
+          created_at: string | null
+          id: string
+          last_active: string | null
+          metadata: Json | null
+          openai_thread_id: string
+          session_id: string | null
+        }
+        Insert: {
+          assistant_id?: string | null
+          created_at?: string | null
+          id?: string
+          last_active?: string | null
+          metadata?: Json | null
+          openai_thread_id: string
+          session_id?: string | null
+        }
+        Update: {
+          assistant_id?: string | null
+          created_at?: string | null
+          id?: string
+          last_active?: string | null
+          metadata?: Json | null
+          openai_thread_id?: string
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assistant_threads_assistant_id_fkey"
+            columns: ["assistant_id"]
+            isOneToOne: false
+            referencedRelation: "assistants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assistant_threads_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "conversation_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assistants: {
+        Row: {
+          assistant_type: Database["public"]["Enums"]["assistant_type"]
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          openai_assistant_id: string
+        }
+        Insert: {
+          assistant_type: Database["public"]["Enums"]["assistant_type"]
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          openai_assistant_id: string
+        }
+        Update: {
+          assistant_type?: Database["public"]["Enums"]["assistant_type"]
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          openai_assistant_id?: string
+        }
+        Relationships: []
+      }
       conversation_messages: {
         Row: {
           content: string
@@ -251,6 +326,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      assistant_type: "command_parser" | "slack_handler" | "conversation"
       conversation_status: "active" | "completed" | "expired"
     }
     CompositeTypes: {
