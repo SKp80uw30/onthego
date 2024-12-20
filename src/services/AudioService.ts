@@ -1,15 +1,22 @@
 import { AudioRecorder } from '@/components/audio/AudioRecorder';
 import { OpenAIService } from './OpenAIService';
+import { TextToSpeechService } from './TextToSpeechService';
+import { AudioTranscriptionService } from './AudioTranscriptionService';
 import { toast } from 'sonner';
 
 export class AudioService {
   private audioRecorder: AudioRecorder | null = null;
   private openAIService: OpenAIService;
+  private textToSpeechService: TextToSpeechService;
+  private transcriptionService: AudioTranscriptionService;
   private initialized: boolean = false;
+  private transcriptionCallback: ((text: string) => void) | null = null;
 
   constructor() {
     console.log('[AudioService] Constructor called');
     this.openAIService = new OpenAIService();
+    this.textToSpeechService = new TextToSpeechService();
+    this.transcriptionService = new AudioTranscriptionService();
   }
 
   async initialize() {
@@ -30,23 +37,10 @@ export class AudioService {
       this.audioRecorder.setOnDataAvailable(async (audioBlob: Blob) => {
         console.log('[AudioService] Processing audio...', { blobSize: audioBlob.size });
         try {
-          if (!this.openAIService.isInitialized()) {
-            console.log('[AudioService] OpenAI service not initialized yet, retrying initialization...');
-            await this.openAIService.initialize();
-            if (!this.openAIService.isInitialized()) {
-              console.log('[AudioService] Still unable to initialize OpenAI service');
-              toast.error('Service not ready. Please try again.');
-              return;
-            }
+          const transcribedText = await this.transcriptionService.transcribeAudio(audioBlob);
+          if (transcribedText && this.transcriptionCallback) {
+            this.transcriptionCallback(transcribedText);
           }
-
-          const result = await this.openAIService.processAudioChunk(audioBlob);
-          if (!result) {
-            console.log('[AudioService] No result from audio processing');
-            toast.error('Unable to process audio. Please try again.');
-            return;
-          }
-          console.log('[AudioService] Audio processing successful:', result);
         } catch (error) {
           console.error('[AudioService] Error processing audio chunk:', error);
           if (error.message?.includes('Service Unavailable')) {
@@ -65,6 +59,14 @@ export class AudioService {
       toast.error('Failed to initialize audio service. Please refresh the page.');
       throw error;
     }
+  }
+
+  onTranscription(callback: (text: string) => void) {
+    this.transcriptionCallback = callback;
+  }
+
+  async textToSpeech(text: string) {
+    return this.textToSpeechService.speakText(text);
   }
 
   async startRecording() {
@@ -115,5 +117,6 @@ export class AudioService {
     }
     this.openAIService.cleanup();
     this.initialized = false;
+    this.transcriptionCallback = null;
   }
 }

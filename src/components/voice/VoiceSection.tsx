@@ -3,6 +3,7 @@ import { Session } from '@supabase/supabase-js';
 import { AudioService } from '@/services/AudioService';
 import { useAssistantChat } from '@/hooks/use-assistant-chat';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface VoiceSectionProps {
   session: Session;
