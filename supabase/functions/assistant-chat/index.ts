@@ -1,22 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'npm:@supabase/supabase-js@2';
-import OpenAI from "npm:openai@4.26.0";
-
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-// Initialize OpenAI client with explicit headers for v2 Assistants API
-const openai = new OpenAI({
-  apiKey: openAIApiKey,
-});
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, createOpenAIClient, createThread, addMessageToThread, createRun, waitForRunCompletion, getThreadMessages } from './openai-helpers.ts';
+import { getCommandParserAssistant, storeThread } from './db-helpers.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -27,81 +12,28 @@ serve(async (req) => {
     const { action, message, threadId, slackAccountId } = await req.json();
     console.log('Received request:', { action, threadId, slackAccountId });
 
+    const openai = createOpenAIClient();
+
     switch (action) {
       case 'CREATE_THREAD': {
         console.log('Creating new thread for slack account:', slackAccountId);
         
-        // Get the command parser assistant ID from the database
-        const { data: commandParserAssistant, error: assistantError } = await supabase
-          .from('assistants')
-          .select('openai_assistant_id')
-          .eq('assistant_type', 'command_parser')
-          .single();
-
-        if (assistantError || !commandParserAssistant) {
-          console.error('Command parser assistant not found:', assistantError);
-          return new Response(
-            JSON.stringify({ error: 'Command parser assistant not found' }),
-            { 
-              status: 404,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            }
-          );
-        }
-
-        console.log('Found command parser assistant:', commandParserAssistant);
-
         try {
-          // Create a new thread using the v2 API
-          const response = await fetch('https://api.openai.com/v1/threads', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${openAIApiKey}`,
-              'OpenAI-Beta': 'assistants=v2',
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({})
-          });
-
-          if (!response.ok) {
-            const error = await response.json();
-            console.error('Error creating thread:', error);
-            throw new Error(`Failed to create thread: ${error.error?.message || 'Unknown error'}`);
-          }
-
-          const thread = await response.json();
-          console.log('Created new thread:', thread.id);
-
-          // Store the thread in our database
-          const { error: threadError } = await supabase
-            .from('assistant_threads')
-            .insert({
-              openai_thread_id: thread.id,
-              assistant_id: commandParserAssistant.openai_assistant_id,
-              session_id: slackAccountId
-            });
-
-          if (threadError) {
-            console.error('Error storing thread:', threadError);
-            return new Response(
-              JSON.stringify({ error: `Error storing thread: ${threadError.message}` }),
-              { 
-                status: 500,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-              }
-            );
-          }
-
+          const assistantId = await getCommandParserAssistant();
+          const thread = await createThread(openai);
+          
+          await storeThread(thread.id, assistantId, slackAccountId);
+          
           return new Response(
             JSON.stringify({ threadId: thread.id }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         } catch (error) {
-          console.error('OpenAI API error:', error);
+          console.error('Error in CREATE_THREAD:', error);
           return new Response(
             JSON.stringify({ 
-              error: `OpenAI API error: ${error.message}`,
-              details: error
+              error: 'Failed to create thread',
+              details: error.message 
             }),
             { 
               status: 500,
@@ -122,114 +54,31 @@ serve(async (req) => {
           );
         }
 
-        console.log('Sending message to thread:', threadId);
-
         try {
-          // Add message to thread using v2 API
-          const messageResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${openAIApiKey}`,
-              'OpenAI-Beta': 'assistants=v2',
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              role: 'user',
-              content: message
-            })
-          });
-
-          if (!messageResponse.ok) {
-            const error = await messageResponse.json();
-            throw new Error(`Failed to create message: ${error.error?.message || 'Unknown error'}`);
-          }
-
-          // Get the current assistant for this thread
-          const { data: threadData, error: threadError } = await supabase
-            .from('assistant_threads')
-            .select('assistant_id')
-            .eq('openai_thread_id', threadId)
-            .single();
-
-          if (threadError || !threadData) {
-            console.error('Thread not found in database:', threadError);
-            return new Response(
-              JSON.stringify({ error: 'Thread not found in database' }),
-              { 
-                status: 404,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-              }
-            );
-          }
-
-          // Create a run using v2 API
-          const runResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${openAIApiKey}`,
-              'OpenAI-Beta': 'assistants=v2',
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              assistant_id: threadData.assistant_id
-            })
-          });
-
-          if (!runResponse.ok) {
-            const error = await runResponse.json();
-            throw new Error(`Failed to create run: ${error.error?.message || 'Unknown error'}`);
-          }
-
-          const run = await runResponse.json();
-
-          // Poll for run completion
-          let runStatus = run;
-          while (runStatus.status === 'queued' || runStatus.status === 'in_progress') {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            const statusResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${run.id}`, {
-              headers: {
-                'Authorization': `Bearer ${openAIApiKey}`,
-                'OpenAI-Beta': 'assistants=v2'
-              }
-            });
-            
-            if (!statusResponse.ok) {
-              const error = await statusResponse.json();
-              throw new Error(`Failed to get run status: ${error.error?.message || 'Unknown error'}`);
-            }
-            
-            runStatus = await statusResponse.json();
-          }
-
-          // Get messages using v2 API
-          const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
-            headers: {
-              'Authorization': `Bearer ${openAIApiKey}`,
-              'OpenAI-Beta': 'assistants=v2'
-            }
-          });
-
-          if (!messagesResponse.ok) {
-            const error = await messagesResponse.json();
-            throw new Error(`Failed to get messages: ${error.error?.message || 'Unknown error'}`);
-          }
-
-          const messages = await messagesResponse.json();
+          console.log('Processing message for thread:', threadId);
+          
+          const assistantId = await getCommandParserAssistant();
+          
+          await addMessageToThread(openai, threadId, message);
+          const run = await createRun(openai, threadId, assistantId);
+          await waitForRunCompletion(openai, threadId, run.id);
+          
+          const messages = await getThreadMessages(openai, threadId);
           const lastMessage = messages.data[0];
 
           return new Response(
             JSON.stringify({ 
               response: lastMessage.content[0].text.value,
-              status: runStatus.status
+              status: 'completed'
             }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         } catch (error) {
-          console.error('OpenAI API error:', error);
+          console.error('Error in SEND_MESSAGE:', error);
           return new Response(
             JSON.stringify({ 
-              error: `OpenAI API error: ${error.message}`,
-              details: error
+              error: 'Failed to process message',
+              details: error.message 
             }),
             { 
               status: 500,
