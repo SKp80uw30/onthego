@@ -13,22 +13,6 @@ export const WorkspaceInitializer = ({ userId, audioService }: WorkspaceInitiali
     const fetchDefaultWorkspace = async () => {
       try {
         console.log('Fetching slack accounts...');
-        const { data: settings, error: settingsError } = await supabase
-          .from('settings')
-          .select('default_workspace_id')
-          .eq('user_id', userId)
-          .maybeSingle();
-
-        if (settingsError) {
-          console.error('Error fetching settings:', settingsError);
-        }
-
-        if (settings?.default_workspace_id) {
-          console.log('Found default workspace:', settings.default_workspace_id);
-          audioService.getOpenAIService().setSlackAccountId(settings.default_workspace_id);
-          return;
-        }
-
         const { data: workspaces, error: workspacesError } = await supabase
           .from('slack_accounts')
           .select('id')
@@ -42,19 +26,19 @@ export const WorkspaceInitializer = ({ userId, audioService }: WorkspaceInitiali
         }
 
         if (workspaces?.id) {
-          console.log('Using first available workspace:', workspaces.id);
+          console.log('Using workspace:', workspaces.id);
           audioService.getOpenAIService().setSlackAccountId(workspaces.id);
           
-          const { error: createError } = await supabase
+          // Create or update settings
+          const { error: upsertError } = await supabase
             .from('settings')
             .upsert({
               user_id: userId,
               default_workspace_id: workspaces.id
             });
 
-          if (createError) {
-            console.error('Error creating settings:', createError);
-            toast.error('Failed to save workspace settings');
+          if (upsertError) {
+            console.error('Error upserting settings:', upsertError);
           }
         } else {
           console.log('No Slack workspace connected');
