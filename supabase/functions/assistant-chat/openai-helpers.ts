@@ -1,27 +1,24 @@
 import OpenAI from "npm:openai@4.26.0";
 
+export const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
 export function createOpenAIClient() {
-  console.log('Creating OpenAI client with v2 beta header');
+  console.log('Creating OpenAI client');
   const apiKey = Deno.env.get('OPENAI_API_KEY');
   if (!apiKey) {
     throw new Error('OpenAI API key not found in environment');
   }
   
-  const client = new OpenAI({
-    apiKey,
-    baseOptions: {
-      headers: {
-        'OpenAI-Beta': 'assistants=v2'
-      }
-    }
-  });
+  // Create client without manual beta header - SDK handles it
+  const client = new OpenAI({ apiKey });
 
   // Test the client configuration
   console.log('OpenAI client created with configuration:', {
     hasApiKey: !!client.apiKey,
-    baseURL: client.baseURL,
-    hasHeaders: !!client.baseOptions?.headers,
-    betaHeader: client.baseOptions?.headers?.['OpenAI-Beta']
+    baseURL: client.baseURL
   });
 
   return client;
@@ -29,14 +26,7 @@ export function createOpenAIClient() {
 
 export async function createThread(openai: OpenAI) {
   try {
-    console.log('Attempting to create new thread with OpenAI v2');
-    
-    // Log the request configuration
-    console.log('OpenAI configuration check before create:', {
-      baseURL: openai.baseURL,
-      betaHeader: openai.baseOptions?.headers?.['OpenAI-Beta']
-    });
-
+    console.log('Creating new thread with OpenAI');
     const thread = await openai.beta.threads.create();
     console.log('Thread created successfully:', {
       threadId: thread.id,
@@ -164,8 +154,3 @@ export async function getThreadMessages(openai: OpenAI, threadId: string) {
     throw error;
   }
 }
-
-export const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
