@@ -19,25 +19,56 @@ export const VoiceSection: React.FC<VoiceSectionProps> = ({
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const { initializeThread, sendMessage, isLoading } = useAssistantChat();
+  const { initializeThread, sendMessage, isLoading, threadId } = useAssistantChat();
   const [currentSlackAccountId, setCurrentSlackAccountId] = useState<string | null>(null);
 
   useEffect(() => {
     const setupAssistantThread = async () => {
       try {
+        console.log('Setting up assistant thread for user:', session.user.id);
+        
         // Get the user's default Slack account
-        const { data: settings } = await supabase
+        const { data: settings, error: settingsError } = await supabase
           .from('settings')
           .select('default_workspace_id')
           .eq('user_id', session.user.id)
           .maybeSingle();
 
-        if (settings?.default_workspace_id) {
+        if (settingsError) {
+          console.error('Error fetching settings:', settingsError);
+          toast.error('Failed to fetch workspace settings');
+          return;
+        }
+
+        if (!settings?.default_workspace_id) {
+          console.log('No default workspace found, fetching first available workspace');
+          const { data: accounts, error: accountsError } = await supabase
+            .from('slack_accounts')
+            .select('id')
+            .eq('user_id', session.user.id)
+            .maybeSingle();
+
+          if (accountsError) {
+            console.error('Error fetching Slack accounts:', accountsError);
+            toast.error('Failed to fetch Slack workspaces');
+            return;
+          }
+
+          if (accounts?.id) {
+            console.log('Using workspace:', accounts.id);
+            setCurrentSlackAccountId(accounts.id);
+            await initializeThread(accounts.id);
+          } else {
+            console.warn('No Slack workspaces found');
+            toast.error('No Slack workspace connected');
+          }
+        } else {
+          console.log('Using default workspace:', settings.default_workspace_id);
           setCurrentSlackAccountId(settings.default_workspace_id);
           await initializeThread(settings.default_workspace_id);
         }
       } catch (error) {
-        console.error('Error setting up assistant thread:', error);
+        console.error('Error in setupAssistantThread:', error);
         toast.error('Failed to initialize conversation');
       }
     };
@@ -45,30 +76,61 @@ export const VoiceSection: React.FC<VoiceSectionProps> = ({
     if (session) {
       setupAssistantThread();
     }
-  }, [session]);
+  }, [session, initializeThread]);
 
   useEffect(() => {
     if (audioService && isAudioInitialized) {
       audioService.onTranscription(async (text) => {
-        if (!text) return;
+        if (!text) {
+          console.log('No transcription text received');
+          return;
+        }
+        
+        console.log('Transcription received:', text);
+        
+        if (!threadId) {
+          console.error('No active thread ID found');
+          toast.error('Conversation not initialized. Please try again.');
+          return;
+        }
+
+        if (!currentSlackAccountId) {
+          console.error('No Slack account ID found');
+          toast.error('No Slack workspace connected');
+          return;
+        }
         
         setIsProcessing(true);
         try {
+          console.log('Sending message to thread:', threadId);
           const response = await sendMessage(text);
+          console.log('Received response:', response);
+          
           if (response) {
             await audioService.textToSpeech(response);
           }
         } catch (error) {
           console.error('Error processing message:', error);
+          toast.error('Failed to process your request');
         } finally {
           setIsProcessing(false);
         }
       });
     }
-  }, [audioService, isAudioInitialized]);
+  }, [audioService, isAudioInitialized, threadId, currentSlackAccountId, sendMessage]);
 
   const handleStartRecording = async () => {
     try {
+      if (!threadId) {
+        console.warn('No active thread, reinitializing...');
+        if (currentSlackAccountId) {
+          await initializeThread(currentSlackAccountId);
+        } else {
+          toast.error('No Slack workspace connected');
+          return;
+        }
+      }
+      
       await audioService.startRecording();
       setIsListening(true);
     } catch (error) {
