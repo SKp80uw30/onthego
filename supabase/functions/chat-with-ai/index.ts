@@ -2,7 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { chatWithAI } from './openai-utils.ts';
-import { corsHeaders, fetchSlackMessages, sendSlackMessage } from './slack-utils.ts';
+import { corsHeaders, fetchSlackMessages } from './slack-utils.ts';
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -26,8 +26,8 @@ serve(async (req) => {
       throw new Error('OpenAI API key not configured');
     }
 
-    // Handle FETCH_MESSAGES and FETCH_MENTIONS commands
-    if (command === 'FETCH_MESSAGES' || command === 'FETCH_MENTIONS') {
+    // Handle FETCH_MESSAGES command
+    if (command === 'FETCH_MESSAGES') {
       if (!channelName || !slackAccountId) {
         console.error('Missing required parameters:', { channelName, slackAccountId });
         throw new Error('Missing required parameters for fetching messages');
@@ -49,8 +49,7 @@ serve(async (req) => {
         const messages = await fetchSlackMessages(
           channelName, 
           slackAccount.slack_bot_token, 
-          messageCount,
-          command === 'FETCH_MENTIONS'
+          messageCount
         );
         
         console.log('Successfully fetched messages:', { 
@@ -79,7 +78,7 @@ serve(async (req) => {
     }
 
     // Handle chat messages
-    if (!message && command !== 'FETCH_MESSAGES' && command !== 'FETCH_MENTIONS') {
+    if (!message && command !== 'FETCH_MESSAGES') {
       console.error('No message provided and no valid command specified');
       throw new Error('No message provided');
     }
@@ -89,43 +88,12 @@ serve(async (req) => {
       const aiResponse = await chatWithAI(openAIApiKey, message, conversationHistory);
       console.log('AI Response:', aiResponse);
 
-      // If there's a confirmed message to send, send it
-      if (aiResponse.action === 'SEND_MESSAGE' && aiResponse.confirmed && slackAccountId) {
-        const { data: slackAccount } = await supabase
-          .from('slack_accounts')
-          .select('slack_bot_token')
-          .eq('id', slackAccountId)
-          .single();
-
-        if (slackAccount?.slack_bot_token) {
-          await sendSlackMessage(
-            aiResponse.channelName!,
-            aiResponse.messageContent!,
-            slackAccount.slack_bot_token
-          );
-        }
-      }
-
       return new Response(
         JSON.stringify(aiResponse),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } catch (error) {
       console.error('OpenAI API error:', error);
-      
-      if (error.message?.includes('insufficient_quota')) {
-        return new Response(
-          JSON.stringify({
-            error: 'Service temporarily unavailable due to quota limits. Please try again later.',
-            status: 'quota_exceeded'
-          }),
-          { 
-            status: 429,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        );
-      }
-      
       return new Response(
         JSON.stringify({ 
           error: error.message,

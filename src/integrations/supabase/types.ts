@@ -9,6 +9,80 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      conversation_messages: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          role: string
+          session_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          role: string
+          session_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          role?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_session"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "conversation_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversation_sessions: {
+        Row: {
+          created_at: string | null
+          id: string
+          last_active: string | null
+          slack_account_id: string
+          status: Database["public"]["Enums"]["conversation_status"] | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          last_active?: string | null
+          slack_account_id: string
+          status?: Database["public"]["Enums"]["conversation_status"] | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          last_active?: string | null
+          slack_account_id?: string
+          status?: Database["public"]["Enums"]["conversation_status"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_sessions_slack_account_id_fkey"
+            columns: ["slack_account_id"]
+            isOneToOne: false
+            referencedRelation: "slack_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_slack_account"
+            columns: ["slack_account_id"]
+            isOneToOne: false
+            referencedRelation: "slack_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           channel_id: string | null
@@ -177,7 +251,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      conversation_status: "active" | "completed" | "expired"
     }
     CompositeTypes: {
       [_ in never]: never

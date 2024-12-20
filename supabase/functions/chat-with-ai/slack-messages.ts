@@ -4,38 +4,6 @@ export async function fetchSlackMessages(channelName: string, botToken: string, 
   console.log('Starting fetchSlackMessages:', { channelName, limit, fetchMentions });
   
   try {
-    if (channelName === 'ALL' && fetchMentions) {
-      // For mentions across all channels, use search.messages
-      console.log('Fetching mentions across all channels...');
-      const searchResponse = await callSlackAPI(
-        'https://slack.com/api/search.messages',
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${botToken}`,
-          },
-          params: {
-            query: '@',
-            count: limit,
-            sort: 'timestamp',
-            sort_dir: 'desc'
-          }
-        }
-      );
-      
-      const searchData = await searchResponse.json();
-      console.log('Search response:', {
-        ok: searchData.ok,
-        matchCount: searchData.messages?.matches?.length
-      });
-
-      if (!searchData.ok) {
-        throw new Error(`Failed to search messages: ${searchData.error}`);
-      }
-
-      return searchData.messages?.matches?.map((match: any) => match.text) || [];
-    }
-
     // Get channel ID
     console.log('Fetching channel list from Slack...');
     const channelListResponse = await callSlackAPI(
@@ -58,7 +26,7 @@ export async function fetchSlackMessages(channelName: string, botToken: string, 
       throw new Error(`Failed to fetch channels: ${channelsData.error}`);
     }
 
-    const channel = channelsData.channels?.find((c: any) => c.name === channelName);
+    const channel = channelsData.channels?.find((c: any) => c.name.toLowerCase() === channelName.toLowerCase());
     
     if (!channel) {
       console.error(`Channel ${channelName} not found in workspace`);
@@ -74,17 +42,17 @@ export async function fetchSlackMessages(channelName: string, botToken: string, 
     });
 
     // Fetch messages with specified limit
-    const apiEndpoint = fetchMentions ? 
-      `https://slack.com/api/conversations.history?channel=${channel.id}&limit=${limit * 3}` : // Fetch more messages when looking for mentions
-      `https://slack.com/api/conversations.history?channel=${channel.id}&limit=${limit}`;
-
-    console.log(`Fetching ${limit} messages for channel:`, channel.id);
     const messagesResponse = await callSlackAPI(
-      apiEndpoint,
+      `https://slack.com/api/conversations.history`,
       {
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${botToken}`,
         },
+        params: {
+          channel: channel.id,
+          limit: fetchMentions ? limit * 3 : limit
+        }
       }
     );
 
@@ -115,73 +83,6 @@ export async function fetchSlackMessages(channelName: string, botToken: string, 
       channelName,
       requestedMessageCount: limit,
       fetchMentions,
-      stack: error.stack
-    });
-    throw error;
-  }
-}
-
-export async function sendSlackMessage(channelName: string, message: string, botToken: string) {
-  console.log('Starting sendSlackMessage:', { 
-    channelName,
-    messageLength: message.length 
-  });
-  
-  try {
-    // First get channel ID
-    const channelListResponse = await callSlackAPI(
-      'https://slack.com/api/conversations.list',
-      {
-        headers: {
-          'Authorization': `Bearer ${botToken}`,
-        },
-      }
-    );
-    
-    const channelsData = await channelListResponse.json();
-    
-    if (!channelsData.ok) {
-      throw new Error(`Failed to fetch channels: ${channelsData.error}`);
-    }
-
-    const channel = channelsData.channels?.find((c: any) => c.name === channelName);
-    
-    if (!channel) {
-      throw new Error(`Channel ${channelName} not found`);
-    }
-
-    // Send message
-    const messageResponse = await callSlackAPI(
-      'https://slack.com/api/chat.postMessage',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${botToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          channel: channel.id,
-          text: message,
-        }),
-      }
-    );
-
-    const result = await messageResponse.json();
-    console.log('Message sent result:', {
-      ok: result.ok,
-      ts: result.ts,
-      channel: result.channel
-    });
-
-    if (!result.ok) {
-      throw new Error(`Failed to send message: ${result.error}`);
-    }
-
-    return result;
-  } catch (error) {
-    console.error('Error sending Slack message:', {
-      error: error.message,
-      channelName,
       stack: error.stack
     });
     throw error;
