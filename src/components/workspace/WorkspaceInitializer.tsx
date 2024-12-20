@@ -13,6 +13,25 @@ export const WorkspaceInitializer = ({ userId, audioService }: WorkspaceInitiali
     const fetchDefaultWorkspace = async () => {
       try {
         console.log('Fetching slack accounts...');
+        // First try to get settings
+        const { data: settings, error: settingsError } = await supabase
+          .from('settings')
+          .select('default_workspace_id')
+          .eq('user_id', userId)
+          .limit(1)
+          .maybeSingle();
+
+        if (settingsError) {
+          console.error('Error fetching settings:', settingsError);
+        }
+
+        if (settings?.default_workspace_id) {
+          console.log('Using default workspace:', settings.default_workspace_id);
+          audioService.getOpenAIService().setSlackAccountId(settings.default_workspace_id);
+          return;
+        }
+
+        // Fallback to first available workspace if no settings
         const { data: workspaces, error: workspacesError } = await supabase
           .from('slack_accounts')
           .select('id')
@@ -29,7 +48,7 @@ export const WorkspaceInitializer = ({ userId, audioService }: WorkspaceInitiali
           console.log('Using workspace:', workspaces.id);
           audioService.getOpenAIService().setSlackAccountId(workspaces.id);
           
-          // Create or update settings
+          // Create settings with this workspace as default
           const { error: upsertError } = await supabase
             .from('settings')
             .upsert({

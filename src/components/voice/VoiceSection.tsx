@@ -32,6 +32,7 @@ export const VoiceSection: React.FC<VoiceSectionProps> = ({
           .from('settings')
           .select('default_workspace_id')
           .eq('user_id', session.user.id)
+          .limit(1)
           .maybeSingle();
 
         if (settingsError) {
@@ -46,6 +47,7 @@ export const VoiceSection: React.FC<VoiceSectionProps> = ({
             .from('slack_accounts')
             .select('id')
             .eq('user_id', session.user.id)
+            .limit(1)
             .maybeSingle();
 
           if (accountsError) {
@@ -90,8 +92,19 @@ export const VoiceSection: React.FC<VoiceSectionProps> = ({
         
         if (!threadId) {
           console.error('No active thread ID found');
-          toast.error('Conversation not initialized. Please try again.');
-          return;
+          if (currentSlackAccountId) {
+            console.log('Attempting to reinitialize thread...');
+            try {
+              await initializeThread(currentSlackAccountId);
+            } catch (error) {
+              console.error('Failed to reinitialize thread:', error);
+              toast.error('Failed to initialize conversation. Please try again.');
+              return;
+            }
+          } else {
+            toast.error('No Slack workspace connected');
+            return;
+          }
         }
 
         if (!currentSlackAccountId) {
@@ -117,18 +130,13 @@ export const VoiceSection: React.FC<VoiceSectionProps> = ({
         }
       });
     }
-  }, [audioService, isAudioInitialized, threadId, currentSlackAccountId, sendMessage]);
+  }, [audioService, isAudioInitialized, threadId, currentSlackAccountId, sendMessage, initializeThread]);
 
   const handleStartRecording = async () => {
     try {
-      if (!threadId) {
-        console.warn('No active thread, reinitializing...');
-        if (currentSlackAccountId) {
-          await initializeThread(currentSlackAccountId);
-        } else {
-          toast.error('No Slack workspace connected');
-          return;
-        }
+      if (!threadId && currentSlackAccountId) {
+        console.log('No active thread, initializing...');
+        await initializeThread(currentSlackAccountId);
       }
       
       await audioService.startRecording();
