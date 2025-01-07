@@ -24,7 +24,6 @@ enabled = true
 
 [auth]
 enabled = true
-port = 54325
 
 [analytics]
 enabled = true
@@ -49,4 +48,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.assistant-chat]
+verify_jwt = false
+
+[functions.openai-chat]
 verify_jwt = false

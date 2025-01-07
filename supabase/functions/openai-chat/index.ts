@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { ChatMessage, FunctionCall } from '../../../src/services/openai/functionCalling/types.ts';
-import { slackFunctions } from '../../../src/services/openai/functionCalling/functions.ts';
+import { ChatMessage } from './types.ts';
+import { slackFunctions } from './functions.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
