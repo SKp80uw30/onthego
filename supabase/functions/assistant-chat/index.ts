@@ -17,10 +17,21 @@ serve(async (req) => {
     const { action, threadId, message } = await req.json();
     console.log('Request received:', { action, threadId, messageLength: message?.length });
 
+    // Initialize OpenAI with explicit beta configuration
     const openai = new OpenAI({
       apiKey: Deno.env.get('OPENAI_API_KEY'),
       defaultHeaders: { 'OpenAI-Beta': 'assistants=v2' }
     });
+
+    // Test the OpenAI connection first
+    try {
+      console.log('Testing OpenAI connection...');
+      const assistants = await openai.beta.assistants.list();
+      console.log('Available assistants:', assistants.data.map(a => ({ id: a.id, name: a.name })));
+    } catch (error) {
+      console.error('Error testing OpenAI connection:', error);
+      throw error;
+    }
 
     switch (action) {
       case 'CREATE_THREAD': {
