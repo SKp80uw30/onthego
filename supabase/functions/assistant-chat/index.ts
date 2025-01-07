@@ -1,146 +1,84 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders, createOpenAIClient, createThread, addMessageToThread, createRun, waitForRunCompletion, getThreadMessages } from './openai-helpers.ts';
-import { getCommandParserAssistant, storeThread } from './db-helpers.ts';
+import OpenAI from "npm:openai@4.26.0";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
 serve(async (req) => {
-  // Add request logging
-  console.log('Received request:', {
-    method: req.method,
-    url: req.url,
-    headers: Object.fromEntries(req.headers.entries())
-  });
-
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { action, message, threadId, slackAccountId } = await req.json();
-    console.log('Request payload:', { action, threadId, slackAccountId, messageLength: message?.length });
+    const { action, threadId, message } = await req.json();
+    console.log('Request received:', { action, threadId, messageLength: message?.length });
 
-    // Create OpenAI client with debug logging
-    console.log('Initializing OpenAI client...');
-    const openai = createOpenAIClient();
+    const openai = new OpenAI({
+      apiKey: Deno.env.get('OPENAI_API_KEY'),
+      defaultHeaders: { 'OpenAI-Beta': 'assistants=v2' }
+    });
 
     switch (action) {
       case 'CREATE_THREAD': {
-        console.log('Processing CREATE_THREAD action for slack account:', slackAccountId);
-        
-        try {
-          const assistantId = await getCommandParserAssistant();
-          console.log('Retrieved assistant ID:', assistantId);
-          
-          const thread = await createThread(openai);
-          console.log('Thread created:', thread.id);
-          
-          await storeThread(thread.id, assistantId, slackAccountId);
-          console.log('Thread stored in database');
-          
-          return new Response(
-            JSON.stringify({ threadId: thread.id }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        } catch (error) {
-          console.error('Detailed error in CREATE_THREAD:', {
-            error,
-            message: error.message,
-            stack: error.stack,
-            slackAccountId
-          });
-          return new Response(
-            JSON.stringify({ 
-              error: 'Failed to create thread',
-              details: error.message,
-              type: error.constructor.name
-            }),
-            { 
-              status: 500,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            }
-          );
-        }
+        console.log('Creating new thread');
+        const thread = await openai.beta.threads.create();
+        console.log('Thread created:', thread.id);
+
+        return new Response(
+          JSON.stringify({ threadId: thread.id }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       case 'SEND_MESSAGE': {
         if (!threadId || !message) {
-          console.error('Missing required parameters:', { threadId, hasMessage: !!message });
-          return new Response(
-            JSON.stringify({ error: 'Thread ID and message are required' }),
-            { 
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            }
-          );
+          throw new Error('Thread ID and message are required');
         }
 
-        try {
-          console.log('Processing SEND_MESSAGE action:', { threadId, messageLength: message.length });
-          
-          const assistantId = await getCommandParserAssistant();
-          console.log('Retrieved assistant ID:', assistantId);
-          
-          await addMessageToThread(openai, threadId, message);
-          const run = await createRun(openai, threadId, assistantId);
-          await waitForRunCompletion(openai, threadId, run.id);
-          
-          const messages = await getThreadMessages(openai, threadId);
-          const lastMessage = messages.data[0];
-          console.log('Retrieved last message:', {
-            messageId: lastMessage.id,
-            role: lastMessage.role,
-            contentLength: lastMessage.content[0].text.value.length
-          });
+        console.log('Adding message to thread:', threadId);
+        await openai.beta.threads.messages.create(threadId, {
+          role: 'user',
+          content: message
+        });
 
-          return new Response(
-            JSON.stringify({ 
-              response: lastMessage.content[0].text.value,
-              status: 'completed'
-            }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        } catch (error) {
-          console.error('Detailed error in SEND_MESSAGE:', {
-            error,
-            message: error.message,
-            stack: error.stack,
-            threadId
-          });
-          return new Response(
-            JSON.stringify({ 
-              error: 'Failed to process message',
-              details: error.message,
-              type: error.constructor.name
-            }),
-            { 
-              status: 500,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            }
-          );
+        console.log('Creating run with assistant');
+        const run = await openai.beta.threads.runs.create(threadId, {
+          assistant_id: "asst_LBYQQezR9PxDETVriDGzHuW5"
+        });
+
+        console.log('Waiting for run completion');
+        let runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
+        
+        while (runStatus.status === 'queued' || runStatus.status === 'in_progress') {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
+          console.log('Run status:', runStatus.status);
         }
+
+        const messages = await openai.beta.threads.messages.list(threadId);
+        const lastMessage = messages.data[0];
+
+        return new Response(
+          JSON.stringify({ 
+            response: lastMessage.content[0].text.value,
+            status: runStatus.status
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       default:
-        console.error('Unknown action received:', action);
-        return new Response(
-          JSON.stringify({ error: `Unknown action: ${action}` }),
-          { 
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        );
+        throw new Error(`Unknown action: ${action}`);
     }
   } catch (error) {
-    console.error('Critical error in assistant-chat function:', {
-      error,
-      message: error.message,
-      stack: error.stack,
-      type: error.constructor.name
-    });
+    console.error('Error in assistant-chat function:', error);
     return new Response(
       JSON.stringify({ 
         error: error.message,
-        type: error.constructor.name,
         details: error.stack
       }),
       { 
