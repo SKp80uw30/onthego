@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { AudioService } from '@/services/AudioService';
-import { useAssistantChat } from '@/hooks/use-assistant-chat';
-import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import { VoiceButton } from '@/components/VoiceButton';
+import { ChatStateManager } from '@/services/openai/functionCalling/stateManager';
+import { ChatMessage, SlackMessageArgs, FetchMessagesArgs, FetchMentionsArgs } from '@/services/openai/functionCalling/types';
 
 interface VoiceSectionProps {
   session: Session;
@@ -19,13 +20,13 @@ export const VoiceSection: React.FC<VoiceSectionProps> = ({
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const { initializeThread, sendMessage, isLoading, threadId } = useAssistantChat();
+  const [chatState] = useState(() => new ChatStateManager());
   const [currentSlackAccountId, setCurrentSlackAccountId] = useState<string | null>(null);
 
   useEffect(() => {
-    const setupAssistantThread = async () => {
+    const setupSlackAccount = async () => {
       try {
-        console.log('Setting up assistant thread for user:', session.user.id);
+        console.log('Setting up Slack account for user:', session.user.id);
         
         // Get the user's default Slack account
         const { data: settings, error: settingsError } = await supabase
@@ -59,7 +60,7 @@ export const VoiceSection: React.FC<VoiceSectionProps> = ({
           if (accounts?.id) {
             console.log('Using workspace:', accounts.id);
             setCurrentSlackAccountId(accounts.id);
-            await initializeThread(accounts.id);
+            chatState.setSlackAccountId(accounts.id);
           } else {
             console.warn('No Slack workspaces found');
             toast.error('No Slack workspace connected');
@@ -67,18 +68,53 @@ export const VoiceSection: React.FC<VoiceSectionProps> = ({
         } else {
           console.log('Using default workspace:', settings.default_workspace_id);
           setCurrentSlackAccountId(settings.default_workspace_id);
-          await initializeThread(settings.default_workspace_id);
+          chatState.setSlackAccountId(settings.default_workspace_id);
         }
       } catch (error) {
-        console.error('Error in setupAssistantThread:', error);
-        toast.error('Failed to initialize conversation');
+        console.error('Error in setupSlackAccount:', error);
+        toast.error('Failed to initialize workspace');
       }
     };
 
     if (session) {
-      setupAssistantThread();
+      setupSlackAccount();
     }
-  }, [session, initializeThread]);
+  }, [session, chatState]);
+
+  const handleFunctionCall = async (functionCall: any) => {
+    try {
+      const args = JSON.parse(functionCall.arguments);
+      
+      switch (functionCall.name) {
+        case 'send_message': {
+          const { channelName, message } = args as SlackMessageArgs;
+          const response = await supabase.functions.invoke('slack-operations', {
+            body: { action: 'SEND_MESSAGE', channelName, message, slackAccountId: currentSlackAccountId }
+          });
+          return response.data?.message || 'Message sent successfully';
+        }
+        case 'fetch_messages': {
+          const { channelName, count } = args as FetchMessagesArgs;
+          const response = await supabase.functions.invoke('slack-operations', {
+            body: { action: 'FETCH_MESSAGES', channelName, count, slackAccountId: currentSlackAccountId }
+          });
+          return response.data?.messages?.join('\n') || 'No messages found';
+        }
+        case 'fetch_mentions': {
+          const { channelName, count } = args as FetchMentionsArgs;
+          const response = await supabase.functions.invoke('slack-operations', {
+            body: { action: 'FETCH_MENTIONS', channelName, count, slackAccountId: currentSlackAccountId }
+          });
+          return response.data?.messages?.join('\n') || 'No mentions found';
+        }
+        default:
+          throw new Error(`Unknown function: ${functionCall.name}`);
+      }
+    } catch (error) {
+      console.error('Error executing function:', error);
+      throw error;
+    }
+  };
 
   useEffect(() => {
     if (audioService && isAudioInitialized) {
@@ -90,23 +126,6 @@ export const VoiceSection: React.FC<VoiceSectionProps> = ({
         
         console.log('Transcription received:', text);
         
-        if (!threadId) {
-          console.error('No active thread ID found');
-          if (currentSlackAccountId) {
-            console.log('Attempting to reinitialize thread...');
-            try {
-              await initializeThread(currentSlackAccountId);
-            } catch (error) {
-              console.error('Failed to reinitialize thread:', error);
-              toast.error('Failed to initialize conversation. Please try again.');
-              return;
-            }
-          } else {
-            toast.error('No Slack workspace connected');
-            return;
-          }
-        }
-
         if (!currentSlackAccountId) {
           console.error('No Slack account ID found');
           toast.error('No Slack workspace connected');
@@ -115,13 +134,43 @@ export const VoiceSection: React.FC<VoiceSectionProps> = ({
         
         setIsProcessing(true);
         try {
-          console.log('Sending message to thread:', threadId);
-          const response = await sendMessage(text);
-          console.log('Received response:', response);
+          const { data: response, error } = await supabase.functions.invoke('openai-chat', {
+            body: {
+              message: text,
+              conversationHistory: chatState.getConversationHistory()
+            }
+          });
+
+          if (error) throw error;
+
+          chatState.addMessage({ role: 'user', content: text });
           
-          if (response) {
-            await audioService.textToSpeech(response);
+          if (response.function_call) {
+            const functionResult = await handleFunctionCall(response.function_call);
+            chatState.addMessage({
+              role: 'function',
+              name: response.function_call.name,
+              content: functionResult
+            });
+            
+            // Get final response from assistant
+            const { data: finalResponse, error: finalError } = await supabase.functions.invoke('openai-chat', {
+              body: {
+                message: functionResult,
+                conversationHistory: chatState.getConversationHistory()
+              }
+            });
+
+            if (finalError) throw finalError;
+            
+            if (finalResponse.content) {
+              await audioService.textToSpeech(finalResponse.content);
+            }
+          } else if (response.content) {
+            await audioService.textToSpeech(response.content);
           }
+          
+          chatState.addMessage(response);
         } catch (error) {
           console.error('Error processing message:', error);
           toast.error('Failed to process your request');
@@ -130,13 +179,13 @@ export const VoiceSection: React.FC<VoiceSectionProps> = ({
         }
       });
     }
-  }, [audioService, isAudioInitialized, threadId, currentSlackAccountId, sendMessage, initializeThread]);
+  }, [audioService, isAudioInitialized, currentSlackAccountId, chatState]);
 
   const handleStartRecording = async () => {
     try {
-      if (!threadId && currentSlackAccountId) {
-        console.log('No active thread, initializing...');
-        await initializeThread(currentSlackAccountId);
+      if (!currentSlackAccountId) {
+        toast.error('No Slack workspace connected');
+        return;
       }
       
       await audioService.startRecording();
@@ -167,7 +216,7 @@ export const VoiceSection: React.FC<VoiceSectionProps> = ({
           className="size-16 md:size-20"
         />
         <div className="text-center">
-          {isProcessing || isLoading ? (
+          {isProcessing ? (
             <div className="animate-pulse text-muted-foreground">
               Processing your request...
             </div>
