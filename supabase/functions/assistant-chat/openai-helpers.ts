@@ -9,6 +9,7 @@ export function createOpenAIClient() {
   console.log('Creating OpenAI client');
   const apiKey = Deno.env.get('OPENAI_API_KEY');
   if (!apiKey) {
+    console.error('OpenAI API key not found in environment');
     throw new Error('OpenAI API key not found in environment');
   }
   
