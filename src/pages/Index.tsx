@@ -66,11 +66,13 @@ const Index = () => {
             audioService={audioService}
           />
         )}
-        <VoiceSection 
-          session={session}
-          audioService={audioService}
-          isAudioInitialized={isAudioInitialized}
-        />
+        <div className="space-y-6">
+          <VoiceSection 
+            session={session}
+            audioService={audioService}
+            isAudioInitialized={isAudioInitialized}
+          />
+        </div>
       </div>
     </div>
   );

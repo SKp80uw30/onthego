@@ -32,7 +32,7 @@ export const ConnectedChannels = ({ channels }: ConnectedChannelsProps) => {
         <div className="flex-1">
           <h4 className="text-sm font-medium mb-2">How to Connect</h4>
           <p className="text-sm text-muted-foreground">
-            Type <code className="bg-secondary px-1 rounded">/on-the-go</code> in any Slack channel 
+            Type <code className="bg-secondary px-1 rounded">/invite @onthego</code> in any Slack channel 
             you want to connect to On-The-Go.
           </p>
         </div>
