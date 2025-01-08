@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 
 export const OnboardingSection = () => {
   // Fetch Slack accounts with detailed error logging
@@ -54,13 +55,19 @@ export const OnboardingSection = () => {
         icon={<Slack className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
         isCompleted={Boolean(slackAccounts?.length)}
       >
-        {!slackAccounts?.length && (
+        {!slackAccounts?.length ? (
           <Button 
             onClick={handleConnectSlack}
             className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white"
           >
             Connect Slack
           </Button>
+        ) : (
+          <Link to="/chat">
+            <Button className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white">
+              Go to Chat
+            </Button>
+          </Link>
         )}
       </OnboardingCard>
       <OnboardingCard

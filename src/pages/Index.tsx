@@ -5,16 +5,9 @@ import { toast } from 'sonner';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { Header } from '@/components/dashboard/Header';
 import { OnboardingSection } from '@/components/dashboard/OnboardingSection';
-import { VapiFrame } from '@/components/vapi/VapiFrame';
-
-interface VapiKeys {
-  VAPI_API_KEY: string;
-  VAPI_ASSISTANT_KEY: string;
-}
 
 const Index = () => {
   const [session, setSession] = useState(null);
-  const [vapiKeys, setVapiKeys] = useState<VapiKeys | null>(null);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -30,8 +23,6 @@ const Index = () => {
       setSession(session);
       if (session) {
         toast.success('Successfully logged in!');
-        // Fetch Vapi keys when user logs in
-        fetchVapiKeys();
       }
     });
 
@@ -39,22 +30,6 @@ const Index = () => {
       subscription.unsubscribe();
     };
   }, []);
-
-  const fetchVapiKeys = async () => {
-    try {
-      const { data: { secrets }, error } = await supabase.functions.invoke('get-vapi-keys');
-      if (error) throw error;
-      
-      if (secrets?.VAPI_API_KEY && secrets?.VAPI_ASSISTANT_KEY) {
-        setVapiKeys(secrets);
-      } else {
-        throw new Error('Missing required Vapi configuration');
-      }
-    } catch (error) {
-      console.error('Error fetching Vapi keys:', error);
-      toast.error('Failed to initialize voice service');
-    }
-  };
 
   if (!session) {
     return <LoginForm />;
@@ -65,12 +40,6 @@ const Index = () => {
       <div className="container mx-auto px-4 py-6 md:py-8">
         <Header />
         <OnboardingSection />
-        {session && vapiKeys && (
-          <VapiFrame 
-            apiKey={vapiKeys.VAPI_API_KEY}
-            assistantId={vapiKeys.VAPI_ASSISTANT_KEY}
-          />
-        )}
       </div>
     </div>
   );
