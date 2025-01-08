@@ -17,17 +17,21 @@ export const VoiceButton = ({
   className,
 }: VoiceButtonProps) => {
   const [ripples, setRipples] = useState<{ id: number; x: number; y: number }[]>([]);
+  const [isInitializing, setIsInitializing] = useState(false);
 
   const handleClick = async () => {
     try {
       if (isListening) {
         onStop();
       } else {
-        onStart();
+        setIsInitializing(true);
+        await onStart();
       }
     } catch (error) {
       console.error('Error handling voice button click:', error);
-      toast.error('Error accessing microphone');
+      toast.error(error instanceof Error ? error.message : 'Error accessing microphone');
+    } finally {
+      setIsInitializing(false);
     }
   };
 
@@ -55,10 +59,12 @@ export const VoiceButton = ({
           currentTarget: e.currentTarget,
         } as React.MouseEvent<HTMLButtonElement>);
       }}
+      disabled={isInitializing}
       className={cn(
         'relative overflow-hidden rounded-full p-5 md:p-6 transition-all duration-300',
         isListening ? 'bg-primary text-white' : 'bg-secondary text-foreground',
         'hover:shadow-lg active:scale-95 touch-none',
+        isInitializing && 'opacity-70 cursor-wait',
         className
       )}
     >
