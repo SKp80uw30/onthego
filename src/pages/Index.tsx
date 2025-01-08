@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { toast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { Header } from '@/components/dashboard/Header';
 import { OnboardingSection } from '@/components/dashboard/OnboardingSection';
@@ -52,11 +52,7 @@ const Index = () => {
       }
     } catch (error) {
       console.error('Error fetching Vapi keys:', error);
-      toast({
-        title: "Error",
-        description: "Failed to initialize voice service",
-        variant: "destructive",
-      });
+      toast.error('Failed to initialize voice service');
     }
   };
 

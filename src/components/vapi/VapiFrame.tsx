@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
-import Vapi from '@vapi-ai/web';
-import { toast } from '@/hooks/use-toast';
+import { VapiWeb } from '@vapi-ai/web';
+import { toast } from 'sonner';
 
 interface VapiFrameProps {
   apiKey: string;
@@ -9,6 +9,7 @@ interface VapiFrameProps {
 
 export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const vapiInstanceRef = useRef<VapiWeb | null>(null);
   
   useEffect(() => {
     if (!containerRef.current || !apiKey || !assistantId) {
@@ -17,22 +18,21 @@ export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
     }
     
     try {
-      const vapi = new Vapi({
+      vapiInstanceRef.current = new VapiWeb({
         apiKey,
         assistantId,
         element: containerRef.current,
       });
 
       return () => {
-        // Cleanup will be implemented when needed
+        if (vapiInstanceRef.current) {
+          // Clean up VAPI instance if needed in the future
+          vapiInstanceRef.current = null;
+        }
       };
     } catch (error) {
       console.error('Failed to initialize Vapi:', error);
-      toast({
-        title: "Error",
-        description: "Failed to initialize voice assistant",
-        variant: "destructive",
-      });
+      toast.error('Failed to initialize voice assistant');
     }
   }, [apiKey, assistantId]);
 
