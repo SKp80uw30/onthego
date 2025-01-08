@@ -16,9 +16,7 @@ export class VapiService {
         throw new Error('Failed to get Vapi keys');
       }
 
-      this.client = new Vapi({
-        apiKey: secrets.VAPI_API_KEY
-      });
+      this.client = new Vapi(secrets.VAPI_API_KEY);
       
       this.isInitialized = true;
       console.log('Vapi service initialized successfully');
@@ -43,7 +41,7 @@ export class VapiService {
 
       console.log('Creating Vapi call with assistant:', secrets.VAPI_ASSISTANT_KEY);
       
-      const call = await this.client.createCall({
+      const call = await this.client.startCall({
         assistantId: secrets.VAPI_ASSISTANT_KEY,
         audioConfig: {
           sampleRate: 16000,
