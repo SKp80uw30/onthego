@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import Vapi, { VapiEventNames } from '@vapi-ai/web';
+import Vapi from '@vapi-ai/web';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Mic, MicOff } from 'lucide-react';
@@ -31,47 +31,44 @@ export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
           assistantIdLength: assistantId.length
         });
         
-        // Initialize VAPI with tools configuration
-        vapiRef.current = new Vapi({
-          apiKey,
-          tools: [{
-            name: 'send_slack_message',
-            handler: async (parameters) => {
-              try {
-                console.log('Handling send_slack_message tool call:', parameters);
-                const { data, error } = await supabase.functions.invoke('vapi-tools', {
-                  body: {
-                    tool: 'send_slack_message',
-                    parameters
-                  }
-                });
-
-                if (error) {
-                  console.error('Error calling vapi-tools function:', error);
-                  throw error;
-                }
-
-                console.log('VAPI tools response:', data);
-                return data;
-              } catch (error) {
-                console.error('Error in send_slack_message tool handler:', error);
-                throw error;
-              }
-            }
-          }]
-        });
+        // Initialize VAPI with API key
+        vapiRef.current = new Vapi(apiKey);
         
         console.log('VAPI instance created successfully');
         
-        // Set up event listeners using correct event names
-        vapiRef.current.on(VapiEventNames.CALL_START, () => {
+        // Register tool handler
+        vapiRef.current.registerTool('send_slack_message', async (parameters) => {
+          try {
+            console.log('Handling send_slack_message tool call:', parameters);
+            const { data, error } = await supabase.functions.invoke('vapi-tools', {
+              body: {
+                tool: 'send_slack_message',
+                parameters
+              }
+            });
+
+            if (error) {
+              console.error('Error calling vapi-tools function:', error);
+              throw error;
+            }
+
+            console.log('VAPI tools response:', data);
+            return data;
+          } catch (error) {
+            console.error('Error in send_slack_message tool handler:', error);
+            throw error;
+          }
+        });
+        
+        // Set up event listeners using string literals as per SDK
+        vapiRef.current.on('call-start', () => {
           console.log('VAPI call started');
           setStatus('Call in progress');
           setIsCallActive(true);
           setError(null);
         });
         
-        vapiRef.current.on(VapiEventNames.ERROR, (error) => {
+        vapiRef.current.on('error', (error) => {
           const errorMessage = error instanceof Error ? error.message : String(error);
           console.error('VAPI error:', errorMessage);
           setStatus('Error occurred');
@@ -80,17 +77,17 @@ export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
           toast.error(`Voice assistant error: ${errorMessage}`);
         });
 
-        vapiRef.current.on(VapiEventNames.SPEECH_START, () => {
+        vapiRef.current.on('speech-start', () => {
           console.log('VAPI assistant started speaking');
           setStatus('Assistant speaking');
         });
 
-        vapiRef.current.on(VapiEventNames.SPEECH_END, () => {
+        vapiRef.current.on('speech-end', () => {
           console.log('VAPI assistant finished speaking');
           setStatus('Ready');
         });
 
-        vapiRef.current.on(VapiEventNames.CALL_END, () => {
+        vapiRef.current.on('call-end', () => {
           console.log('VAPI call ended');
           setStatus('Call ended');
           setIsCallActive(false);
