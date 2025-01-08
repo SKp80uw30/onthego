@@ -7,7 +7,7 @@ export const useVapi = () => {
   const [vapiService] = useState(() => new VapiService());
   const [isInitialized, setIsInitialized] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [currentCall, setCurrentCall] = useState<Awaited<ReturnType<typeof Vapi.prototype.startCall>> | null>(null);
+  const [currentCall, setCurrentCall] = useState<Awaited<ReturnType<typeof Vapi.prototype.startConversation>> | null>(null);
 
   useEffect(() => {
     const initializeVapi = async () => {

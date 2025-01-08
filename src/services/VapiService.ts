@@ -41,7 +41,7 @@ export class VapiService {
 
       console.log('Creating Vapi call with assistant:', secrets.VAPI_ASSISTANT_KEY);
       
-      const call = await this.client.startCall({
+      const call = await this.client.startConversation({
         assistantId: secrets.VAPI_ASSISTANT_KEY,
         audioConfig: {
           sampleRate: 16000,
