@@ -9,9 +9,12 @@ export class AudioRecorder {
   private audioChunks: Blob[] = [];
   private isRecording = false;
   private onDataAvailable: ((blob: Blob) => void) | null = null;
+  private mimeType: string;
 
   constructor(onDataAvailable?: (blob: Blob) => void) {
     this.onDataAvailable = onDataAvailable || null;
+    this.mimeType = AudioFormatManager.getSupportedMimeType();
+    console.log('AudioRecorder initialized with MIME type:', this.mimeType);
   }
 
   async start() {
@@ -29,42 +32,51 @@ export class AudioRecorder {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
-          sampleRate: 44100,
+          sampleRate: 48000, // Increased for better quality
           channelCount: 1
         } 
       });
 
       if (!this.audioContext) {
-        this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({
+          sampleRate: 48000 // Match getUserMedia sampleRate
+        });
         if (this.audioContext.state === 'suspended') {
           await this.audioContext.resume();
         }
       }
 
-      console.log('Creating media recorder...');
-      const mimeType = AudioFormatManager.getSupportedMimeType();
-      console.log('Selected MIME type:', mimeType);
-      
+      console.log('Creating media recorder with MIME type:', this.mimeType);
       this.mediaRecorder = new MediaRecorder(this.stream, {
-        mimeType: mimeType
+        mimeType: this.mimeType,
+        audioBitsPerSecond: 128000 // Consistent bitrate
       });
 
-      this.mediaRecorder.ondataavailable = (event) => {
+      this.mediaRecorder.ondataavailable = async (event) => {
         if (event.data.size > 0) {
           console.log('Received audio chunk:', event.data.size, 'bytes');
-          this.audioChunks.push(event.data);
+          if (await AudioFormatManager.validateAudioBlob(event.data)) {
+            this.audioChunks.push(event.data);
+          } else {
+            console.error('Invalid audio chunk received');
+          }
         }
       };
 
-      this.mediaRecorder.onstop = () => {
+      this.mediaRecorder.onstop = async () => {
         console.log('MediaRecorder stopped, processing chunks...');
-        const audioBlob = new Blob(this.audioChunks, { type: mimeType });
+        const audioBlob = new Blob(this.audioChunks, { type: this.mimeType });
         console.log('Final audio blob:', audioBlob.size, 'bytes, type:', audioBlob.type);
-        this.onDataAvailable?.(audioBlob);
+        
+        if (await AudioFormatManager.validateAudioBlob(audioBlob)) {
+          this.onDataAvailable?.(audioBlob);
+        } else {
+          throw new Error('Invalid audio format produced');
+        }
         this.audioChunks = [];
       };
 
-      this.mediaRecorder.start(500); // Collect data more frequently
+      this.mediaRecorder.start(500); // Collect data every 500ms
       this.isRecording = true;
       console.log('Recording started successfully');
     } catch (error) {
