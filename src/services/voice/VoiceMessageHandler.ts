@@ -22,9 +22,10 @@ export class VoiceMessageHandler {
     }
     
     try {
-      const { data: response, error } = await supabase.functions.invoke('openai-chat', {
+      const { data: response, error } = await supabase.functions.invoke('chat-with-ai', {
         body: {
           message: text,
+          slackAccountId,
           conversationHistory: this.voiceState.getChatState().getConversationHistory()
         }
       });
@@ -34,16 +35,17 @@ export class VoiceMessageHandler {
       this.voiceState.getChatState().addMessage({ role: 'user', content: text });
       
       if (response.function_call) {
-        const functionResult = await this.handleFunctionCall(response.function_call);
+        const functionResult = await this.handleFunctionCall(response.function_call, slackAccountId);
         this.voiceState.getChatState().addMessage({
           role: 'function',
           name: response.function_call.name,
           content: functionResult
         });
         
-        const { data: finalResponse, error: finalError } = await supabase.functions.invoke('openai-chat', {
+        const { data: finalResponse, error: finalError } = await supabase.functions.invoke('chat-with-ai', {
           body: {
             message: functionResult,
+            slackAccountId,
             conversationHistory: this.voiceState.getChatState().getConversationHistory()
           }
         });
@@ -65,7 +67,7 @@ export class VoiceMessageHandler {
     }
   }
 
-  private async handleFunctionCall(functionCall: any) {
+  private async handleFunctionCall(functionCall: any, slackAccountId: string) {
     try {
       const args = JSON.parse(functionCall.arguments);
       
@@ -73,21 +75,36 @@ export class VoiceMessageHandler {
         case 'send_message': {
           const { channelName, message } = args;
           const response = await supabase.functions.invoke('slack-operations', {
-            body: { action: 'SEND_MESSAGE', channelName, message }
+            body: { 
+              action: 'SEND_MESSAGE', 
+              channelName, 
+              message,
+              slackAccountId 
+            }
           });
           return response.data?.message || 'Message sent successfully';
         }
         case 'fetch_messages': {
           const { channelName, count } = args;
           const response = await supabase.functions.invoke('slack-operations', {
-            body: { action: 'FETCH_MESSAGES', channelName, count }
+            body: { 
+              action: 'FETCH_MESSAGES', 
+              channelName, 
+              count,
+              slackAccountId 
+            }
           });
           return response.data?.messages?.join('\n') || 'No messages found';
         }
         case 'fetch_mentions': {
           const { channelName, count } = args;
           const response = await supabase.functions.invoke('slack-operations', {
-            body: { action: 'FETCH_MENTIONS', channelName, count }
+            body: { 
+              action: 'FETCH_MENTIONS', 
+              channelName, 
+              count,
+              slackAccountId 
+            }
           });
           return response.data?.messages?.join('\n') || 'No mentions found';
         }
