@@ -18,9 +18,10 @@ export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
     }
     
     try {
-      // Initialize Vapi with the correct parameter order
-      vapiInstanceRef.current = new Vapi(apiKey, assistantId, {
-        element: containerRef.current,
+      vapiInstanceRef.current = new Vapi(apiKey, assistantId);
+      
+      // Mount Vapi to the container
+      vapiInstanceRef.current.mount(containerRef.current, {
         audio: {
           enable: true,
         },
@@ -35,7 +36,7 @@ export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
 
       return () => {
         if (vapiInstanceRef.current) {
-          // Clean up VAPI instance if needed
+          vapiInstanceRef.current.unmount();
           vapiInstanceRef.current = null;
         }
       };
