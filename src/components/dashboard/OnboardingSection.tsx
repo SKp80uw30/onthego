@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare, Mic, Slack } from 'lucide-react';
+import { Mic, Slack, Hash } from 'lucide-react';
 import { OnboardingCard } from '@/components/OnboardingCard';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -65,14 +65,20 @@ export const OnboardingSection = () => {
       </OnboardingCard>
       <OnboardingCard
         title="Voice Commands"
-        description="Control your messages with simple voice commands"
+        description="Control your messages with voice commands in these channels:"
         icon={<Mic className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
-      />
-      <OnboardingCard
-        title="Smart Replies"
-        description="AI-powered responses for quick communication"
-        icon={<MessageSquare className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
-      />
+      >
+        <div className="mt-3 space-y-2">
+          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+            <Hash className="h-4 w-4" />
+            <span>general</span>
+          </div>
+          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+            <Hash className="h-4 w-4" />
+            <span>random</span>
+          </div>
+        </div>
+      </OnboardingCard>
     </div>
   );
 };
