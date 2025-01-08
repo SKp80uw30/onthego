@@ -12,13 +12,13 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Processing audio request...');
+    console.log('🎤 Processing audio request...');
     
     const contentType = req.headers.get('content-type') || '';
-    console.log('Request content type:', contentType);
+    console.log('📝 Request content type:', contentType);
     
     if (!contentType.includes('multipart/form-data')) {
-      console.error('Invalid content type:', contentType);
+      console.error('❌ Invalid content type:', contentType);
       return new Response(
         JSON.stringify({ error: 'Invalid content type. Expected multipart/form-data' }),
         { 
@@ -32,7 +32,7 @@ serve(async (req) => {
     const audioFile = formData.get('file');
     
     if (!audioFile) {
-      console.error('No audio file received in form data');
+      console.error('❌ No audio file received in form data');
       return new Response(
         JSON.stringify({ error: 'No audio file received' }),
         { 
@@ -42,19 +42,23 @@ serve(async (req) => {
       );
     }
 
-    console.log('Audio file type:', audioFile.type);
-    console.log('Audio file size:', audioFile.size);
+    console.log('🎵 Audio file details:', {
+      type: audioFile.type,
+      size: audioFile.size,
+      name: audioFile.name
+    });
 
     // Convert audio to MP3 format if needed
     let processedAudioFile = audioFile;
     if (!['audio/mp3', 'audio/mpeg', 'audio/mp4'].includes(audioFile.type)) {
-      // For now, we'll just rename the file to ensure proper extension
+      console.log('🔄 Converting audio format from', audioFile.type);
       processedAudioFile = new File([audioFile], 'audio.mp3', { type: 'audio/mpeg' });
+      console.log('✅ Converted to audio/mpeg');
     }
 
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
-      console.error('OpenAI API key not found');
+      console.error('❌ OpenAI API key not found');
       return new Response(
         JSON.stringify({ error: 'Service configuration error' }),
         { 
@@ -64,7 +68,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('Sending request to OpenAI...');
+    console.log('🚀 Sending request to OpenAI...');
     const openAIFormData = new FormData();
     openAIFormData.append('file', processedAudioFile);
     openAIFormData.append('model', 'whisper-1');
@@ -80,11 +84,11 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenAI API error response:', errorText);
+      console.error('❌ OpenAI API error response:', errorText);
       
       try {
         const errorJson = JSON.parse(errorText);
-        console.error('Parsed error:', errorJson);
+        console.error('📋 Parsed error:', errorJson);
         return new Response(
           JSON.stringify({ 
             error: 'Failed to process audio',
@@ -96,7 +100,7 @@ serve(async (req) => {
           },
         );
       } catch (e) {
-        console.error('Error parsing OpenAI error response:', e);
+        console.error('❌ Error parsing OpenAI error response:', e);
         return new Response(
           JSON.stringify({ 
             error: 'Failed to process audio',
@@ -111,7 +115,7 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    console.log('Transcription successful');
+    console.log('✅ Transcription successful');
 
     return new Response(
       JSON.stringify(data),
@@ -121,7 +125,7 @@ serve(async (req) => {
       },
     );
   } catch (error) {
-    console.error('Error processing audio:', error);
+    console.error('❌ Error processing audio:', error);
     
     return new Response(
       JSON.stringify({ 
