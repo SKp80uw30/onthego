@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { VapiWeb } from '@vapi-ai/web';
+import Vapi from '@vapi-ai/web';
 import { toast } from 'sonner';
 
 interface VapiFrameProps {
@@ -9,7 +9,7 @@ interface VapiFrameProps {
 
 export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const vapiInstanceRef = useRef<VapiWeb | null>(null);
+  const vapiInstanceRef = useRef<Vapi | null>(null);
   
   useEffect(() => {
     if (!containerRef.current || !apiKey || !assistantId) {
@@ -18,7 +18,7 @@ export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
     }
     
     try {
-      vapiInstanceRef.current = new VapiWeb({
+      vapiInstanceRef.current = new Vapi({
         apiKey,
         assistantId,
         element: containerRef.current,
