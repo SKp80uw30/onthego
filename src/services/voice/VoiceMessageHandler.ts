@@ -17,19 +17,15 @@ export class VoiceMessageHandler {
     
     const slackAccountId = this.voiceState.getCurrentSlackAccountId();
     if (!slackAccountId) {
-      console.error('No Slack account ID available');
       toast.error('No Slack workspace connected');
       return;
     }
-
-    console.log('Processing message with Slack account ID:', slackAccountId);
     
     try {
-      const { data: response, error } = await supabase.functions.invoke('chat-with-ai', {
+      const { data: response, error } = await supabase.functions.invoke('openai-chat', {
         body: {
           message: text,
           slackAccountId,
-          command: 'PROCESS_MESSAGE',
           conversationHistory: this.voiceState.getChatState().getConversationHistory()
         }
       });
@@ -39,7 +35,6 @@ export class VoiceMessageHandler {
       this.voiceState.getChatState().addMessage({ role: 'user', content: text });
       
       if (response.function_call) {
-        console.log('Handling function call:', response.function_call.name);
         const functionResult = await this.handleFunctionCall(response.function_call, slackAccountId);
         
         this.voiceState.getChatState().addMessage({
@@ -48,11 +43,10 @@ export class VoiceMessageHandler {
           content: functionResult
         });
         
-        const { data: finalResponse, error: finalError } = await supabase.functions.invoke('chat-with-ai', {
+        const { data: finalResponse, error: finalError } = await supabase.functions.invoke('openai-chat', {
           body: {
             message: functionResult,
             slackAccountId,
-            command: 'PROCESS_RESPONSE',
             conversationHistory: this.voiceState.getChatState().getConversationHistory()
           }
         });
@@ -77,13 +71,11 @@ export class VoiceMessageHandler {
 
   private async handleFunctionCall(functionCall: any, slackAccountId: string) {
     try {
-      console.log('Processing function call with Slack account ID:', slackAccountId);
       const args = JSON.parse(functionCall.arguments);
       
       switch (functionCall.name) {
         case 'send_message': {
           const { channelName, message } = args;
-          console.log('Sending message to Slack:', { channelName, message, slackAccountId });
           const response = await supabase.functions.invoke('slack-operations', {
             body: { 
               action: 'SEND_MESSAGE', 
@@ -96,7 +88,6 @@ export class VoiceMessageHandler {
         }
         case 'fetch_messages': {
           const { channelName, count } = args;
-          console.log('Fetching messages from Slack:', { channelName, count, slackAccountId });
           const response = await supabase.functions.invoke('slack-operations', {
             body: { 
               action: 'FETCH_MESSAGES', 
@@ -109,7 +100,6 @@ export class VoiceMessageHandler {
         }
         case 'fetch_mentions': {
           const { channelName, count } = args;
-          console.log('Fetching mentions from Slack:', { channelName, count, slackAccountId });
           const response = await supabase.functions.invoke('slack-operations', {
             body: { 
               action: 'FETCH_MENTIONS', 
