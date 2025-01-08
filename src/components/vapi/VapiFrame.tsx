@@ -9,7 +9,7 @@ interface VapiFrameProps {
 
 export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const vapiInstanceRef = useRef<Vapi | null>(null);
+  const vapiInstanceRef = useRef<any>(null);
   
   useEffect(() => {
     if (!containerRef.current || !apiKey || !assistantId) {
@@ -18,16 +18,27 @@ export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
     }
     
     try {
-      // Initialize VAPI with all required configuration
       vapiInstanceRef.current = new Vapi({
-        element: containerRef.current,
-        apiKey,
-        assistantId,
+        container: containerRef.current,
+        apiKey: apiKey,
+        assistantId: assistantId,
+        audio: {
+          enable: true,
+        },
+        ui: {
+          style: {
+            position: 'fixed',
+            bottom: '1rem',
+            right: '1rem',
+            width: '24rem',
+            height: '600px',
+          },
+        },
       });
 
       return () => {
         if (vapiInstanceRef.current) {
-          // Clean up VAPI instance if needed in the future
+          // Clean up VAPI instance if needed
           vapiInstanceRef.current = null;
         }
       };
@@ -40,8 +51,6 @@ export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
   if (!apiKey || !assistantId) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 w-96 h-[600px] bg-card rounded-lg shadow-lg overflow-hidden">
-      <div ref={containerRef} className="w-full h-full" />
-    </div>
+    <div ref={containerRef} />
   );
 };
