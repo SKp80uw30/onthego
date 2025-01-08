@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { VapiService } from '@/services/VapiService';
 import { toast } from 'sonner';
-import { VapiConversation } from '@vapi-ai/web';
+import type VapiConversation from '@vapi-ai/web';
 
 export const useVapi = () => {
   const [vapiService] = useState(() => new VapiService());

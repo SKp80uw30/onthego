@@ -1,4 +1,5 @@
-import { Vapi, VapiConversation } from '@vapi-ai/web';
+import Vapi from '@vapi-ai/web';
+import type VapiConversation from '@vapi-ai/web';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
