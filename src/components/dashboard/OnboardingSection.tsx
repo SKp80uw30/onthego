@@ -1,14 +1,13 @@
 import React from 'react';
-import { Slack } from 'lucide-react';
+import { MessageSquare, Mic, Slack } from 'lucide-react';
 import { OnboardingCard } from '@/components/OnboardingCard';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
-import { ConnectedWorkspace } from './ConnectedWorkspace';
-import { ConnectedChannels } from './ConnectedChannels';
 
 export const OnboardingSection = () => {
+  // Fetch Slack accounts with detailed error logging
   const { data: slackAccounts } = useQuery({
     queryKey: ['slack-accounts'],
     queryFn: async () => {
@@ -47,30 +46,33 @@ export const OnboardingSection = () => {
     }
   };
 
-  if (!slackAccounts?.length) {
-    return (
+  return (
+    <div className="grid gap-4 md:gap-6 mb-8">
       <OnboardingCard
         title="Connect Slack"
-        description="Link your Slack workspace to get started"
+        description={slackAccounts?.length ? "Connected to Slack workspace" : "Link your Slack workspace to get started"}
         icon={<Slack className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
-        className="mb-8"
+        isCompleted={Boolean(slackAccounts?.length)}
       >
-        <Button 
-          onClick={handleConnectSlack}
-          className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white"
-        >
-          Connect Slack
-        </Button>
+        {!slackAccounts?.length && (
+          <Button 
+            onClick={handleConnectSlack}
+            className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white"
+          >
+            Connect Slack
+          </Button>
+        )}
       </OnboardingCard>
-    );
-  }
-
-  return (
-    <div className="space-y-6 mb-8">
-      <ConnectedWorkspace 
-        workspaceName={slackAccounts[0].slack_workspace_name || 'Unknown'} 
+      <OnboardingCard
+        title="Voice Commands"
+        description="Control your messages with simple voice commands"
+        icon={<Mic className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
       />
-      <ConnectedChannels channels={[]} /> {/* TODO: Implement channel fetching */}
+      <OnboardingCard
+        title="Smart Replies"
+        description="AI-powered responses for quick communication"
+        icon={<MessageSquare className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
+      />
     </div>
   );
 };

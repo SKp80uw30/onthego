@@ -8,7 +8,6 @@ import { OnboardingSection } from '@/components/dashboard/OnboardingSection';
 import { AudioService } from '@/services/AudioService';
 import { VoiceSection } from '@/components/voice/VoiceSection';
 import { WorkspaceInitializer } from '@/components/workspace/WorkspaceInitializer';
-import { ConnectedChannels } from '@/components/dashboard/ConnectedChannels';
 
 const Index = () => {
   const [session, setSession] = useState(null);
@@ -60,20 +59,18 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-to-b from-background to-secondary/20">
       <div className="container mx-auto px-4 py-6 md:py-8">
         <Header />
+        <OnboardingSection />
         {session && (
           <WorkspaceInitializer 
             userId={session.user.id} 
             audioService={audioService}
           />
         )}
-        <div className="mt-8 space-y-8">
-          <VoiceSection 
-            session={session}
-            audioService={audioService}
-            isAudioInitialized={isAudioInitialized}
-          />
-          <ConnectedChannels channels={[]} />
-        </div>
+        <VoiceSection 
+          session={session}
+          audioService={audioService}
+          isAudioInitialized={isAudioInitialized}
+        />
       </div>
     </div>
   );
