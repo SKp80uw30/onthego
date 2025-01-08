@@ -67,7 +67,7 @@ const Index = () => {
             audioService={audioService}
           />
         )}
-        <div className="space-y-6">
+        <div className="mt-8 space-y-8">
           <VoiceSection 
             session={session}
             audioService={audioService}

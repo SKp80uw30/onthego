@@ -69,7 +69,7 @@ export const VoiceSection: React.FC<VoiceSectionProps> = ({
   };
 
   return (
-    <div className="mt-8 space-y-8">
+    <div className="space-y-8">
       <VoiceFrame
         onStart={handleStartRecording}
         onStop={handleStopRecording}
