@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { Header } from '@/components/dashboard/Header';
 import { OnboardingSection } from '@/components/dashboard/OnboardingSection';
-import { VoiceSection } from '@/components/voice/VoiceSection';
+import { VapiWidget } from '@vapi-ai/web/react';
 
 const Index = () => {
   const [session, setSession] = useState(null);
@@ -32,6 +32,18 @@ const Index = () => {
     };
   }, []);
 
+  const fetchVapiKeys = async () => {
+    try {
+      const { data: { secrets }, error } = await supabase.functions.invoke('get-vapi-keys');
+      if (error) throw error;
+      return secrets;
+    } catch (error) {
+      console.error('Error fetching Vapi keys:', error);
+      toast.error('Failed to initialize voice service');
+      return null;
+    }
+  };
+
   if (!session) {
     return <LoginForm />;
   }
@@ -41,7 +53,19 @@ const Index = () => {
       <div className="container mx-auto px-4 py-6 md:py-8">
         <Header />
         <OnboardingSection />
-        <VoiceSection session={session} />
+        <div className="mt-8 flex justify-center">
+          <VapiWidget
+            apiKey={async () => {
+              const secrets = await fetchVapiKeys();
+              return secrets?.VAPI_API_KEY;
+            }}
+            assistantId={async () => {
+              const secrets = await fetchVapiKeys();
+              return secrets?.VAPI_ASSISTANT_KEY;
+            }}
+            className="w-full max-w-xl"
+          />
+        </div>
       </div>
     </div>
   );
