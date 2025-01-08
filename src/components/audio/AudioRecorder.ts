@@ -1,3 +1,7 @@
+import { AudioPermissions } from './AudioPermissions';
+import { AudioFormatManager } from './AudioFormatManager';
+import { AudioErrorHandler } from './AudioErrorHandler';
+
 export class AudioRecorder {
   private audioContext: AudioContext | null = null;
   private stream: MediaStream | null = null;
@@ -10,92 +14,6 @@ export class AudioRecorder {
     this.onDataAvailable = onDataAvailable || null;
   }
 
-  async checkPermissions(): Promise<boolean> {
-    try {
-      if ('permissions' in navigator) {
-        const permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-        if (permissionStatus.state === 'denied') {
-          throw new Error('Microphone access is blocked. Please enable it in your browser settings.');
-        }
-      }
-
-      if (this.isIOSDevice()) {
-        await this.requestIOSPermission();
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Permission check failed:', error);
-      if (this.isIOSDevice()) {
-        throw new Error('On iOS, please ensure microphone access is enabled in Settings > Safari > Microphone');
-      }
-      throw error;
-    }
-  }
-
-  private isIOSDevice(): boolean {
-    return [
-      'iPad Simulator',
-      'iPhone Simulator',
-      'iPod Simulator',
-      'iPad',
-      'iPhone',
-      'iPod'
-    ].includes(navigator.platform)
-    || (navigator.userAgent.includes("Mac") && "ontouchend" in document);
-  }
-
-  private async requestIOSPermission(): Promise<void> {
-    if (!this.audioContext) {
-      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
-    
-    if (this.audioContext.state === 'suspended') {
-      await this.audioContext.resume();
-    }
-
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    stream.getTracks().forEach(track => track.stop());
-  }
-
-  private getSupportedMimeType(): string {
-    // Prioritize formats known to work well with OpenAI's Whisper API
-    const mimeTypes = [
-      'audio/webm;codecs=opus', // Most compatible format
-      'audio/ogg;codecs=opus',
-      'audio/wav',
-      'audio/mp4',
-      'audio/mpeg'
-    ];
-
-    // Special handling for iOS Safari
-    if (this.isIOSDevice()) {
-      // iOS Safari typically supports these formats
-      const iOSMimeTypes = [
-        'audio/mp4',
-        'audio/mpeg',
-        'audio/wav'
-      ];
-      
-      for (const mimeType of iOSMimeTypes) {
-        if (MediaRecorder.isTypeSupported(mimeType)) {
-          console.log('Using iOS-compatible MIME type:', mimeType);
-          return mimeType;
-        }
-      }
-    }
-
-    // Try standard formats for other browsers
-    for (const mimeType of mimeTypes) {
-      if (MediaRecorder.isTypeSupported(mimeType)) {
-        console.log('Using standard MIME type:', mimeType);
-        return mimeType;
-      }
-    }
-
-    throw new Error('No supported audio MIME type found on this device');
-  }
-
   async start() {
     if (this.isRecording) {
       console.log('AudioRecorder is already recording');
@@ -103,7 +21,7 @@ export class AudioRecorder {
     }
 
     try {
-      await this.checkPermissions();
+      await AudioPermissions.checkPermissions();
 
       console.log('Requesting microphone access...');
       this.stream = await navigator.mediaDevices.getUserMedia({ 
@@ -124,7 +42,7 @@ export class AudioRecorder {
       }
 
       console.log('Creating media recorder...');
-      const mimeType = this.getSupportedMimeType();
+      const mimeType = AudioFormatManager.getSupportedMimeType();
       console.log('Selected MIME type:', mimeType);
       
       this.mediaRecorder = new MediaRecorder(this.stream, {
@@ -146,31 +64,14 @@ export class AudioRecorder {
         this.audioChunks = [];
       };
 
-      this.mediaRecorder.start(1000); // Collect data every second
+      this.mediaRecorder.start(500); // Collect data more frequently on mobile
       this.isRecording = true;
       console.log('Recording started successfully');
     } catch (error) {
       console.error('Error starting recording:', error);
       await this.cleanupResources();
-      throw new Error(this.getReadableErrorMessage(error));
+      throw new Error(AudioErrorHandler.getReadableErrorMessage(error));
     }
-  }
-
-  private getReadableErrorMessage(error: any): string {
-    if (this.isIOSDevice()) {
-      if (error.name === 'NotAllowedError') {
-        return 'Microphone access was denied. On iOS, go to Settings > Safari > Microphone and ensure access is enabled for this website.';
-      }
-    }
-
-    if (error.name === 'NotAllowedError') {
-      return 'Microphone access was denied. Please allow microphone access and try again.';
-    } else if (error.name === 'NotFoundError') {
-      return 'No microphone found. Please ensure your device has a working microphone.';
-    } else if (error.name === 'NotReadableError') {
-      return 'Could not access your microphone. Please ensure no other app is using it.';
-    }
-    return `Failed to start recording: ${error.message || 'Unknown error'}`;
   }
 
   async stop() {

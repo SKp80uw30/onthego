@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import "https://deno.land/x/xhr@0.1.0/mod.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -6,7 +7,6 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -45,6 +45,13 @@ serve(async (req) => {
     console.log('Audio file type:', audioFile.type);
     console.log('Audio file size:', audioFile.size);
 
+    // Convert audio to MP3 format if needed
+    let processedAudioFile = audioFile;
+    if (!['audio/mp3', 'audio/mpeg', 'audio/mp4'].includes(audioFile.type)) {
+      // For now, we'll just rename the file to ensure proper extension
+      processedAudioFile = new File([audioFile], 'audio.mp3', { type: 'audio/mpeg' });
+    }
+
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
       console.error('OpenAI API key not found');
@@ -59,7 +66,7 @@ serve(async (req) => {
 
     console.log('Sending request to OpenAI...');
     const openAIFormData = new FormData();
-    openAIFormData.append('file', audioFile);
+    openAIFormData.append('file', processedAudioFile);
     openAIFormData.append('model', 'whisper-1');
     openAIFormData.append('response_format', 'json');
 
@@ -77,43 +84,30 @@ serve(async (req) => {
       
       try {
         const errorJson = JSON.parse(errorText);
-        if (errorJson.error?.type === 'invalid_request_error') {
-          console.error('Invalid request to OpenAI:', errorJson.error);
-          return new Response(
-            JSON.stringify({ 
-              error: 'Invalid audio format. Please try again.',
-              details: errorJson.error.message
-            }),
-            { 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              status: 400,
-            },
-          );
-        }
-      } catch (e) {
-        console.error('Error parsing OpenAI error response:', e);
-      }
-      
-      if (response.status === 413) {
+        console.error('Parsed error:', errorJson);
         return new Response(
-          JSON.stringify({ error: 'Audio file too large. Please try a shorter recording.' }),
+          JSON.stringify({ 
+            error: 'Failed to process audio',
+            details: errorJson.error?.message || errorText
+          }),
           { 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 413,
+            status: response.status,
+          },
+        );
+      } catch (e) {
+        console.error('Error parsing OpenAI error response:', e);
+        return new Response(
+          JSON.stringify({ 
+            error: 'Failed to process audio',
+            details: errorText
+          }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: response.status,
           },
         );
       }
-      
-      return new Response(
-        JSON.stringify({ 
-          error: 'Failed to process audio',
-          details: errorText
-        }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: response.status,
-        },
-      );
     }
 
     const data = await response.json();
