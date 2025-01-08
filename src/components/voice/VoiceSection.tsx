@@ -3,9 +3,9 @@ import { Session } from '@supabase/supabase-js';
 import { AudioService } from '@/services/AudioService';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { VoiceButton } from '@/components/VoiceButton';
 import { ChatStateManager } from '@/services/openai/functionCalling/stateManager';
-import { ChatMessage, SlackMessageArgs, FetchMessagesArgs, FetchMentionsArgs } from '@/services/openai/functionCalling/types';
+import { VoiceFrame } from './VoiceFrame';
+import { VoiceCommands } from './VoiceCommands';
 
 interface VoiceSectionProps {
   session: Session;
@@ -26,9 +26,6 @@ export const VoiceSection: React.FC<VoiceSectionProps> = ({
   useEffect(() => {
     const setupSlackAccount = async () => {
       try {
-        console.log('Setting up Slack account for user:', session.user.id);
-        
-        // Get the user's default Slack account
         const { data: settings, error: settingsError } = await supabase
           .from('settings')
           .select('default_workspace_id')
@@ -36,14 +33,11 @@ export const VoiceSection: React.FC<VoiceSectionProps> = ({
           .limit(1)
           .maybeSingle();
 
-        if (settingsError) {
-          console.error('Error fetching settings:', settingsError);
-          toast.error('Failed to fetch workspace settings');
-          return;
-        }
+        if (settingsError) throw settingsError;
 
-        if (!settings?.default_workspace_id) {
-          console.log('No default workspace found, fetching first available workspace');
+        const workspaceId = settings?.default_workspace_id;
+        
+        if (!workspaceId) {
           const { data: accounts, error: accountsError } = await supabase
             .from('slack_accounts')
             .select('id')
@@ -51,24 +45,17 @@ export const VoiceSection: React.FC<VoiceSectionProps> = ({
             .limit(1)
             .maybeSingle();
 
-          if (accountsError) {
-            console.error('Error fetching Slack accounts:', accountsError);
-            toast.error('Failed to fetch Slack workspaces');
-            return;
-          }
-
+          if (accountsError) throw accountsError;
+          
           if (accounts?.id) {
-            console.log('Using workspace:', accounts.id);
             setCurrentSlackAccountId(accounts.id);
             chatState.setSlackAccountId(accounts.id);
           } else {
-            console.warn('No Slack workspaces found');
             toast.error('No Slack workspace connected');
           }
         } else {
-          console.log('Using default workspace:', settings.default_workspace_id);
-          setCurrentSlackAccountId(settings.default_workspace_id);
-          chatState.setSlackAccountId(settings.default_workspace_id);
+          setCurrentSlackAccountId(workspaceId);
+          chatState.setSlackAccountId(workspaceId);
         }
       } catch (error) {
         console.error('Error in setupSlackAccount:', error);
@@ -81,53 +68,12 @@ export const VoiceSection: React.FC<VoiceSectionProps> = ({
     }
   }, [session, chatState]);
 
-  const handleFunctionCall = async (functionCall: any) => {
-    try {
-      const args = JSON.parse(functionCall.arguments);
-      
-      switch (functionCall.name) {
-        case 'send_message': {
-          const { channelName, message } = args as SlackMessageArgs;
-          const response = await supabase.functions.invoke('slack-operations', {
-            body: { action: 'SEND_MESSAGE', channelName, message, slackAccountId: currentSlackAccountId }
-          });
-          return response.data?.message || 'Message sent successfully';
-        }
-        case 'fetch_messages': {
-          const { channelName, count } = args as FetchMessagesArgs;
-          const response = await supabase.functions.invoke('slack-operations', {
-            body: { action: 'FETCH_MESSAGES', channelName, count, slackAccountId: currentSlackAccountId }
-          });
-          return response.data?.messages?.join('\n') || 'No messages found';
-        }
-        case 'fetch_mentions': {
-          const { channelName, count } = args as FetchMentionsArgs;
-          const response = await supabase.functions.invoke('slack-operations', {
-            body: { action: 'FETCH_MENTIONS', channelName, count, slackAccountId: currentSlackAccountId }
-          });
-          return response.data?.messages?.join('\n') || 'No mentions found';
-        }
-        default:
-          throw new Error(`Unknown function: ${functionCall.name}`);
-      }
-    } catch (error) {
-      console.error('Error executing function:', error);
-      throw error;
-    }
-  };
-
   useEffect(() => {
     if (audioService && isAudioInitialized) {
       audioService.onTranscription(async (text) => {
-        if (!text) {
-          console.log('No transcription text received');
-          return;
-        }
-        
-        console.log('Transcription received:', text);
+        if (!text) return;
         
         if (!currentSlackAccountId) {
-          console.error('No Slack account ID found');
           toast.error('No Slack workspace connected');
           return;
         }
@@ -153,7 +99,6 @@ export const VoiceSection: React.FC<VoiceSectionProps> = ({
               content: functionResult
             });
             
-            // Get final response from assistant
             const { data: finalResponse, error: finalError } = await supabase.functions.invoke('openai-chat', {
               body: {
                 message: functionResult,
@@ -207,28 +152,51 @@ export const VoiceSection: React.FC<VoiceSectionProps> = ({
   };
 
   return (
-    <div className="mt-8">
-      <div className="flex flex-col items-center justify-center space-y-4">
-        <VoiceButton
-          onStart={handleStartRecording}
-          onStop={handleStopRecording}
-          isListening={isListening}
-          className="size-16 md:size-20"
-        />
-        <div className="text-center">
-          {isProcessing ? (
-            <div className="animate-pulse text-muted-foreground">
-              Processing your request...
-            </div>
-          ) : (
-            <div className="text-muted-foreground">
-              {isAudioInitialized ? 
-                (isListening ? "I'm listening... Speak your command" : "Click the microphone to start") : 
-                "Initializing audio..."}
-            </div>
-          )}
-        </div>
-      </div>
+    <div className="mt-8 space-y-8">
+      <VoiceFrame
+        onStart={handleStartRecording}
+        onStop={handleStopRecording}
+        isListening={isListening}
+        isProcessing={isProcessing}
+        isAudioInitialized={isAudioInitialized}
+      />
+      <VoiceCommands />
     </div>
   );
+};
+
+// Helper function moved to the same file since it's only used here
+const handleFunctionCall = async (functionCall: any) => {
+  try {
+    const args = JSON.parse(functionCall.arguments);
+    
+    switch (functionCall.name) {
+      case 'send_message': {
+        const { channelName, message } = args;
+        const response = await supabase.functions.invoke('slack-operations', {
+          body: { action: 'SEND_MESSAGE', channelName, message }
+        });
+        return response.data?.message || 'Message sent successfully';
+      }
+      case 'fetch_messages': {
+        const { channelName, count } = args;
+        const response = await supabase.functions.invoke('slack-operations', {
+          body: { action: 'FETCH_MESSAGES', channelName, count }
+        });
+        return response.data?.messages?.join('\n') || 'No messages found';
+      }
+      case 'fetch_mentions': {
+        const { channelName, count } = args;
+        const response = await supabase.functions.invoke('slack-operations', {
+          body: { action: 'FETCH_MENTIONS', channelName, count }
+        });
+        return response.data?.messages?.join('\n') || 'No mentions found';
+      }
+      default:
+        throw new Error(`Unknown function: ${functionCall.name}`);
+    }
+  } catch (error) {
+    console.error('Error executing function:', error);
+    throw error;
+  }
 };
