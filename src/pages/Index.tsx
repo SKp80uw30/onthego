@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { Header } from '@/components/dashboard/Header';
 import { OnboardingSection } from '@/components/dashboard/OnboardingSection';
-import { VapiWidget } from '@vapi-ai/web/react';
+import { VapiWidget } from '@vapi-ai/web';
 
 const Index = () => {
   const [session, setSession] = useState(null);
