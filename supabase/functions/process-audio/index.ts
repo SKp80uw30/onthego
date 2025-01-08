@@ -51,10 +51,9 @@ serve(async (req) => {
       prototype: Object.getPrototypeOf(audioFile).constructor.name
     });
 
-    // Don't convert the file, just ensure it has the correct extension
-    const fileExtension = audioFile.type.split('/')[1]?.split(';')[0] || 'webm';
-    const processedAudioFile = new File([audioFile], `audio.${fileExtension}`, { 
-      type: audioFile.type 
+    // Ensure we're using a supported format and proper MIME type
+    const processedAudioFile = new File([audioFile], 'audio.webm', { 
+      type: 'audio/webm;codecs=opus'
     });
 
     console.log('📦 Processed audio file details:', {
