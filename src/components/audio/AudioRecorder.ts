@@ -12,7 +12,6 @@ export class AudioRecorder {
 
   async checkPermissions(): Promise<boolean> {
     try {
-      // First try the Permissions API
       if ('permissions' in navigator) {
         const permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
         if (permissionStatus.state === 'denied') {
@@ -20,7 +19,6 @@ export class AudioRecorder {
         }
       }
 
-      // On iOS Safari, we need to try to access the microphone first
       if (this.isIOSDevice()) {
         await this.requestIOSPermission();
       }
@@ -52,14 +50,50 @@ export class AudioRecorder {
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
     
-    // iOS requires user interaction to start AudioContext
     if (this.audioContext.state === 'suspended') {
       await this.audioContext.resume();
     }
 
-    // Request microphone access
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    stream.getTracks().forEach(track => track.stop()); // Stop the test stream immediately
+    stream.getTracks().forEach(track => track.stop());
+  }
+
+  private getSupportedMimeType(): string {
+    // Prioritize formats known to work well with OpenAI's Whisper API
+    const mimeTypes = [
+      'audio/webm;codecs=opus', // Most compatible format
+      'audio/ogg;codecs=opus',
+      'audio/wav',
+      'audio/mp4',
+      'audio/mpeg'
+    ];
+
+    // Special handling for iOS Safari
+    if (this.isIOSDevice()) {
+      // iOS Safari typically supports these formats
+      const iOSMimeTypes = [
+        'audio/mp4',
+        'audio/mpeg',
+        'audio/wav'
+      ];
+      
+      for (const mimeType of iOSMimeTypes) {
+        if (MediaRecorder.isTypeSupported(mimeType)) {
+          console.log('Using iOS-compatible MIME type:', mimeType);
+          return mimeType;
+        }
+      }
+    }
+
+    // Try standard formats for other browsers
+    for (const mimeType of mimeTypes) {
+      if (MediaRecorder.isTypeSupported(mimeType)) {
+        console.log('Using standard MIME type:', mimeType);
+        return mimeType;
+      }
+    }
+
+    throw new Error('No supported audio MIME type found on this device');
   }
 
   async start() {
@@ -82,7 +116,6 @@ export class AudioRecorder {
         } 
       });
 
-      // Initialize AudioContext if needed
       if (!this.audioContext) {
         this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
         if (this.audioContext.state === 'suspended') {
@@ -92,7 +125,7 @@ export class AudioRecorder {
 
       console.log('Creating media recorder...');
       const mimeType = this.getSupportedMimeType();
-      console.log('Using MIME type:', mimeType);
+      console.log('Selected MIME type:', mimeType);
       
       this.mediaRecorder = new MediaRecorder(this.stream, {
         mimeType: mimeType
@@ -108,12 +141,12 @@ export class AudioRecorder {
       this.mediaRecorder.onstop = () => {
         console.log('MediaRecorder stopped, processing chunks...');
         const audioBlob = new Blob(this.audioChunks, { type: mimeType });
-        console.log('Final audio blob:', audioBlob.size, 'bytes,', 'type:', audioBlob.type);
+        console.log('Final audio blob:', audioBlob.size, 'bytes, type:', audioBlob.type);
         this.onDataAvailable?.(audioBlob);
         this.audioChunks = [];
       };
 
-      this.mediaRecorder.start();
+      this.mediaRecorder.start(1000); // Collect data every second
       this.isRecording = true;
       console.log('Recording started successfully');
     } catch (error) {
@@ -121,23 +154,6 @@ export class AudioRecorder {
       await this.cleanupResources();
       throw new Error(this.getReadableErrorMessage(error));
     }
-  }
-
-  private getSupportedMimeType(): string {
-    const mimeTypes = [
-      'audio/webm',
-      'audio/webm;codecs=opus',
-      'audio/ogg;codecs=opus',
-      'audio/mp4'
-    ];
-
-    for (const mimeType of mimeTypes) {
-      if (MediaRecorder.isTypeSupported(mimeType)) {
-        return mimeType;
-      }
-    }
-
-    throw new Error('No supported audio MIME type found on this device');
   }
 
   private getReadableErrorMessage(error: any): string {
@@ -168,27 +184,33 @@ export class AudioRecorder {
   }
 
   async cleanupResources() {
-    console.log('Cleaning up audio recorder...');
+    console.log('Cleaning up audio recorder resources...');
     
     if (this.stream) {
-      this.stream.getTracks().forEach(track => track.stop());
+      this.stream.getTracks().forEach(track => {
+        track.stop();
+        console.log('Audio track stopped');
+      });
       this.stream = null;
     }
 
     if (this.mediaRecorder) {
       if (this.mediaRecorder.state !== 'inactive') {
         this.mediaRecorder.stop();
+        console.log('MediaRecorder stopped');
       }
       this.mediaRecorder = null;
     }
 
     if (this.audioContext) {
       await this.audioContext.close();
+      console.log('AudioContext closed');
       this.audioContext = null;
     }
 
     this.audioChunks = [];
     this.isRecording = false;
+    console.log('Audio recorder cleanup complete');
   }
 
   setOnDataAvailable(callback: (blob: Blob) => void) {
