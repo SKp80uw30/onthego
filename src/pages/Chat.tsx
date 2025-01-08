@@ -11,23 +11,24 @@ const Chat = () => {
   const { data: vapiKeys, isLoading, error } = useQuery({
     queryKey: ['vapi-keys'],
     queryFn: async () => {
-      console.log('Fetching Vapi keys...');
-      const { data: { secrets }, error } = await supabase.functions.invoke('get-vapi-keys');
+      console.log('Fetching VAPI keys from Edge Function...');
+      const { data, error } = await supabase.functions.invoke('get-vapi-keys');
       
       if (error) {
-        console.error('Error fetching Vapi keys:', error);
+        console.error('Error fetching VAPI keys:', error);
         toast.error('Failed to initialize voice service');
         throw error;
       }
       
-      if (!secrets?.VAPI_PUBLIC_KEY || !secrets?.VAPI_ASSISTANT_KEY) {
-        throw new Error('Missing required Vapi configuration');
+      if (!data?.secrets?.VAPI_PUBLIC_KEY || !data?.secrets?.VAPI_ASSISTANT_KEY) {
+        console.error('Missing required VAPI configuration in response:', data);
+        throw new Error('Missing required VAPI configuration');
       }
       
-      console.log('Vapi keys fetched successfully');
+      console.log('VAPI keys fetched successfully');
       return {
-        VAPI_PUBLIC_KEY: secrets.VAPI_PUBLIC_KEY,
-        VAPI_ASSISTANT_KEY: secrets.VAPI_ASSISTANT_KEY
+        VAPI_PUBLIC_KEY: data.secrets.VAPI_PUBLIC_KEY,
+        VAPI_ASSISTANT_KEY: data.secrets.VAPI_ASSISTANT_KEY
       };
     },
   });
@@ -45,8 +46,15 @@ const Chat = () => {
         </div>
         
         <div className="flex flex-col justify-center items-center min-h-[calc(100vh-200px)]">
-          {isLoading && <div>Loading voice assistant...</div>}
-          {error && <div>Error: Failed to load voice assistant</div>}
+          {isLoading && (
+            <div className="text-lg">Loading voice assistant...</div>
+          )}
+          {error && (
+            <div className="text-red-500 max-w-md text-center">
+              <div className="font-semibold mb-2">Error: Failed to load voice assistant</div>
+              <div className="text-sm">{error instanceof Error ? error.message : String(error)}</div>
+            </div>
+          )}
           {vapiKeys && (
             <VapiFrame 
               apiKey={vapiKeys.VAPI_PUBLIC_KEY}
