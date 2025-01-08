@@ -7,9 +7,11 @@ import { Header } from '@/components/dashboard/Header';
 import { OnboardingSection } from '@/components/dashboard/OnboardingSection';
 import { VoiceSection } from '@/components/voice/VoiceSection';
 import { WorkspaceInitializer } from '@/components/workspace/WorkspaceInitializer';
+import { AudioService } from '@/services/AudioService';
 
 const Index = () => {
   const [session, setSession] = useState(null);
+  const [audioService] = useState(() => new AudioService());
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -45,6 +47,7 @@ const Index = () => {
         {session && (
           <WorkspaceInitializer 
             userId={session.user.id}
+            audioService={audioService}
           />
         )}
         <VoiceSection 

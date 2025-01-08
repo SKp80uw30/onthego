@@ -1,4 +1,4 @@
-import { VapiClient } from '@vapi-ai/web';
+import VapiClient from '@vapi-ai/web';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
