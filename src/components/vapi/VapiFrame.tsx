@@ -18,8 +18,11 @@ export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
     }
     
     try {
-      vapiInstanceRef.current = new Vapi({
-        apiKey,
+      // Initialize VAPI with the correct constructor pattern
+      vapiInstanceRef.current = new Vapi(apiKey);
+      
+      // Configure the instance after initialization
+      vapiInstanceRef.current.render({
         assistantId,
         element: containerRef.current,
       });
