@@ -92,18 +92,23 @@ export class AudioRecorder {
 
       console.log('Creating media recorder...');
       const mimeType = this.getSupportedMimeType();
+      console.log('Using MIME type:', mimeType);
+      
       this.mediaRecorder = new MediaRecorder(this.stream, {
         mimeType: mimeType
       });
 
       this.mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
+          console.log('Received audio chunk:', event.data.size, 'bytes');
           this.audioChunks.push(event.data);
         }
       };
 
       this.mediaRecorder.onstop = () => {
+        console.log('MediaRecorder stopped, processing chunks...');
         const audioBlob = new Blob(this.audioChunks, { type: mimeType });
+        console.log('Final audio blob:', audioBlob.size, 'bytes,', 'type:', audioBlob.type);
         this.onDataAvailable?.(audioBlob);
         this.audioChunks = [];
       };

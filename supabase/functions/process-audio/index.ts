@@ -15,6 +15,7 @@ serve(async (req) => {
     console.log('Processing audio request...');
     
     const contentType = req.headers.get('content-type') || '';
+    console.log('Request content type:', contentType);
     
     if (!contentType.includes('multipart/form-data')) {
       console.error('Invalid content type:', contentType);
@@ -31,7 +32,7 @@ serve(async (req) => {
     const audioFile = formData.get('file');
     
     if (!audioFile) {
-      console.error('No audio file received');
+      console.error('No audio file received in form data');
       return new Response(
         JSON.stringify({ error: 'No audio file received' }),
         { 
@@ -40,6 +41,9 @@ serve(async (req) => {
         }
       );
     }
+
+    console.log('Audio file type:', audioFile.type);
+    console.log('Audio file size:', audioFile.size);
 
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
@@ -68,24 +72,42 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      console.error('OpenAI API error:', error);
+      const errorText = await response.text();
+      console.error('OpenAI API error response:', errorText);
       
-      if (error.error?.type === 'insufficient_quota') {
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.error?.type === 'invalid_request_error') {
+          console.error('Invalid request to OpenAI:', errorJson.error);
+          return new Response(
+            JSON.stringify({ 
+              error: 'Invalid audio format. Please try again.',
+              details: errorJson.error.message
+            }),
+            { 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              status: 400,
+            },
+          );
+        }
+      } catch (e) {
+        console.error('Error parsing OpenAI error response:', e);
+      }
+      
+      if (response.status === 413) {
         return new Response(
-          JSON.stringify({ 
-            error: 'Service temporarily unavailable due to quota limits. Please try again later.' 
-          }),
+          JSON.stringify({ error: 'Audio file too large. Please try a shorter recording.' }),
           { 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 503,
+            status: 413,
           },
         );
       }
       
       return new Response(
         JSON.stringify({ 
-          error: `OpenAI API error: ${error.error?.message || 'Unknown error'}` 
+          error: 'Failed to process audio',
+          details: errorText
         }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -95,7 +117,7 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    console.log('Transcription successful:', data);
+    console.log('Transcription successful');
 
     return new Response(
       JSON.stringify(data),
@@ -109,7 +131,7 @@ serve(async (req) => {
     
     return new Response(
       JSON.stringify({ 
-        error: 'Internal server error',
+        error: 'Error processing audio',
         details: error.message
       }),
       { 
