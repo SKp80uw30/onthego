@@ -14,27 +14,13 @@ serve(async (req) => {
   try {
     console.log('🎤 Processing audio request...');
     
-    const contentType = req.headers.get('content-type') || '';
-    console.log('📝 Request content type:', contentType);
-    
-    if (!contentType.includes('multipart/form-data')) {
-      console.error('❌ Invalid content type:', contentType);
-      return new Response(
-        JSON.stringify({ error: 'Invalid content type. Expected multipart/form-data' }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400 
-        }
-      );
-    }
-
     const formData = await req.formData();
     const audioFile = formData.get('file');
     
-    if (!audioFile) {
-      console.error('❌ No audio file received in form data');
+    if (!audioFile || !(audioFile instanceof File)) {
+      console.error('❌ No valid audio file received');
       return new Response(
-        JSON.stringify({ error: 'No audio file received' }),
+        JSON.stringify({ error: 'No valid audio file received' }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 400 
@@ -42,24 +28,10 @@ serve(async (req) => {
       );
     }
 
-    // Log detailed information about the audio file
     console.log('🎵 Audio file details:', {
       type: audioFile.type,
       size: audioFile.size,
-      name: audioFile.name,
-      constructor: audioFile.constructor.name,
-      prototype: Object.getPrototypeOf(audioFile).constructor.name
-    });
-
-    // Ensure we're using a supported format and proper MIME type
-    const processedAudioFile = new File([audioFile], 'audio.webm', { 
-      type: 'audio/webm;codecs=opus'
-    });
-
-    console.log('📦 Processed audio file details:', {
-      type: processedAudioFile.type,
-      size: processedAudioFile.size,
-      name: processedAudioFile.name
+      name: audioFile.name
     });
 
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
@@ -76,16 +48,9 @@ serve(async (req) => {
 
     console.log('🚀 Sending request to OpenAI...');
     const openAIFormData = new FormData();
-    openAIFormData.append('file', processedAudioFile);
+    openAIFormData.append('file', audioFile);
     openAIFormData.append('model', 'whisper-1');
     openAIFormData.append('response_format', 'json');
-
-    // Log the FormData contents
-    console.log('📤 FormData details:', {
-      hasFile: openAIFormData.has('file'),
-      fileName: processedAudioFile.name,
-      fileType: processedAudioFile.type
-    });
 
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',

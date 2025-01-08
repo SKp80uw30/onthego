@@ -4,12 +4,17 @@ import { toast } from "sonner";
 export class AudioTranscriptionService {
   async transcribeAudio(audioBlob: Blob): Promise<string> {
     try {
-      console.log('AudioTranscriptionService: Starting transcription...', { blobSize: audioBlob.size });
+      console.log('AudioTranscriptionService: Starting transcription...', { 
+        blobSize: audioBlob.size,
+        blobType: audioBlob.type 
+      });
       
+      // Create FormData and append the audio file
       const formData = new FormData();
-      formData.append('file', audioBlob, 'audio.webm');
-      formData.append('model', 'whisper-1');
-      formData.append('response_format', 'json');
+      const file = new File([audioBlob], 'audio.webm', {
+        type: 'audio/webm;codecs=opus'
+      });
+      formData.append('file', file);
 
       console.log('AudioTranscriptionService: Sending request to process-audio function...');
       const { data: transcriptionData, error: transcriptionError } = await supabase.functions.invoke('process-audio', {
