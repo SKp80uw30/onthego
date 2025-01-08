@@ -13,55 +13,62 @@ serve(async (req) => {
   }
 
   try {
-    const formData = await req.formData()
-    const file = formData.get('file')
+    const { audio, mimeType } = await req.json()
     
-    if (!file || !(file instanceof File)) {
-      console.error('No audio file provided')
-      throw new Error('No audio file provided')
+    if (!audio) {
+      console.error('No audio data provided')
+      throw new Error('No audio data provided')
     }
 
-    console.log('Processing audio file:', {
-      name: file.name,
-      type: file.type,
-      size: file.size
-    })
+    // Convert base64 to Uint8Array
+    const binaryString = atob(audio);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
 
-    // Send directly to OpenAI Whisper API
-    const whisperFormData = new FormData()
-    whisperFormData.append('file', file)
-    whisperFormData.append('model', 'whisper-1')
+    console.log('Processing audio data:', {
+      mimeType,
+      dataLength: bytes.length
+    });
 
+    // Create blob and form data for OpenAI
+    const audioBlob = new Blob([bytes], { type: mimeType || 'audio/webm' });
+    const whisperFormData = new FormData();
+    whisperFormData.append('file', audioBlob, 'audio.webm');
+    whisperFormData.append('model', 'whisper-1');
+
+    console.log('Sending request to OpenAI...');
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
       },
       body: whisperFormData,
-    })
+    });
 
     if (!response.ok) {
-      const errorText = await response.text()
-      console.error('OpenAI API error response:', errorText)
-      throw new Error(`OpenAI API error: ${errorText}`)
+      const errorText = await response.text();
+      console.error('OpenAI API error response:', errorText);
+      throw new Error(`OpenAI API error: ${errorText}`);
     }
 
-    const result = await response.json()
-    console.log('Transcription successful:', result)
+    const result = await response.json();
+    console.log('Transcription successful:', result);
 
     return new Response(
       JSON.stringify({ text: result.text }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    );
 
   } catch (error) {
-    console.error('Error in process-audio function:', error)
+    console.error('Error in process-audio function:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
-    )
+    );
   }
-})
+});

@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { blobToBase64 } from "@/utils/audio-utils";
 
 export class AudioTranscriptionService {
   async transcribeAudio(audioBlob: Blob): Promise<string> {
@@ -9,13 +10,16 @@ export class AudioTranscriptionService {
         size: audioBlob.size
       });
 
-      // Create FormData with the audio
-      const formData = new FormData();
-      formData.append('file', audioBlob, 'audio.webm');
+      // Convert blob to base64
+      const base64Audio = await blobToBase64(audioBlob);
+      console.log('Audio converted to base64, length:', base64Audio.length);
 
       console.log('Sending request to process-audio function...');
       const { data: transcriptionData, error: transcriptionError } = await supabase.functions.invoke('process-audio', {
-        body: formData,
+        body: { 
+          audio: base64Audio,
+          mimeType: audioBlob.type
+        }
       });
 
       if (transcriptionError) {
