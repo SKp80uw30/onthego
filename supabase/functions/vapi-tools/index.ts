@@ -21,6 +21,12 @@ serve(async (req) => {
       headers: Object.fromEntries(req.headers.entries())
     });
 
+    // Add VAPI server token to headers for outgoing requests
+    const vapiHeaders = {
+      'Content-Type': 'application/json',
+      'x-vapi-secret': Deno.env.get('VAPI_SERVER_TOKEN'),
+    };
+
     // Log the start of tool execution
     console.log('Starting tool execution:', tool);
 
