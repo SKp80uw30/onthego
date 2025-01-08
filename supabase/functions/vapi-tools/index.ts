@@ -14,23 +14,30 @@ serve(async (req) => {
   }
 
   try {
-    const { tool, parameters } = await req.json();
-    
-    console.log('VAPI Tool called:', {
-      tool,
-      parameters,
-      timestamp: new Date().toISOString(),
+    console.log('Received request:', {
+      method: req.method,
       headers: Object.fromEntries(req.headers.entries())
     });
 
-    // Add VAPI server token to headers for outgoing requests
-    const vapiHeaders = {
-      'Content-Type': 'application/json',
-      'x-vapi-secret': Deno.env.get('VAPI_SERVER_TOKEN'),
-    };
+    const requestBody = await req.json();
+    console.log('Request body:', {
+      body: requestBody,
+      toolType: typeof requestBody.tool,
+      parametersType: typeof requestBody.parameters,
+      fullBody: JSON.stringify(requestBody, null, 2)
+    });
 
-    // Log the start of tool execution
-    console.log('Starting tool execution:', tool);
+    const { tool, parameters } = requestBody;
+    
+    if (!tool) {
+      throw new Error('Tool name is required');
+    }
+
+    console.log('Processing tool request:', {
+      tool,
+      parameters,
+      timestamp: new Date().toISOString()
+    });
 
     switch (tool) {
       case 'send_slack_message':
@@ -39,18 +46,25 @@ serve(async (req) => {
         // Make request to VAPI API with the tool ID
         const vapiResponse = await fetch(`https://api.vapi.ai/tools/${SEND_SLACK_MESSAGE_TOOL_ID}/run`, {
           method: 'POST',
-          headers: vapiHeaders,
+          headers: {
+            'Content-Type': 'application/json',
+            'x-vapi-secret': Deno.env.get('VAPI_SERVER_TOKEN') || '',
+          },
           body: JSON.stringify(parameters)
         });
 
         if (!vapiResponse.ok) {
           const errorData = await vapiResponse.text();
-          console.error('VAPI API error:', errorData);
+          console.error('VAPI API error response:', {
+            status: vapiResponse.status,
+            statusText: vapiResponse.statusText,
+            body: errorData
+          });
           throw new Error(`VAPI API error: ${errorData}`);
         }
 
         const vapiResult = await vapiResponse.json();
-        console.log('VAPI API response:', vapiResult);
+        console.log('VAPI API successful response:', vapiResult);
 
         return new Response(
           JSON.stringify(vapiResult),
@@ -58,7 +72,6 @@ serve(async (req) => {
         );
 
       default:
-        console.error('Unknown tool called:', tool);
         throw new Error(`Unknown tool: ${tool}`);
     }
   } catch (error) {
