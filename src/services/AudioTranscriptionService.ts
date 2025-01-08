@@ -11,7 +11,7 @@ export class AudioTranscriptionService {
 
       // Create FormData with the audio
       const formData = new FormData();
-      formData.append('file', audioBlob);
+      formData.append('file', audioBlob, 'audio.webm');
 
       console.log('Sending request to process-audio function...');
       const { data: transcriptionData, error: transcriptionError } = await supabase.functions.invoke('process-audio', {
