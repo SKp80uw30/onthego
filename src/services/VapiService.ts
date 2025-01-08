@@ -16,10 +16,13 @@ export class VapiService {
         throw new Error('Failed to get Vapi keys');
       }
 
-      this.client = new VapiClient({
-        apiKey: secrets.VAPI_API_KEY,
-        assistantKey: secrets.VAPI_ASSISTANT_KEY
-      });
+      // Initialize VapiClient with just the API key
+      this.client = new VapiClient(secrets.VAPI_API_KEY);
+
+      // Configure the assistant after initialization
+      if (this.client) {
+        this.client.setAssistantKey(secrets.VAPI_ASSISTANT_KEY);
+      }
 
       this.isInitialized = true;
       console.log('Vapi service initialized successfully');
