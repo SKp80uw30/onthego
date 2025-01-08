@@ -60,7 +60,6 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-to-b from-background to-secondary/20">
       <div className="container mx-auto px-4 py-6 md:py-8">
         <Header />
-        <OnboardingSection />
         {session && (
           <WorkspaceInitializer 
             userId={session.user.id} 
