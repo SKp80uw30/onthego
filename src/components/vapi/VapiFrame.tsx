@@ -18,10 +18,10 @@ export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
     
     const initializeVapi = async () => {
       try {
-        // Initialize Vapi with just the API key
+        // Initialize Vapi with the public key
         vapiRef.current = new Vapi(apiKey);
         
-        // Start the call with the assistant ID and await the response
+        // Start the call with the assistant ID
         await vapiRef.current.start(assistantId);
         
         // Set up event listeners after successful initialization
@@ -32,6 +32,18 @@ export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
         vapiRef.current.on('error', (error) => {
           console.error('Vapi error:', error);
           toast.error('Error with voice assistant');
+        });
+
+        vapiRef.current.on('speech-start', () => {
+          console.log('Assistant started speaking');
+        });
+
+        vapiRef.current.on('speech-end', () => {
+          console.log('Assistant finished speaking');
+        });
+
+        vapiRef.current.on('call-end', () => {
+          console.log('Call ended');
         });
       } catch (error) {
         console.error('Failed to initialize Vapi:', error);

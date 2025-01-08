@@ -18,11 +18,14 @@ const Chat = () => {
         throw error;
       }
       
-      if (!secrets?.VAPI_API_KEY || !secrets?.VAPI_ASSISTANT_KEY) {
+      if (!secrets?.VAPI_PUBLIC_KEY || !secrets?.VAPI_ASSISTANT_KEY) {
         throw new Error('Missing required Vapi configuration');
       }
       
-      return secrets;
+      return {
+        VAPI_PUBLIC_KEY: secrets.VAPI_PUBLIC_KEY,
+        VAPI_ASSISTANT_KEY: secrets.VAPI_ASSISTANT_KEY
+      };
     },
   });
 
@@ -41,7 +44,7 @@ const Chat = () => {
         <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
           {vapiKeys && (
             <VapiFrame 
-              apiKey={vapiKeys.VAPI_API_KEY}
+              apiKey={vapiKeys.VAPI_PUBLIC_KEY}
               assistantId={vapiKeys.VAPI_ASSISTANT_KEY}
             />
           )}
