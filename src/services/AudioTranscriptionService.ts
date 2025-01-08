@@ -1,6 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { AudioFormatManager } from "@/components/audio/AudioFormatManager";
 
 export class AudioTranscriptionService {
   async transcribeAudio(audioBlob: Blob): Promise<string> {
@@ -10,16 +9,9 @@ export class AudioTranscriptionService {
         size: audioBlob.size
       });
 
-      // Validate the audio blob
-      const isValid = await AudioFormatManager.validateAudioBlob(audioBlob);
-      if (!isValid) {
-        throw new Error('Invalid audio data received');
-      }
-
       // Create FormData with the audio
       const formData = new FormData();
-      const filename = `audio${this.getFileExtension(audioBlob.type)}`;
-      formData.append('file', audioBlob, filename);
+      formData.append('file', audioBlob);
 
       console.log('Sending request to process-audio function...');
       const { data: transcriptionData, error: transcriptionError } = await supabase.functions.invoke('process-audio', {
@@ -42,21 +34,6 @@ export class AudioTranscriptionService {
       console.error('Error in transcription service:', error);
       toast.error('Error transcribing audio');
       throw error;
-    }
-  }
-
-  private getFileExtension(mimeType: string): string {
-    switch (mimeType) {
-      case 'audio/webm':
-        return '.webm';
-      case 'audio/wav':
-        return '.wav';
-      case 'audio/mp4':
-        return '.mp4';
-      case 'audio/ogg':
-        return '.ogg';
-      default:
-        return '.webm';
     }
   }
 }
