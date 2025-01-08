@@ -42,19 +42,26 @@ serve(async (req) => {
       );
     }
 
+    // Log detailed information about the audio file
     console.log('🎵 Audio file details:', {
       type: audioFile.type,
       size: audioFile.size,
-      name: audioFile.name
+      name: audioFile.name,
+      constructor: audioFile.constructor.name,
+      prototype: Object.getPrototypeOf(audioFile).constructor.name
     });
 
-    // Convert audio to MP3 format if needed
-    let processedAudioFile = audioFile;
-    if (!['audio/mp3', 'audio/mpeg', 'audio/mp4'].includes(audioFile.type)) {
-      console.log('🔄 Converting audio format from', audioFile.type);
-      processedAudioFile = new File([audioFile], 'audio.mp3', { type: 'audio/mpeg' });
-      console.log('✅ Converted to audio/mpeg');
-    }
+    // Don't convert the file, just ensure it has the correct extension
+    const fileExtension = audioFile.type.split('/')[1]?.split(';')[0] || 'webm';
+    const processedAudioFile = new File([audioFile], `audio.${fileExtension}`, { 
+      type: audioFile.type 
+    });
+
+    console.log('📦 Processed audio file details:', {
+      type: processedAudioFile.type,
+      size: processedAudioFile.size,
+      name: processedAudioFile.name
+    });
 
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
@@ -73,6 +80,13 @@ serve(async (req) => {
     openAIFormData.append('file', processedAudioFile);
     openAIFormData.append('model', 'whisper-1');
     openAIFormData.append('response_format', 'json');
+
+    // Log the FormData contents
+    console.log('📤 FormData details:', {
+      hasFile: openAIFormData.has('file'),
+      fileName: processedAudioFile.name,
+      fileType: processedAudioFile.type
+    });
 
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
