@@ -1,7 +1,5 @@
 export class AudioFormatManager {
   static getSupportedMimeType(): string {
-    console.log('Available MIME types:', MediaRecorder.isTypeSupported);
-    
     const isIOS = [
       'iPad Simulator',
       'iPhone Simulator',
@@ -12,38 +10,44 @@ export class AudioFormatManager {
     ].includes(navigator.platform)
     || (navigator.userAgent.includes("Mac") && "ontouchend" in document);
 
-    // For iOS devices, prioritize formats known to work well
+    // Log available MIME types for debugging
+    console.log('Checking MIME type support...');
+    const mimeTypes = [
+      'audio/webm',
+      'audio/webm;codecs=opus',
+      'audio/wav',
+      'audio/mp4',
+      'audio/ogg'
+    ];
+
+    mimeTypes.forEach(type => {
+      console.log(`${type}: ${MediaRecorder.isTypeSupported(type)}`);
+    });
+
+    // For iOS devices
     if (isIOS) {
-      const iOSMimeTypes = [
-        'audio/wav',
-        'audio/webm',
-        'audio/webm;codecs=opus',
-        'audio/mp4',
-        'audio/mpeg'
-      ];
-      
-      for (const mimeType of iOSMimeTypes) {
-        if (MediaRecorder.isTypeSupported(mimeType)) {
-          console.log('Using iOS-compatible MIME type:', mimeType);
-          return mimeType;
-        }
+      if (MediaRecorder.isTypeSupported('audio/wav')) {
+        console.log('Using WAV format for iOS');
+        return 'audio/wav';
+      }
+      if (MediaRecorder.isTypeSupported('audio/mp4')) {
+        console.log('Using MP4 format for iOS');
+        return 'audio/mp4';
       }
     }
 
-    // For other devices, prioritize WebM with Opus codec
-    const mimeTypes = [
-      'audio/webm;codecs=opus',
-      'audio/webm',
-      'audio/wav',
-      'audio/ogg;codecs=opus',
-      'audio/mp4',
-      'audio/mpeg'
-    ];
+    // For other devices, prefer WebM
+    if (MediaRecorder.isTypeSupported('audio/webm')) {
+      console.log('Using WebM format');
+      return 'audio/webm';
+    }
 
-    for (const mimeType of mimeTypes) {
-      if (MediaRecorder.isTypeSupported(mimeType)) {
-        console.log('Using standard MIME type:', mimeType);
-        return mimeType;
+    // Fallback options
+    const fallbackTypes = ['audio/wav', 'audio/mp4', 'audio/ogg'];
+    for (const type of fallbackTypes) {
+      if (MediaRecorder.isTypeSupported(type)) {
+        console.log(`Using fallback format: ${type}`);
+        return type;
       }
     }
 
@@ -51,15 +55,16 @@ export class AudioFormatManager {
   }
 
   static async validateAudioBlob(blob: Blob): Promise<boolean> {
-    try {
-      const arrayBuffer = await blob.arrayBuffer();
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      await audioContext.decodeAudioData(arrayBuffer);
-      audioContext.close();
-      return true;
-    } catch (error) {
-      console.error('Audio validation failed:', error);
+    console.log('Validating audio blob:', {
+      type: blob.type,
+      size: blob.size
+    });
+
+    if (blob.size === 0) {
+      console.error('Audio blob is empty');
       return false;
     }
+
+    return true;
   }
 }

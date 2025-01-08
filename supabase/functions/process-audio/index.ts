@@ -17,6 +17,7 @@ serve(async (req) => {
     const file = formData.get('file')
     
     if (!file || !(file instanceof File)) {
+      console.error('No audio file provided')
       throw new Error('No audio file provided')
     }
 
@@ -26,7 +27,7 @@ serve(async (req) => {
       size: file.size
     })
 
-    // Send to OpenAI Whisper API
+    // Send directly to OpenAI Whisper API
     const whisperFormData = new FormData()
     whisperFormData.append('file', file)
     whisperFormData.append('model', 'whisper-1')
@@ -58,7 +59,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
-        status: 400,
+        status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     )
