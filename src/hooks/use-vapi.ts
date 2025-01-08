@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { VapiService } from '@/services/VapiService';
 import { toast } from 'sonner';
-import type { Call } from '@vapi-ai/web';
+import type { CreateCallResponse } from '@vapi-ai/web';
 
 export const useVapi = () => {
   const [vapiService] = useState(() => new VapiService());
   const [isInitialized, setIsInitialized] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [currentCall, setCurrentCall] = useState<Call | null>(null);
+  const [currentCall, setCurrentCall] = useState<CreateCallResponse | null>(null);
 
   useEffect(() => {
     const initializeVapi = async () => {

@@ -1,5 +1,5 @@
 import Vapi from '@vapi-ai/web';
-import type { Call } from '@vapi-ai/web';
+import type { CreateCallOptions } from '@vapi-ai/web';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -27,7 +27,7 @@ export class VapiService {
     }
   }
 
-  async startConversation(): Promise<Call> {
+  async startConversation() {
     if (!this.isInitialized || !this.client) {
       throw new Error('Voice service not ready');
     }
@@ -39,15 +39,15 @@ export class VapiService {
         throw new Error('Failed to get Vapi assistant key');
       }
 
-      const call = await this.client.createCall({
+      const options: CreateCallOptions = {
         assistantId: secrets.VAPI_ASSISTANT_KEY,
         audioConfig: {
           sampleRate: 16000,
           encoding: 'webm'
         }
-      });
+      };
 
-      return call;
+      return await this.client.call(options);
     } catch (error) {
       console.error('Error starting Vapi conversation:', error);
       throw error;
