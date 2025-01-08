@@ -46,7 +46,7 @@ export class VapiService {
         }
       };
 
-      return await this.client.createWebCall(options);
+      return await this.client.createCall(options);
     } catch (error) {
       console.error('Error starting Vapi conversation:', error);
       throw error;
