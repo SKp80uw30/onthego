@@ -64,7 +64,7 @@ export class AudioRecorder {
         this.audioChunks = [];
       };
 
-      this.mediaRecorder.start(500); // Collect data more frequently on mobile
+      this.mediaRecorder.start(500); // Collect data more frequently
       this.isRecording = true;
       console.log('Recording started successfully');
     } catch (error) {
@@ -112,9 +112,5 @@ export class AudioRecorder {
     this.audioChunks = [];
     this.isRecording = false;
     console.log('Audio recorder cleanup complete');
-  }
-
-  setOnDataAvailable(callback: (blob: Blob) => void) {
-    this.onDataAvailable = callback;
   }
 }
