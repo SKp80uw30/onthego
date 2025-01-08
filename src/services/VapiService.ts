@@ -1,4 +1,4 @@
-import Vapi from '@vapi-ai/web';
+import { Vapi, VapiConversation } from '@vapi-ai/web';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -16,12 +16,8 @@ export class VapiService {
         throw new Error('Failed to get Vapi keys');
       }
 
-      // Initialize Vapi with both keys
-      this.client = new Vapi({
-        apiKey: secrets.VAPI_API_KEY,
-        assistantId: secrets.VAPI_ASSISTANT_KEY
-      });
-
+      this.client = new Vapi(secrets.VAPI_API_KEY);
+      
       this.isInitialized = true;
       console.log('Vapi service initialized successfully');
     } catch (error) {
@@ -31,13 +27,19 @@ export class VapiService {
     }
   }
 
-  async startConversation() {
+  async startConversation(): Promise<VapiConversation> {
     if (!this.isInitialized || !this.client) {
-      throw new Error('Vapi service not initialized');
+      throw new Error('Voice service not ready');
     }
 
     try {
-      const conversation = await this.client.start();
+      const conversation = await this.client.start({
+        assistant: process.env.VAPI_ASSISTANT_KEY,
+        audioConfig: {
+          sampleRate: 16000,
+          encoding: 'webm'
+        }
+      });
       return conversation;
     } catch (error) {
       console.error('Error starting Vapi conversation:', error);

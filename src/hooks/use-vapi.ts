@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { VapiService } from '@/services/VapiService';
 import { toast } from 'sonner';
+import { VapiConversation } from '@vapi-ai/web';
 
 export const useVapi = () => {
   const [vapiService] = useState(() => new VapiService());
   const [isInitialized, setIsInitialized] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [currentConversation, setCurrentConversation] = useState<VapiConversation | null>(null);
 
   useEffect(() => {
     const initializeVapi = async () => {
@@ -21,6 +23,9 @@ export const useVapi = () => {
     initializeVapi();
 
     return () => {
+      if (currentConversation) {
+        currentConversation.stop();
+      }
       vapiService.cleanup();
     };
   }, [vapiService]);
@@ -32,6 +37,7 @@ export const useVapi = () => {
       }
 
       const conversation = await vapiService.startConversation();
+      setCurrentConversation(conversation);
       setIsListening(true);
       return conversation;
     } catch (error) {
@@ -42,6 +48,10 @@ export const useVapi = () => {
   };
 
   const stopListening = () => {
+    if (currentConversation) {
+      currentConversation.stop();
+      setCurrentConversation(null);
+    }
     setIsListening(false);
   };
 
