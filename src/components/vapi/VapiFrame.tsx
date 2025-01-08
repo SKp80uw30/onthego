@@ -16,33 +16,37 @@ export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
       return;
     }
     
-    try {
-      // Initialize Vapi with the API key
-      vapiRef.current = new Vapi(apiKey);
-      
-      // Start the call with the assistant ID
-      vapiRef.current.start(assistantId);
-      
-      // Set up event listeners
-      vapiRef.current.on('call-start', () => {
-        console.log('Call started');
-      });
-      
-      vapiRef.current.on('error', (error) => {
-        console.error('Vapi error:', error);
-        toast.error('Error with voice assistant');
-      });
+    const initializeVapi = async () => {
+      try {
+        // Initialize Vapi with just the API key
+        vapiRef.current = new Vapi(apiKey);
+        
+        // Start the call with the assistant ID and await the response
+        await vapiRef.current.start(assistantId);
+        
+        // Set up event listeners after successful initialization
+        vapiRef.current.on('call-start', () => {
+          console.log('Call started');
+        });
+        
+        vapiRef.current.on('error', (error) => {
+          console.error('Vapi error:', error);
+          toast.error('Error with voice assistant');
+        });
+      } catch (error) {
+        console.error('Failed to initialize Vapi:', error);
+        toast.error('Failed to initialize voice assistant');
+      }
+    };
 
-      return () => {
-        if (vapiRef.current) {
-          vapiRef.current.stop();
-          vapiRef.current = null;
-        }
-      };
-    } catch (error) {
-      console.error('Failed to initialize Vapi:', error);
-      toast.error('Failed to initialize voice assistant');
-    }
+    initializeVapi();
+
+    return () => {
+      if (vapiRef.current) {
+        vapiRef.current.stop();
+        vapiRef.current = null;
+      }
+    };
   }, [apiKey, assistantId]);
 
   return null;
