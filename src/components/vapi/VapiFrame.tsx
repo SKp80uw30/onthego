@@ -18,11 +18,9 @@ export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
     }
     
     try {
-      // Initialize Vapi with the new keyword
-      vapiInstanceRef.current = new Vapi({
-        container: containerRef.current,
-        apiKey,
-        assistantId,
+      // Initialize Vapi with the correct parameter order
+      vapiInstanceRef.current = new Vapi(apiKey, assistantId, {
+        element: containerRef.current,
         audio: {
           enable: true,
         },
