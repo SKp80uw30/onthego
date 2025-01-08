@@ -1,9 +1,9 @@
-import VapiClient from '@vapi-ai/web';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import Vapi from '@vapi-ai/web';
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export class VapiService {
-  private client: VapiClient | null = null;
+  private client: Vapi | null = null;
   private isInitialized = false;
 
   async initialize() {
@@ -16,13 +16,11 @@ export class VapiService {
         throw new Error('Failed to get Vapi keys');
       }
 
-      // Initialize VapiClient with just the API key
-      this.client = new VapiClient(secrets.VAPI_API_KEY);
-
-      // Configure the assistant after initialization
-      if (this.client) {
-        this.client.setAssistantKey(secrets.VAPI_ASSISTANT_KEY);
-      }
+      // Initialize Vapi with both keys
+      this.client = new Vapi({
+        apiKey: secrets.VAPI_API_KEY,
+        assistantId: secrets.VAPI_ASSISTANT_KEY
+      });
 
       this.isInitialized = true;
       console.log('Vapi service initialized successfully');
