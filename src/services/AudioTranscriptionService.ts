@@ -1,20 +1,21 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { AudioFormatConverter } from "./audio/AudioFormatConverter";
 
 export class AudioTranscriptionService {
   async transcribeAudio(audioBlob: Blob): Promise<string> {
     try {
       console.log('AudioTranscriptionService: Starting transcription...', { 
-        blobSize: audioBlob.size,
-        blobType: audioBlob.type 
+        originalType: audioBlob.type,
+        originalSize: audioBlob.size 
       });
       
-      // Create FormData and append the audio file
+      // Convert audio to WAV format for maximum compatibility
+      const wavBlob = await AudioFormatConverter.convertToWAV(audioBlob);
+      
+      // Create FormData with the converted audio
       const formData = new FormData();
-      const file = new File([audioBlob], 'audio.webm', {
-        type: 'audio/webm;codecs=opus'
-      });
-      formData.append('file', file);
+      formData.append('file', wavBlob, 'audio.wav');
 
       console.log('AudioTranscriptionService: Sending request to process-audio function...');
       const { data: transcriptionData, error: transcriptionError } = await supabase.functions.invoke('process-audio', {
