@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { VapiService } from '@/services/VapiService';
 import { toast } from 'sonner';
-import type VapiConversation from '@vapi-ai/web';
+import type { Call } from '@vapi-ai/web';
 
 export const useVapi = () => {
   const [vapiService] = useState(() => new VapiService());
   const [isInitialized, setIsInitialized] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [currentConversation, setCurrentConversation] = useState<VapiConversation | null>(null);
+  const [currentCall, setCurrentCall] = useState<Call | null>(null);
 
   useEffect(() => {
     const initializeVapi = async () => {
@@ -23,8 +23,8 @@ export const useVapi = () => {
     initializeVapi();
 
     return () => {
-      if (currentConversation) {
-        currentConversation.stop();
+      if (currentCall) {
+        currentCall.stop();
       }
       vapiService.cleanup();
     };
@@ -36,10 +36,11 @@ export const useVapi = () => {
         throw new Error('Voice service not ready');
       }
 
-      const conversation = await vapiService.startConversation();
-      setCurrentConversation(conversation);
+      const call = await vapiService.startConversation();
+      await call.start();
+      setCurrentCall(call);
       setIsListening(true);
-      return conversation;
+      return call;
     } catch (error) {
       console.error('Error starting voice conversation:', error);
       toast.error('Failed to start voice conversation');
@@ -48,9 +49,9 @@ export const useVapi = () => {
   };
 
   const stopListening = () => {
-    if (currentConversation) {
-      currentConversation.stop();
-      setCurrentConversation(null);
+    if (currentCall) {
+      currentCall.stop();
+      setCurrentCall(null);
     }
     setIsListening(false);
   };
