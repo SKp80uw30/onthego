@@ -12,12 +12,54 @@ export class AudioRecorder {
 
   async checkPermissions(): Promise<boolean> {
     try {
-      const permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-      return permissionStatus.state === 'granted';
+      // First try the Permissions API
+      if ('permissions' in navigator) {
+        const permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+        if (permissionStatus.state === 'denied') {
+          throw new Error('Microphone access is blocked. Please enable it in your browser settings.');
+        }
+      }
+
+      // On iOS Safari, we need to try to access the microphone first
+      if (this.isIOSDevice()) {
+        await this.requestIOSPermission();
+      }
+
+      return true;
     } catch (error) {
-      console.log('Permissions API not supported, falling back to getUserMedia');
-      return true; // Fall back to getUserMedia which will handle permissions
+      console.error('Permission check failed:', error);
+      if (this.isIOSDevice()) {
+        throw new Error('On iOS, please ensure microphone access is enabled in Settings > Safari > Microphone');
+      }
+      throw error;
     }
+  }
+
+  private isIOSDevice(): boolean {
+    return [
+      'iPad Simulator',
+      'iPhone Simulator',
+      'iPod Simulator',
+      'iPad',
+      'iPhone',
+      'iPod'
+    ].includes(navigator.platform)
+    || (navigator.userAgent.includes("Mac") && "ontouchend" in document);
+  }
+
+  private async requestIOSPermission(): Promise<void> {
+    if (!this.audioContext) {
+      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    
+    // iOS requires user interaction to start AudioContext
+    if (this.audioContext.state === 'suspended') {
+      await this.audioContext.resume();
+    }
+
+    // Request microphone access
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach(track => track.stop()); // Stop the test stream immediately
   }
 
   async start() {
@@ -27,10 +69,7 @@ export class AudioRecorder {
     }
 
     try {
-      const hasPermission = await this.checkPermissions();
-      if (!hasPermission) {
-        throw new Error('Microphone permission not granted');
-      }
+      await this.checkPermissions();
 
       console.log('Requesting microphone access...');
       this.stream = await navigator.mediaDevices.getUserMedia({ 
@@ -38,14 +77,18 @@ export class AudioRecorder {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
-          sampleRate: 44100, // Specify standard sample rate
-          channelCount: 1    // Mono audio for better compatibility
+          sampleRate: 44100,
+          channelCount: 1
         } 
       });
 
-      // Create and initialize AudioContext first
-      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      await this.audioContext.resume(); // Important for iOS
+      // Initialize AudioContext if needed
+      if (!this.audioContext) {
+        this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        if (this.audioContext.state === 'suspended') {
+          await this.audioContext.resume();
+        }
+      }
 
       console.log('Creating media recorder...');
       const mimeType = this.getSupportedMimeType();
@@ -89,10 +132,16 @@ export class AudioRecorder {
       }
     }
 
-    throw new Error('No supported audio MIME type found');
+    throw new Error('No supported audio MIME type found on this device');
   }
 
   private getReadableErrorMessage(error: any): string {
+    if (this.isIOSDevice()) {
+      if (error.name === 'NotAllowedError') {
+        return 'Microphone access was denied. On iOS, go to Settings > Safari > Microphone and ensure access is enabled for this website.';
+      }
+    }
+
     if (error.name === 'NotAllowedError') {
       return 'Microphone access was denied. Please allow microphone access and try again.';
     } else if (error.name === 'NotFoundError') {
