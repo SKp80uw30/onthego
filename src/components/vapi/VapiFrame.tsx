@@ -18,22 +18,19 @@ export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
     }
     
     try {
-      vapiInstanceRef.current = new Vapi({
-        container: containerRef.current,
-        apiKey: apiKey,
-        assistantId: assistantId,
+      // Initialize Vapi with the correct parameters
+      vapiInstanceRef.current = Vapi(apiKey, assistantId, {
+        element: containerRef.current,
         audio: {
           enable: true,
         },
-        ui: {
-          style: {
-            position: 'fixed',
-            bottom: '1rem',
-            right: '1rem',
-            width: '24rem',
-            height: '600px',
-          },
-        },
+        style: {
+          position: 'fixed',
+          bottom: '1rem',
+          right: '1rem',
+          width: '24rem',
+          height: '600px',
+        }
       });
 
       return () => {
