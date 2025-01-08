@@ -14,59 +14,71 @@ export class AudioRecorder {
   constructor(onDataAvailable?: (blob: Blob) => void) {
     this.onDataAvailable = onDataAvailable || null;
     this.mimeType = AudioFormatManager.getSupportedMimeType();
-    console.log('AudioRecorder initialized with MIME type:', this.mimeType);
+    console.log('[AudioRecorder] Initialized with MIME type:', this.mimeType);
   }
 
   async start() {
     if (this.isRecording) {
-      console.log('AudioRecorder is already recording');
+      console.log('[AudioRecorder] Already recording');
       return;
     }
 
     try {
       await AudioPermissions.checkPermissions();
 
-      console.log('Requesting microphone access...');
+      console.log('[AudioRecorder] Requesting microphone access...');
       this.stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
-          sampleRate: 48000, // Increased for better quality
           channelCount: 1
         } 
       });
 
+      // Log the actual constraints being used
+      const tracks = this.stream.getAudioTracks();
+      const settings = tracks[0].getSettings();
+      console.log('[AudioRecorder] Actual audio settings:', settings);
+
       if (!this.audioContext) {
-        this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({
-          sampleRate: 48000 // Match getUserMedia sampleRate
-        });
+        this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        console.log('[AudioRecorder] Created AudioContext with sample rate:', this.audioContext.sampleRate);
+        
         if (this.audioContext.state === 'suspended') {
           await this.audioContext.resume();
         }
       }
 
-      console.log('Creating media recorder with MIME type:', this.mimeType);
+      console.log('[AudioRecorder] Creating MediaRecorder with MIME type:', this.mimeType);
       this.mediaRecorder = new MediaRecorder(this.stream, {
-        mimeType: this.mimeType,
-        audioBitsPerSecond: 128000 // Consistent bitrate
+        mimeType: this.mimeType
       });
 
       this.mediaRecorder.ondataavailable = async (event) => {
         if (event.data.size > 0) {
-          console.log('Received audio chunk:', event.data.size, 'bytes');
+          console.log('[AudioRecorder] Received audio chunk:', {
+            size: event.data.size,
+            type: event.data.type,
+            timestamp: new Date().toISOString()
+          });
+
           if (await AudioFormatManager.validateAudioBlob(event.data)) {
             this.audioChunks.push(event.data);
           } else {
-            console.error('Invalid audio chunk received');
+            console.error('[AudioRecorder] Invalid audio chunk received');
           }
         }
       };
 
       this.mediaRecorder.onstop = async () => {
-        console.log('MediaRecorder stopped, processing chunks...');
+        console.log('[AudioRecorder] MediaRecorder stopped, processing chunks...');
         const audioBlob = new Blob(this.audioChunks, { type: this.mimeType });
-        console.log('Final audio blob:', audioBlob.size, 'bytes, type:', audioBlob.type);
+        console.log('[AudioRecorder] Final audio blob:', {
+          size: audioBlob.size,
+          type: audioBlob.type,
+          chunksCount: this.audioChunks.length
+        });
         
         if (await AudioFormatManager.validateAudioBlob(audioBlob)) {
           this.onDataAvailable?.(audioBlob);
@@ -76,33 +88,33 @@ export class AudioRecorder {
         this.audioChunks = [];
       };
 
-      this.mediaRecorder.start(500); // Collect data every 500ms
+      this.mediaRecorder.start(1000); // Collect data every second for more granular logging
       this.isRecording = true;
-      console.log('Recording started successfully');
+      console.log('[AudioRecorder] Recording started successfully');
     } catch (error) {
-      console.error('Error starting recording:', error);
+      console.error('[AudioRecorder] Error starting recording:', error);
       await this.cleanupResources();
       throw new Error(AudioErrorHandler.getReadableErrorMessage(error));
     }
   }
 
   async stop() {
-    console.log('Stopping recording...');
+    console.log('[AudioRecorder] Stopping recording...');
     if (this.mediaRecorder && this.isRecording) {
       this.mediaRecorder.stop();
       this.isRecording = false;
       await this.cleanupResources();
-      console.log('Recording stopped successfully');
+      console.log('[AudioRecorder] Recording stopped successfully');
     }
   }
 
   async cleanupResources() {
-    console.log('Cleaning up audio recorder resources...');
+    console.log('[AudioRecorder] Cleaning up resources...');
     
     if (this.stream) {
       this.stream.getTracks().forEach(track => {
         track.stop();
-        console.log('Audio track stopped');
+        console.log('[AudioRecorder] Audio track stopped');
       });
       this.stream = null;
     }
@@ -110,19 +122,19 @@ export class AudioRecorder {
     if (this.mediaRecorder) {
       if (this.mediaRecorder.state !== 'inactive') {
         this.mediaRecorder.stop();
-        console.log('MediaRecorder stopped');
+        console.log('[AudioRecorder] MediaRecorder stopped');
       }
       this.mediaRecorder = null;
     }
 
     if (this.audioContext) {
       await this.audioContext.close();
-      console.log('AudioContext closed');
+      console.log('[AudioRecorder] AudioContext closed');
       this.audioContext = null;
     }
 
     this.audioChunks = [];
     this.isRecording = false;
-    console.log('Audio recorder cleanup complete');
+    console.log('[AudioRecorder] Cleanup complete');
   }
 }

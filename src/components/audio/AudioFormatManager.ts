@@ -1,55 +1,52 @@
 export class AudioFormatManager {
   static getSupportedMimeType(): string {
-    console.log('Checking MIME type support...');
+    console.log('[AudioFormatManager] Checking available MIME types...');
     
-    // We specifically want webm for Whisper API compatibility
+    // Log all available MIME types for debugging
+    const mimeTypes = [
+      'audio/webm',
+      'audio/webm;codecs=opus',
+      'audio/ogg;codecs=opus',
+      'audio/wav',
+      'audio/mp4'
+    ];
+
+    mimeTypes.forEach(type => {
+      console.log(`[AudioFormatManager] ${type}: ${MediaRecorder.isTypeSupported(type)}`);
+    });
+
+    // Prioritize WebM with Opus as it's best supported by Whisper API
     if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-      console.log('Using WebM with Opus codec');
+      console.log('[AudioFormatManager] Selected: audio/webm;codecs=opus');
       return 'audio/webm;codecs=opus';
     }
     
     if (MediaRecorder.isTypeSupported('audio/webm')) {
-      console.log('Using WebM format');
+      console.log('[AudioFormatManager] Selected: audio/webm');
       return 'audio/webm';
     }
 
-    // Log available MIME types for debugging
-    const mimeTypes = [
-      'audio/webm',
-      'audio/webm;codecs=opus',
-      'audio/wav',
-      'audio/mp4',
-      'audio/ogg'
-    ];
-
-    mimeTypes.forEach(type => {
-      console.log(`${type}: ${MediaRecorder.isTypeSupported(type)}`);
-    });
-
-    // Only allow formats we know work well with Whisper API
-    const fallbackTypes = ['audio/ogg;codecs=opus'];
-    for (const type of fallbackTypes) {
-      if (MediaRecorder.isTypeSupported(type)) {
-        console.log(`Using fallback format: ${type}`);
-        return type;
-      }
+    if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+      console.log('[AudioFormatManager] Selected: audio/ogg;codecs=opus');
+      return 'audio/ogg;codecs=opus';
     }
 
-    throw new Error('No supported audio MIME type found on this device');
+    console.error('[AudioFormatManager] No supported audio format found');
+    throw new Error('No supported audio format found on this device');
   }
 
   static async validateAudioBlob(blob: Blob): Promise<boolean> {
-    console.log('Validating audio blob:', {
+    console.log('[AudioFormatManager] Validating audio blob:', {
       type: blob.type,
       size: blob.size
     });
 
     if (blob.size === 0) {
-      console.error('Audio blob is empty');
+      console.error('[AudioFormatManager] Audio blob is empty');
       return false;
     }
 
-    // Verify the MIME type is one we support
+    // Verify the MIME type matches what Whisper expects
     const supportedTypes = [
       'audio/webm',
       'audio/webm;codecs=opus',
@@ -57,7 +54,7 @@ export class AudioFormatManager {
     ];
 
     if (!supportedTypes.includes(blob.type)) {
-      console.error('Unsupported audio format:', blob.type);
+      console.error('[AudioFormatManager] Unsupported audio format:', blob.type);
       return false;
     }
 
