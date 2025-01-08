@@ -4,12 +4,12 @@ export class AudioFormatManager {
     
     // Log all available MIME types for debugging
     const mimeTypes = [
+      'audio/mp4',
       'audio/webm',
       'audio/webm;codecs=opus',
       'audio/ogg;codecs=opus',
       'audio/wav',
       'audio/mp3',
-      'audio/mp4',
       'audio/mpeg'
     ];
 
@@ -19,6 +19,11 @@ export class AudioFormatManager {
     });
 
     // Try formats in order of preference for Whisper API compatibility
+    if (MediaRecorder.isTypeSupported('audio/mp4')) {
+      console.log('[AudioFormatManager] Selected: audio/mp4');
+      return 'audio/mp4';
+    }
+    
     if (MediaRecorder.isTypeSupported('audio/mp3')) {
       console.log('[AudioFormatManager] Selected: audio/mp3');
       return 'audio/mp3';
@@ -57,11 +62,11 @@ export class AudioFormatManager {
 
     // Verify the MIME type matches what Whisper expects
     const supportedTypes = [
+      'audio/mp4',
       'audio/webm',
       'audio/ogg',
       'audio/wav',
       'audio/mp3',
-      'audio/mp4',
       'audio/mpeg'
     ];
 
