@@ -21,11 +21,6 @@ serve(async (req) => {
       throw new Error('No audio data provided');
     }
 
-    if (!mimeType) {
-      console.error('[process-audio] No MIME type provided');
-      throw new Error('No MIME type provided');
-    }
-
     console.log('[process-audio] Processing audio with MIME type:', mimeType);
 
     // Convert base64 to binary
@@ -52,8 +47,8 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[process-audio] OpenAI API error:', errorText);
-      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+      console.error('[process-audio] OpenAI API error response:', errorText);
+      throw new Error(`OpenAI API error: ${errorText}`);
     }
 
     const data = await response.json();
@@ -64,7 +59,7 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('[process-audio] Error:', error);
+    console.error('Error in process-audio function:', error);
     return new Response(
       JSON.stringify({ 
         error: error.message,
