@@ -6,9 +6,27 @@ export async function handleSendMessage(slackAccountId: string, channelName: str
     throw new Error('Message is required');
   }
 
+  if (!channelName) {
+    throw new Error('Channel name is required');
+  }
+
+  console.log('Starting handleSendMessage:', { slackAccountId, channelName, message });
+
   const slackAccount = await getSlackAccount(slackAccountId);
+  console.log('Retrieved slack account:', { 
+    hasToken: !!slackAccount.slack_bot_token,
+    accountId: slackAccountId 
+  });
+
   const channel = await getSlackChannel(slackAccount.slack_bot_token, channelName);
+  console.log('Retrieved channel:', { 
+    channelId: channel.id,
+    channelName: channel.name,
+    isMember: channel.is_member 
+  });
+
   await sendSlackMessage(slackAccount.slack_bot_token, channel.id, message);
+  console.log('Message sent successfully');
 
   return { message: 'Message sent successfully' };
 }
