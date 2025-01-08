@@ -8,7 +8,6 @@ const corsHeaders = {
 const SEND_SLACK_MESSAGE_TOOL_ID = "58c5d100-8f8b-4794-a275-9059e0cfa9db";
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -20,12 +19,7 @@ serve(async (req) => {
     });
 
     const requestBody = await req.json();
-    console.log('Request body:', {
-      body: requestBody,
-      toolType: typeof requestBody.tool,
-      parametersType: typeof requestBody.parameters,
-      fullBody: JSON.stringify(requestBody, null, 2)
-    });
+    console.log('Request body:', requestBody);
 
     const { tool, parameters } = requestBody;
     
@@ -33,24 +27,22 @@ serve(async (req) => {
       throw new Error('Tool name is required');
     }
 
-    console.log('Processing tool request:', {
-      tool,
-      parameters,
-      timestamp: new Date().toISOString()
-    });
+    console.log('Processing tool request:', { tool, parameters });
 
     switch (tool) {
       case 'send_slack_message':
         console.log('Handling send_slack_message:', parameters);
         
-        // Make request to VAPI API with the tool ID
         const vapiResponse = await fetch(`https://api.vapi.ai/tools/${SEND_SLACK_MESSAGE_TOOL_ID}/run`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'x-vapi-secret': Deno.env.get('VAPI_SERVER_TOKEN') || '',
           },
-          body: JSON.stringify(parameters)
+          body: JSON.stringify({
+            channelName: parameters.channelName,
+            message: parameters.message
+          })
         });
 
         if (!vapiResponse.ok) {
@@ -75,17 +67,9 @@ serve(async (req) => {
         throw new Error(`Unknown tool: ${tool}`);
     }
   } catch (error) {
-    console.error('Error in vapi-tools function:', {
-      error: error.message,
-      stack: error.stack,
-      timestamp: new Date().toISOString()
-    });
-
+    console.error('Error in vapi-tools function:', error);
     return new Response(
-      JSON.stringify({ 
-        error: error.message,
-        timestamp: new Date().toISOString()
-      }),
+      JSON.stringify({ error: error.message }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

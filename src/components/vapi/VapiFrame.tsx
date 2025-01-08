@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import Vapi from '@vapi-ai/web';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Mic, MicOff } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { VapiStatus } from './VapiStatus';
+import { createToolHandler } from './VapiToolHandler';
 
 interface VapiFrameProps {
   apiKey: string;
@@ -36,46 +35,9 @@ export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
         
         console.log('VAPI instance created, registering tool...');
         
-        // Register tool handler with detailed logging
-        vapiRef.current.registerTool('send_slack_message', async (parameters: any) => {
-          console.log('Tool handler called with parameters:', {
-            handlerInput: parameters,
-            type: typeof parameters,
-            keys: parameters ? Object.keys(parameters) : 'no parameters'
-          });
-
-          try {
-            const requestBody = {
-              tool: 'send_slack_message',
-              parameters
-            };
-            
-            console.log('Sending request to vapi-tools function:', requestBody);
-            
-            const { data, error } = await supabase.functions.invoke('vapi-tools', {
-              body: requestBody
-            });
-
-            if (error) {
-              console.error('Error from vapi-tools function:', {
-                error,
-                type: typeof error,
-                message: error.message
-              });
-              throw error;
-            }
-
-            console.log('Successful response from vapi-tools:', data);
-            return data;
-          } catch (error) {
-            console.error('Error in send_slack_message tool handler:', {
-              error,
-              type: typeof error,
-              message: error instanceof Error ? error.message : String(error)
-            });
-            throw error;
-          }
-        });
+        // Add the tool handler
+        const toolHandler = createToolHandler();
+        vapiRef.current.addTool('Send_slack_message', toolHandler);
         
         console.log('Tool registered, setting up event listeners...');
         
@@ -158,7 +120,6 @@ export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
       } else {
         console.log('Starting VAPI call with assistant:', assistantId);
         await vapiRef.current.start(assistantId);
-        // Status will be updated by event listener
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -171,32 +132,10 @@ export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
     }
   };
 
-  return (
-    <div className="flex flex-col items-center justify-center space-y-4 p-4">
-      <div className="text-lg font-semibold">Voice Assistant Status</div>
-      <div className="text-sm text-muted-foreground">{status}</div>
-      {error && (
-        <div className="text-sm text-red-500 max-w-md text-center">
-          Error: {error}
-        </div>
-      )}
-      <Button
-        onClick={handleToggleCall}
-        variant={isCallActive ? "destructive" : "default"}
-        className="mt-4"
-      >
-        {isCallActive ? (
-          <>
-            <MicOff className="mr-2 h-4 w-4" />
-            Stop Assistant
-          </>
-        ) : (
-          <>
-            <Mic className="mr-2 h-4 w-4" />
-            Start Assistant
-          </>
-        )}
-      </Button>
-    </div>
-  );
+  return <VapiStatus 
+    status={status}
+    error={error}
+    isCallActive={isCallActive}
+    onToggleCall={handleToggleCall}
+  />;
 };
