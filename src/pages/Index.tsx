@@ -8,6 +8,7 @@ import { OnboardingSection } from '@/components/dashboard/OnboardingSection';
 import { AudioService } from '@/services/AudioService';
 import { VoiceSection } from '@/components/voice/VoiceSection';
 import { WorkspaceInitializer } from '@/components/workspace/WorkspaceInitializer';
+import { ConnectedChannels } from '@/components/dashboard/ConnectedChannels';
 
 const Index = () => {
   const [session, setSession] = useState(null);
@@ -72,6 +73,7 @@ const Index = () => {
             audioService={audioService}
             isAudioInitialized={isAudioInitialized}
           />
+          <ConnectedChannels channels={[]} />
         </div>
       </div>
     </div>
