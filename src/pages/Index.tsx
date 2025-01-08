@@ -5,29 +5,14 @@ import { toast } from 'sonner';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { Header } from '@/components/dashboard/Header';
 import { OnboardingSection } from '@/components/dashboard/OnboardingSection';
-import { AudioService } from '@/services/AudioService';
 import { VoiceSection } from '@/components/voice/VoiceSection';
 import { WorkspaceInitializer } from '@/components/workspace/WorkspaceInitializer';
 
 const Index = () => {
   const [session, setSession] = useState(null);
-  const [audioService] = useState(() => new AudioService());
-  const [isAudioInitialized, setIsAudioInitialized] = useState(false);
   const isMobile = useIsMobile();
 
   useEffect(() => {
-    const initializeAudio = async () => {
-      try {
-        console.log('Starting audio initialization...');
-        await audioService.initialize();
-        console.log('Audio initialization completed successfully');
-        setIsAudioInitialized(true);
-      } catch (error) {
-        console.error('Failed to initialize audio service:', error);
-        toast.error('Failed to initialize audio. Please check microphone permissions.');
-      }
-    };
-
     supabase.auth.getSession().then(({ data: { session } }) => {
       console.log('Current session:', session ? 'Active' : 'None');
       setSession(session);
@@ -43,13 +28,10 @@ const Index = () => {
       }
     });
 
-    initializeAudio();
-
     return () => {
       subscription.unsubscribe();
-      audioService.cleanup();
     };
-  }, [audioService]);
+  }, []);
 
   if (!session) {
     return <LoginForm />;
@@ -62,14 +44,11 @@ const Index = () => {
         <OnboardingSection />
         {session && (
           <WorkspaceInitializer 
-            userId={session.user.id} 
-            audioService={audioService}
+            userId={session.user.id}
           />
         )}
         <VoiceSection 
           session={session}
-          audioService={audioService}
-          isAudioInitialized={isAudioInitialized}
         />
       </div>
     </div>
