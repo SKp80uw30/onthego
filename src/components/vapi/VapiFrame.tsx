@@ -3,6 +3,7 @@ import Vapi from '@vapi-ai/web';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Mic, MicOff } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface VapiFrameProps {
   apiKey: string;
@@ -32,6 +33,30 @@ export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
         
         vapiRef.current = new Vapi(apiKey);
         console.log('VAPI instance created successfully');
+
+        // Set up tool handler for send_slack_message
+        vapiRef.current.onToolCall('send_slack_message', async (parameters) => {
+          try {
+            console.log('Handling send_slack_message tool call:', parameters);
+            const { data, error } = await supabase.functions.invoke('vapi-tools', {
+              body: {
+                tool: 'send_slack_message',
+                parameters
+              }
+            });
+
+            if (error) {
+              console.error('Error calling vapi-tools function:', error);
+              throw error;
+            }
+
+            console.log('VAPI tools response:', data);
+            return data;
+          } catch (error) {
+            console.error('Error in send_slack_message tool handler:', error);
+            throw error;
+          }
+        });
         
         vapiRef.current.on('call-start', () => {
           console.log('VAPI call started');
