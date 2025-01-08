@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { Header } from '@/components/dashboard/Header';
 import { OnboardingSection } from '@/components/dashboard/OnboardingSection';
-import { VapiWidget } from '@vapi-ai/web';
+import VapiWidget from '@vapi-ai/web';
 
 const Index = () => {
   const [session, setSession] = useState(null);
@@ -53,19 +53,22 @@ const Index = () => {
       <div className="container mx-auto px-4 py-6 md:py-8">
         <Header />
         <OnboardingSection />
-        <div className="mt-8 flex justify-center">
-          <VapiWidget
-            apiKey={async () => {
-              const secrets = await fetchVapiKeys();
-              return secrets?.VAPI_API_KEY;
-            }}
-            assistantId={async () => {
-              const secrets = await fetchVapiKeys();
-              return secrets?.VAPI_ASSISTANT_KEY;
-            }}
-            className="w-full max-w-xl"
-          />
-        </div>
+        {session && (
+          <div className="mt-8 flex justify-center">
+            <div className="w-full max-w-xl">
+              <VapiWidget
+                apiKey={async () => {
+                  const secrets = await fetchVapiKeys();
+                  return secrets?.VAPI_API_KEY || '';
+                }}
+                assistantId={async () => {
+                  const secrets = await fetchVapiKeys();
+                  return secrets?.VAPI_ASSISTANT_KEY || '';
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
