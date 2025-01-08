@@ -24,11 +24,12 @@ export class AudioTranscriptionService {
 
       if (transcriptionError) {
         console.error('Transcription error:', transcriptionError);
-        throw new Error(`Error transcribing audio: ${transcriptionError.message}`);
+        const errorMessage = transcriptionError.message || 'Unknown error occurred';
+        throw new Error(`Error transcribing audio: ${errorMessage}`);
       }
 
       if (!transcriptionData || !transcriptionData.text) {
-        console.error('No transcription data received');
+        console.error('No transcription data received:', transcriptionData);
         throw new Error('No transcription data received');
       }
 
@@ -36,7 +37,16 @@ export class AudioTranscriptionService {
       return transcriptionData.text;
     } catch (error) {
       console.error('Error in transcription service:', error);
-      toast.error('Error transcribing audio');
+      
+      // More specific error messages based on the error type
+      if (error.message?.includes('OpenAI API')) {
+        toast.error('Error connecting to transcription service. Please try again.');
+      } else if (error.message?.includes('No audio data')) {
+        toast.error('No audio data received. Please try recording again.');
+      } else {
+        toast.error('Error transcribing audio. Please try again.');
+      }
+      
       throw error;
     }
   }
