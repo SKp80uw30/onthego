@@ -34,8 +34,8 @@ export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
         vapiRef.current = new Vapi(apiKey);
         console.log('VAPI instance created successfully');
 
-        // Set up tool handler for send_slack_message using the correct method
-        vapiRef.current.on('tool', async (toolCall) => {
+        // Set up tool handler for send_slack_message using the correct event name
+        vapiRef.current.on('tool-call', async (toolCall) => {
           if (toolCall.name === 'send_slack_message') {
             try {
               console.log('Handling send_slack_message tool call:', toolCall.parameters);
