@@ -16,7 +16,10 @@ export class VapiService {
         throw new Error('Failed to get Vapi keys');
       }
 
-      this.client = new Vapi(secrets.VAPI_API_KEY);
+      this.client = new Vapi({
+        apiKey: secrets.VAPI_API_KEY
+      });
+      
       this.isInitialized = true;
       console.log('Vapi service initialized successfully');
     } catch (error) {
@@ -38,15 +41,18 @@ export class VapiService {
         throw new Error('Failed to get Vapi assistant key');
       }
 
-      const options = {
+      console.log('Creating Vapi call with assistant:', secrets.VAPI_ASSISTANT_KEY);
+      
+      const call = await this.client.createCall({
         assistantId: secrets.VAPI_ASSISTANT_KEY,
         audioConfig: {
           sampleRate: 16000,
           encoding: 'webm'
         }
-      };
+      });
 
-      return await this.client.createCall(options);
+      console.log('Vapi call created successfully');
+      return call;
     } catch (error) {
       console.error('Error starting Vapi conversation:', error);
       throw error;
