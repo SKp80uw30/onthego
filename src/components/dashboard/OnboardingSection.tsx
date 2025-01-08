@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mic, Slack, Hash } from 'lucide-react';
+import { MessageSquare, Mic, Slack } from 'lucide-react';
 import { OnboardingCard } from '@/components/OnboardingCard';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -46,15 +46,11 @@ export const OnboardingSection = () => {
     }
   };
 
-  const workspaceName = slackAccounts?.[0]?.slack_workspace_name || 'Unknown';
-
   return (
     <div className="grid gap-4 md:gap-6 mb-8">
       <OnboardingCard
         title="Connect Slack"
-        description={slackAccounts?.length 
-          ? `Connected to ${workspaceName} Workspace` 
-          : "Link your Slack workspace to get started"}
+        description={slackAccounts?.length ? "Connected to Slack workspace" : "Link your Slack workspace to get started"}
         icon={<Slack className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
         isCompleted={Boolean(slackAccounts?.length)}
       >
@@ -69,20 +65,14 @@ export const OnboardingSection = () => {
       </OnboardingCard>
       <OnboardingCard
         title="Voice Commands"
-        description="Control your messages with voice commands in these channels:"
+        description="Control your messages with simple voice commands"
         icon={<Mic className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
-      >
-        <div className="mt-3 space-y-2">
-          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-            <Hash className="h-4 w-4" />
-            <span>general</span>
-          </div>
-          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-            <Hash className="h-4 w-4" />
-            <span>random</span>
-          </div>
-        </div>
-      </OnboardingCard>
+      />
+      <OnboardingCard
+        title="Smart Replies"
+        description="AI-powered responses for quick communication"
+        icon={<MessageSquare className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
+      />
     </div>
   );
 };

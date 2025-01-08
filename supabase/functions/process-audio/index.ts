@@ -1,4 +1,3 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts"
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
@@ -9,65 +8,114 @@ const corsHeaders = {
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    console.log('[process-audio] Received request');
-    const { audio, mimeType } = await req.json();
+    console.log('Processing audio request...');
     
-    if (!audio) {
-      console.error('[process-audio] No audio data provided');
-      throw new Error('No audio data provided');
+    const contentType = req.headers.get('content-type') || '';
+    
+    if (!contentType.includes('multipart/form-data')) {
+      console.error('Invalid content type:', contentType);
+      return new Response(
+        JSON.stringify({ error: 'Invalid content type. Expected multipart/form-data' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400 
+        }
+      );
     }
 
-    console.log('[process-audio] Processing audio with MIME type:', mimeType);
-
-    // Convert base64 to binary
-    const binaryString = atob(audio);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
+    const formData = await req.formData();
+    const audioFile = formData.get('file');
+    
+    if (!audioFile) {
+      console.error('No audio file received');
+      return new Response(
+        JSON.stringify({ error: 'No audio file received' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400 
+        }
+      );
     }
 
-    // Create blob and form data
-    const audioBlob = new Blob([bytes], { type: mimeType });
-    const formData = new FormData();
-    formData.append('file', audioBlob, 'audio.webm');
-    formData.append('model', 'whisper-1');
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openAIApiKey) {
+      console.error('OpenAI API key not found');
+      return new Response(
+        JSON.stringify({ error: 'Service configuration error' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 503 
+        }
+      );
+    }
 
-    console.log('[process-audio] Sending request to OpenAI Whisper API...');
+    console.log('Sending request to OpenAI...');
+    const openAIFormData = new FormData();
+    openAIFormData.append('file', audioFile);
+    openAIFormData.append('model', 'whisper-1');
+    openAIFormData.append('response_format', 'json');
+
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+        'Authorization': `Bearer ${openAIApiKey}`,
       },
-      body: formData,
+      body: openAIFormData,
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[process-audio] OpenAI API error response:', errorText);
-      throw new Error(`OpenAI API error: ${errorText}`);
+      const error = await response.json();
+      console.error('OpenAI API error:', error);
+      
+      if (error.error?.type === 'insufficient_quota') {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Service temporarily unavailable due to quota limits. Please try again later.' 
+          }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 503,
+          },
+        );
+      }
+      
+      return new Response(
+        JSON.stringify({ 
+          error: `OpenAI API error: ${error.error?.message || 'Unknown error'}` 
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: response.status,
+        },
+      );
     }
 
     const data = await response.json();
-    console.log('[process-audio] Transcription successful');
+    console.log('Transcription successful:', data);
 
-    return new Response(JSON.stringify({ text: data.text }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
+    return new Response(
+      JSON.stringify(data),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      },
+    );
   } catch (error) {
-    console.error('Error in process-audio function:', error);
+    console.error('Error processing audio:', error);
+    
     return new Response(
       JSON.stringify({ 
-        error: error.message,
-        details: error.stack
-      }), {
-        status: 500,
+        error: 'Internal server error',
+        details: error.message
+      }),
+      { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+        status: 500,
+      },
     );
   }
 });
