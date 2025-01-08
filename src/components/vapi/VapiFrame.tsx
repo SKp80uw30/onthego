@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import Vapi from '@vapi-ai/web';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Mic, MicOff } from 'lucide-react';
 
 interface VapiFrameProps {
   apiKey: string;
@@ -11,6 +13,7 @@ export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
   const vapiRef = useRef<Vapi | null>(null);
   const [status, setStatus] = useState<string>('Initializing...');
   const [error, setError] = useState<string | null>(null);
+  const [isCallActive, setIsCallActive] = useState(false);
   
   useEffect(() => {
     if (!apiKey || !assistantId) {
@@ -27,19 +30,13 @@ export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
           assistantIdLength: assistantId.length
         });
         
-        // Initialize Vapi with the public key
         vapiRef.current = new Vapi(apiKey);
         console.log('VAPI instance created successfully');
         
-        // Start the call with the assistant ID
-        console.log('Attempting to start VAPI with assistant:', assistantId);
-        await vapiRef.current.start(assistantId);
-        console.log('VAPI started successfully');
-        
-        // Set up event listeners after successful initialization
         vapiRef.current.on('call-start', () => {
           console.log('VAPI call started');
           setStatus('Call in progress');
+          setIsCallActive(true);
           setError(null);
         });
         
@@ -48,6 +45,7 @@ export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
           console.error('VAPI error:', errorMessage);
           setStatus('Error occurred');
           setError(errorMessage);
+          setIsCallActive(false);
           toast.error(`Voice assistant error: ${errorMessage}`);
         });
 
@@ -64,6 +62,7 @@ export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
         vapiRef.current.on('call-end', () => {
           console.log('VAPI call ended');
           setStatus('Call ended');
+          setIsCallActive(false);
         });
 
         setStatus('Ready');
@@ -88,6 +87,30 @@ export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
     };
   }, [apiKey, assistantId]);
 
+  const handleToggleCall = async () => {
+    if (!vapiRef.current) {
+      toast.error('Voice assistant not initialized');
+      return;
+    }
+
+    try {
+      if (isCallActive) {
+        console.log('Stopping VAPI call');
+        await vapiRef.current.stop();
+        setStatus('Call ended');
+        setIsCallActive(false);
+      } else {
+        console.log('Starting VAPI call');
+        await vapiRef.current.start(assistantId);
+        // The status will be updated by the call-start event listener
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('Error toggling VAPI call:', errorMessage);
+      toast.error(`Error controlling voice assistant: ${errorMessage}`);
+    }
+  };
+
   return (
     <div className="flex flex-col items-center justify-center space-y-4 p-4">
       <div className="text-lg font-semibold">Voice Assistant Status</div>
@@ -97,6 +120,23 @@ export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
           Error: {error}
         </div>
       )}
+      <Button
+        onClick={handleToggleCall}
+        variant={isCallActive ? "destructive" : "default"}
+        className="mt-4"
+      >
+        {isCallActive ? (
+          <>
+            <MicOff className="mr-2 h-4 w-4" />
+            Stop Assistant
+          </>
+        ) : (
+          <>
+            <Mic className="mr-2 h-4 w-4" />
+            Start Assistant
+          </>
+        )}
+      </Button>
     </div>
   );
 };
