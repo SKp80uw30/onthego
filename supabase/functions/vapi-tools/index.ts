@@ -18,20 +18,23 @@ serve(async (req) => {
       headers: Object.fromEntries(req.headers.entries())
     });
 
-    const requestBody = await req.json();
-    console.log('Request body:', requestBody);
+    const body = await req.json();
+    console.log('Request body:', body);
 
-    const { tool, parameters } = requestBody;
-    
-    if (!tool) {
+    // Extract tool call from VAPI request structure
+    const toolCall = body.message?.toolCalls?.[0];
+    if (!toolCall?.function?.name) {
       throw new Error('Tool name is required');
     }
 
-    console.log('Processing tool request:', { tool, parameters });
+    const toolName = toolCall.function.name;
+    const toolArgs = toolCall.function.arguments;
+    
+    console.log('Processing tool request:', { toolName, toolArgs });
 
-    switch (tool) {
-      case 'send_slack_message':
-        console.log('Handling send_slack_message:', parameters);
+    switch (toolName) {
+      case 'Send_slack_message':
+        console.log('Handling Send_slack_message:', toolArgs);
         
         const vapiResponse = await fetch(`https://api.vapi.ai/tools/${SEND_SLACK_MESSAGE_TOOL_ID}/run`, {
           method: 'POST',
@@ -40,8 +43,8 @@ serve(async (req) => {
             'x-vapi-secret': Deno.env.get('VAPI_SERVER_TOKEN') || '',
           },
           body: JSON.stringify({
-            channelName: parameters.channelName,
-            message: parameters.message
+            channelName: toolArgs.Channel_name,
+            message: toolArgs.Channel_message
           })
         });
 
@@ -64,7 +67,7 @@ serve(async (req) => {
         );
 
       default:
-        throw new Error(`Unknown tool: ${tool}`);
+        throw new Error(`Unknown tool: ${toolName}`);
     }
   } catch (error) {
     console.error('Error in vapi-tools function:', error);

@@ -37,7 +37,7 @@ export const VapiFrame = ({ apiKey, assistantId }: VapiFrameProps) => {
         
         // Add the tool handler
         const toolHandler = createToolHandler();
-        vapiRef.current.addTool('Send_slack_message', toolHandler);
+        vapiRef.current.registerTool('Send_slack_message', toolHandler);
         
         console.log('Tool registered, setting up event listeners...');
         
