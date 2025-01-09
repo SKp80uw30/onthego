@@ -1,125 +1,112 @@
-import { useCallback, useEffect, useState } from 'react';
-import VapiClient from '@vapi-ai/web';
-import { supabase } from '@/integrations/supabase/client';
+import { useEffect, useRef, useState } from 'react';
+import Vapi from '@vapi-ai/web';
 import { toast } from 'sonner';
+import { VapiState } from '@/types/vapi';
+import { createVapiEventHandlers } from './vapi/vapi-event-handlers';
 
-export const useVapi = (apiKey: string, assistantKey: string) => {
-  const [client, setClient] = useState<VapiClient | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [activeCall, setActiveCall] = useState<any>(null);
+const INITIAL_STATE: VapiState = {
+  status: 'Initializing...',
+  error: null,
+  isCallActive: false
+};
+
+export const useVapi = (apiKey: string, assistantId: string) => {
+  const vapiRef = useRef<Vapi | null>(null);
+  const [state, setState] = useState<VapiState>(INITIAL_STATE);
+
+  const updateState = (updates: Partial<VapiState>) => {
+    setState(current => ({ ...current, ...updates }));
+  };
 
   useEffect(() => {
-    if (!apiKey || !assistantKey) {
-      setError('API key and Assistant key are required');
+    if (!apiKey || !assistantId) {
+      console.error('Missing VAPI configuration:', { apiKey: !!apiKey, assistantId: !!assistantId });
+      updateState({
+        status: 'Missing configuration',
+        error: 'Missing required VAPI configuration'
+      });
+      return;
+    }
+    
+    const initializeVapi = async () => {
+      try {
+        console.log('Starting VAPI initialization with:', {
+          apiKeyLength: apiKey.length,
+          assistantIdLength: assistantId.length
+        });
+        
+        vapiRef.current = new Vapi(apiKey);
+        
+        const handlers = createVapiEventHandlers(updateState);
+        
+        vapiRef.current.on('call-start', handlers.handleCallStart);
+        vapiRef.current.on('error', handlers.handleError);
+        vapiRef.current.on('speech-start', handlers.handleSpeechStart);
+        vapiRef.current.on('speech-end', handlers.handleSpeechEnd);
+        vapiRef.current.on('call-end', handlers.handleCallEnd);
+
+        updateState({
+          status: 'Ready',
+          error: null
+        });
+        console.log('VAPI initialization completed successfully');
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error('Failed to initialize VAPI:', {
+          error,
+          type: typeof error,
+          message: errorMessage
+        });
+        updateState({
+          status: 'Failed to initialize',
+          error: errorMessage
+        });
+        toast.error(`Failed to initialize voice assistant: ${errorMessage}`);
+      }
+    };
+
+    initializeVapi();
+
+    return () => {
+      if (vapiRef.current) {
+        console.log('Cleaning up VAPI instance');
+        vapiRef.current.stop();
+        vapiRef.current = null;
+      }
+    };
+  }, [apiKey, assistantId]);
+
+  const toggleCall = async () => {
+    if (!vapiRef.current) {
+      toast.error('Voice assistant not initialized');
       return;
     }
 
-    const vapiClient = new VapiClient({
-      apiKey: apiKey,
-    });
-
-    setClient(vapiClient);
-  }, [apiKey, assistantKey]);
-
-  const handleToolExecution = useCallback(async (toolCall: any) => {
     try {
-      console.log('Executing tool:', toolCall);
-      
-      const { data: response, error } = await supabase.functions.invoke('vapi-tools', {
-        body: { message: { toolCalls: [toolCall] } }
-      });
-
-      if (error) {
-        console.error('Tool execution error:', error);
-        toast.error('Failed to execute tool');
-        return null;
+      if (state.isCallActive) {
+        console.log('Stopping VAPI call');
+        await vapiRef.current.stop();
+        updateState({
+          status: 'Call ended',
+          isCallActive: false
+        });
+      } else {
+        console.log('Starting VAPI call with assistant:', assistantId);
+        await vapiRef.current.start(assistantId);
       }
-
-      console.log('Tool execution response:', response);
-      return response;
-    } catch (err) {
-      console.error('Tool execution error:', err);
-      toast.error('Failed to execute tool');
-      return null;
-    }
-  }, []);
-
-  const connect = useCallback(async () => {
-    if (!client) {
-      setError('Client not initialized');
-      return null;
-    }
-
-    try {
-      const call = await client.start({
-        assistantId: assistantKey,
-        onError: (error) => {
-          console.error('VAPI error:', error);
-          setError(error.message);
-          toast.error('Connection error: ' + error.message);
-        },
-        onConnect: () => {
-          console.log('Connected to VAPI');
-          setIsConnected(true);
-          toast.success('Connected to assistant');
-        },
-        onDisconnect: () => {
-          console.log('Disconnected from VAPI');
-          setIsConnected(false);
-          setActiveCall(null);
-        },
-        tools: [
-          {
-            name: 'Send_slack_message',
-            description: 'Send a message to a Slack channel',
-            parameters: {
-              type: 'object',
-              properties: {
-                Channel_name: {
-                  type: 'string',
-                  description: 'The name of the Slack channel to send the message to',
-                },
-                Channel_message: {
-                  type: 'string',
-                  description: 'The message to send to the Slack channel',
-                },
-                Send_message_approval: {
-                  type: 'boolean',
-                  description: 'Approval to send the message',
-                },
-              },
-              required: ['Channel_name', 'Channel_message', 'Send_message_approval'],
-            },
-          },
-        ],
-        onToolCall: handleToolExecution,
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('Error toggling VAPI call:', {
+        error,
+        type: typeof error,
+        message: errorMessage
       });
-
-      setActiveCall(call);
-      return call;
-    } catch (err) {
-      console.error('Failed to connect:', err);
-      setError(err instanceof Error ? err.message : 'Failed to connect');
-      return null;
+      toast.error(`Error controlling voice assistant: ${errorMessage}`);
     }
-  }, [client, assistantKey, handleToolExecution]);
-
-  const toggleCall = useCallback(async () => {
-    if (activeCall) {
-      activeCall.stop();
-      setActiveCall(null);
-    } else {
-      await connect();
-    }
-  }, [activeCall, connect]);
-
-  const status = isConnected ? 'Connected to assistant' : 'Disconnected';
+  };
 
   return {
-    status,
-    error,
-    isCallActive: !!activeCall,
-    toggleCall,
+    ...state,
+    toggleCall
   };
 };
