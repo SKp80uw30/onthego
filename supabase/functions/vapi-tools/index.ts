@@ -28,7 +28,10 @@ serve(async (req) => {
     }
 
     const toolName = toolCall.function.name;
-    const toolArgs = JSON.parse(toolCall.function.arguments);
+    // Don't parse arguments if they're already an object
+    const toolArgs = typeof toolCall.function.arguments === 'string' 
+      ? JSON.parse(toolCall.function.arguments)
+      : toolCall.function.arguments;
 
     console.log('Processing tool:', { toolName, arguments: toolArgs });
 
