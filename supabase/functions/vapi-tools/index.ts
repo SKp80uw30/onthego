@@ -5,8 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const SEND_SLACK_MESSAGE_TOOL_ID = "58c5d100-8f8b-4794-a275-9059e0cfa9db";
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -28,7 +26,7 @@ serve(async (req) => {
     }
 
     const toolName = toolCall.function.name;
-    const toolArgs = toolCall.function.arguments;
+    const toolArgs = JSON.parse(toolCall.function.arguments);
     
     console.log('Processing tool request:', { toolName, toolArgs });
 
@@ -42,34 +40,35 @@ serve(async (req) => {
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        
-        const vapiResponse = await fetch(`https://api.vapi.ai/tools/${SEND_SLACK_MESSAGE_TOOL_ID}/run`, {
+
+        // Make request to Slack API directly instead of using VAPI's tool endpoint
+        const slackResponse = await fetch('https://slack.com/api/chat.postMessage', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-vapi-secret': Deno.env.get('VAPI_SERVER_TOKEN') || '',
+            'Authorization': `Bearer ${Deno.env.get('SLACK_BOT_TOKEN')}`,
           },
           body: JSON.stringify({
-            channelName: toolArgs.Channel_name,
-            message: toolArgs.Channel_message
+            channel: toolArgs.Channel_name,
+            text: toolArgs.Channel_message,
           })
         });
 
-        if (!vapiResponse.ok) {
-          const errorData = await vapiResponse.text();
-          console.error('VAPI API error response:', {
-            status: vapiResponse.status,
-            statusText: vapiResponse.statusText,
+        if (!slackResponse.ok) {
+          const errorData = await slackResponse.text();
+          console.error('Slack API error response:', {
+            status: slackResponse.status,
+            statusText: slackResponse.statusText,
             body: errorData
           });
-          throw new Error(`VAPI API error: ${errorData}`);
+          throw new Error(`Slack API error: ${errorData}`);
         }
 
-        const vapiResult = await vapiResponse.json();
-        console.log('VAPI API successful response:', vapiResult);
+        const slackResult = await slackResponse.json();
+        console.log('Slack API successful response:', slackResult);
 
         return new Response(
-          JSON.stringify(vapiResult),
+          JSON.stringify(slackResult),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
 
