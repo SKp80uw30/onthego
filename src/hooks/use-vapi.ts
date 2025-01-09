@@ -15,13 +15,11 @@ export const useVapi = (apiKey: string, assistantKey: string) => {
       return;
     }
 
-    try {
-      const vapiClient = new VapiClient(apiKey);
-      setClient(vapiClient);
-    } catch (err) {
-      console.error('Failed to initialize VAPI client:', err);
-      setError('Failed to initialize voice assistant');
-    }
+    const vapiClient = new VapiClient({
+      apiKey: apiKey,
+    });
+
+    setClient(vapiClient);
   }, [apiKey, assistantKey]);
 
   const handleToolExecution = useCallback(async (toolCall: any) => {
@@ -55,7 +53,7 @@ export const useVapi = (apiKey: string, assistantKey: string) => {
 
     try {
       const call = await client.start({
-        assistant: assistantKey,
+        assistantId: assistantKey,
         onError: (error) => {
           console.error('VAPI error:', error);
           setError(error.message);
