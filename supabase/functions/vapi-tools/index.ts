@@ -1,13 +1,14 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
@@ -27,6 +28,12 @@ serve(async (req) => {
 
     console.log('Processing tool:', { toolName, arguments: toolArgs });
 
+    // Create Supabase client
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
     switch (toolName) {
       case 'Send_slack_message': {
         if (!toolArgs.Send_message_approval) {
@@ -36,12 +43,23 @@ serve(async (req) => {
           );
         }
 
+        // Get the first available Slack account (you might want to make this more specific)
+        const { data: slackAccount, error: slackError } = await supabase
+          .from('slack_accounts')
+          .select('slack_bot_token')
+          .limit(1)
+          .single();
+
+        if (slackError || !slackAccount) {
+          throw new Error('No Slack account found');
+        }
+
         // Make request to Slack API
-        const slackResponse = await fetch('https://slack.com/api/chat.postMessage', {
+        const response = await fetch('https://slack.com/api/chat.postMessage', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${Deno.env.get('SLACK_BOT_TOKEN')}`,
+            'Authorization': `Bearer ${slackAccount.slack_bot_token}`,
           },
           body: JSON.stringify({
             channel: toolArgs.Channel_name,
@@ -49,18 +67,12 @@ serve(async (req) => {
           })
         });
 
-        if (!slackResponse.ok) {
-          const errorData = await slackResponse.text();
-          console.error('Slack API error response:', {
-            status: slackResponse.status,
-            statusText: slackResponse.statusText,
-            body: errorData
-          });
-          throw new Error(`Slack API error: ${errorData}`);
-        }
+        const slackResult = await response.json();
+        console.log('Slack API response:', slackResult);
 
-        const slackResult = await slackResponse.json();
-        console.log('Slack API successful response:', slackResult);
+        if (!slackResult.ok) {
+          throw new Error(`Slack API error: ${slackResult.error}`);
+        }
 
         return new Response(
           JSON.stringify(slackResult),
@@ -77,7 +89,7 @@ serve(async (req) => {
       JSON.stringify({ error: error.message }),
       { 
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
   }
