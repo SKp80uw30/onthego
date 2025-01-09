@@ -1,21 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import Vapi from '@vapi-ai/web';
 import { toast } from 'sonner';
-import { createToolHandler } from '@/components/vapi/VapiToolHandler';
+import { VapiState } from '@/types/vapi';
+import { createVapiEventHandlers } from './vapi/vapi-event-handlers';
 
-interface VapiState {
-  status: string;
-  error: string | null;
-  isCallActive: boolean;
-}
+const INITIAL_STATE: VapiState = {
+  status: 'Initializing...',
+  error: null,
+  isCallActive: false
+};
 
 export const useVapi = (apiKey: string, assistantId: string) => {
   const vapiRef = useRef<Vapi | null>(null);
-  const [state, setState] = useState<VapiState>({
-    status: 'Initializing...',
-    error: null,
-    isCallActive: false
-  });
+  const [state, setState] = useState<VapiState>(INITIAL_STATE);
 
   const updateState = (updates: Partial<VapiState>) => {
     setState(current => ({ ...current, ...updates }));
@@ -40,54 +37,13 @@ export const useVapi = (apiKey: string, assistantId: string) => {
         
         vapiRef.current = new Vapi(apiKey);
         
-        console.log('VAPI instance created, registering tool...');
+        const handlers = createVapiEventHandlers(updateState);
         
-        const toolHandler = createToolHandler();
-        vapiRef.current.addTool('Send_slack_message', toolHandler);
-        
-        console.log('Tool registered, setting up event listeners...');
-        
-        vapiRef.current.on('call-start', () => {
-          console.log('Event: call-start triggered');
-          updateState({
-            status: 'Call in progress',
-            isCallActive: true,
-            error: null
-          });
-        });
-        
-        vapiRef.current.on('error', (error) => {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          console.error('Event: error triggered:', {
-            error,
-            type: typeof error,
-            message: errorMessage
-          });
-          updateState({
-            status: 'Error occurred',
-            error: errorMessage,
-            isCallActive: false
-          });
-          toast.error(`Voice assistant error: ${errorMessage}`);
-        });
-
-        vapiRef.current.on('speech-start', () => {
-          console.log('Event: speech-start triggered');
-          updateState({ status: 'Assistant speaking' });
-        });
-
-        vapiRef.current.on('speech-end', () => {
-          console.log('Event: speech-end triggered');
-          updateState({ status: 'Ready' });
-        });
-
-        vapiRef.current.on('call-end', () => {
-          console.log('Event: call-end triggered');
-          updateState({
-            status: 'Call ended',
-            isCallActive: false
-          });
-        });
+        vapiRef.current.on('call-start', handlers.handleCallStart);
+        vapiRef.current.on('error', handlers.handleError);
+        vapiRef.current.on('speech-start', handlers.handleSpeechStart);
+        vapiRef.current.on('speech-end', handlers.handleSpeechEnd);
+        vapiRef.current.on('call-end', handlers.handleCallEnd);
 
         updateState({
           status: 'Ready',
