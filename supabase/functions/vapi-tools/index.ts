@@ -36,6 +36,13 @@ serve(async (req) => {
       case 'Send_slack_message':
         console.log('Handling Send_slack_message:', toolArgs);
         
+        if (!toolArgs.Send_message_approval) {
+          return new Response(
+            JSON.stringify({ error: 'Message not approved for sending' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
         const vapiResponse = await fetch(`https://api.vapi.ai/tools/${SEND_SLACK_MESSAGE_TOOL_ID}/run`, {
           method: 'POST',
           headers: {
