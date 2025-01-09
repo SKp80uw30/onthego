@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { VapiClient } from '@vapi-ai/web';
+import VapiClient from '@vapi-ai/web';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -7,6 +7,7 @@ export const useVapi = (apiKey: string, assistantKey: string) => {
   const [client, setClient] = useState<VapiClient | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeCall, setActiveCall] = useState<any>(null);
 
   useEffect(() => {
     if (!apiKey || !assistantKey) {
@@ -66,6 +67,7 @@ export const useVapi = (apiKey: string, assistantKey: string) => {
         onDisconnect: () => {
           console.log('Disconnected from VAPI');
           setIsConnected(false);
+          setActiveCall(null);
         },
         tools: [
           {
@@ -94,6 +96,7 @@ export const useVapi = (apiKey: string, assistantKey: string) => {
         onToolCall: handleToolExecution,
       });
 
+      setActiveCall(call);
       return call;
     } catch (err) {
       console.error('Failed to connect:', err);
@@ -102,10 +105,21 @@ export const useVapi = (apiKey: string, assistantKey: string) => {
     }
   }, [client, assistantKey, handleToolExecution]);
 
+  const toggleCall = useCallback(async () => {
+    if (activeCall) {
+      activeCall.stop();
+      setActiveCall(null);
+    } else {
+      await connect();
+    }
+  }, [activeCall, connect]);
+
+  const status = isConnected ? 'Connected to assistant' : 'Disconnected';
+
   return {
-    client,
-    connect,
-    isConnected,
+    status,
     error,
+    isCallActive: !!activeCall,
+    toggleCall,
   };
 };
