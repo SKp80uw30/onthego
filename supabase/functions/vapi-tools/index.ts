@@ -19,6 +19,18 @@ serve(async (req) => {
 
     const body = await req.json();
     console.log('Complete raw request body:', JSON.stringify(body, null, 2));
+    console.log('Request headers:', Object.fromEntries(req.headers.entries()));
+
+    // Log specific parts we're interested in
+    console.log('Message object:', body.message);
+    console.log('Tool calls:', body.message?.toolCalls);
+    if (body.message?.toolCalls?.[0]) {
+      console.log('First tool call details:', {
+        id: body.message.toolCalls[0].id,
+        function: body.message.toolCalls[0].function,
+        type: body.message.toolCalls[0].type
+      });
+    }
 
     const toolCall = body.message?.toolCalls?.[0];
     console.log('Tool call details:', toolCall);
@@ -38,6 +50,7 @@ serve(async (req) => {
     switch (toolName) {
       case 'Send_slack_message': {
         if (!toolArgs.Send_message_approval) {
+          console.log('Message not approved for sending');
           return new Response(
             JSON.stringify({ error: 'Message not approved for sending' }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -56,6 +69,11 @@ serve(async (req) => {
           throw new Error('Failed to get Slack account');
         }
 
+        console.log('Found Slack account:', {
+          id: slackAccount.id,
+          workspace: slackAccount.slack_workspace_name
+        });
+
         // Use the same direct Slack API call approach that works in SlackService
         const response = await fetch('https://slack.com/api/chat.postMessage', {
           method: 'POST',
@@ -73,9 +91,11 @@ serve(async (req) => {
         console.log('Slack API response:', slackResult);
 
         if (!slackResult.ok) {
+          console.error('Slack API error:', slackResult.error);
           throw new Error(`Slack API error: ${slackResult.error}`);
         }
 
+        console.log('Message sent successfully to Slack');
         return new Response(
           JSON.stringify(slackResult),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -83,10 +103,16 @@ serve(async (req) => {
       }
 
       default:
+        console.error('Unknown tool requested:', toolName);
         throw new Error(`Unknown tool: ${toolName}`);
     }
   } catch (error) {
     console.error('Error in vapi-tools function:', error);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
