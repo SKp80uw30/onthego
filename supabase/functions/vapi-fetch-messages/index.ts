@@ -1,10 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-vapi-secret',
-};
+import { corsHeaders } from './slack-api.ts';
+import { getSlackAccount } from './db.ts';
+import { getSlackChannel, fetchSlackMessages } from './slack-api.ts';
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -48,28 +45,7 @@ serve(async (req) => {
     });
 
     // Get the first available Slack account
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
-    const { data: slackAccount, error: accountError } = await supabase
-      .from('slack_accounts')
-      .select('*')
-      .limit(1)
-      .single();
-
-    console.log('Slack account query:', {
-      success: !accountError,
-      hasToken: !!slackAccount?.slack_bot_token,
-      workspaceName: slackAccount?.slack_workspace_name,
-      error: accountError
-    });
-
-    if (accountError || !slackAccount?.slack_bot_token) {
-      console.error('Error fetching Slack account:', accountError);
-      throw new Error('Failed to get Slack account');
-    }
+    const slackAccount = await getSlackAccount();
 
     // Parse the channel name and message count from the request
     const channelName = body.Channel_name;
@@ -81,38 +57,8 @@ serve(async (req) => {
       workspaceName: slackAccount.slack_workspace_name
     });
 
-    // First get the channel ID
-    const channelListResponse = await fetch('https://slack.com/api/conversations.list', {
-      headers: {
-        'Authorization': `Bearer ${slackAccount.slack_bot_token}`,
-      },
-    });
-
-    const channelList = await channelListResponse.json();
-    console.log('Slack channels response:', {
-      success: channelList.ok,
-      channelCount: channelList.channels?.length,
-      error: channelList.error
-    });
-
-    if (!channelList.ok) {
-      throw new Error(`Failed to fetch channels: ${channelList.error}`);
-    }
-
-    const channel = channelList.channels?.find((c: any) => 
-      c.name.toLowerCase() === channelName.toLowerCase()
-    );
-
-    console.log('Channel lookup result:', {
-      channelName,
-      found: !!channel,
-      channelId: channel?.id,
-      isMember: channel?.is_member
-    });
-
-    if (!channel) {
-      throw new Error(`Channel ${channelName} not found`);
-    }
+    // Get channel info
+    const channel = await getSlackChannel(slackAccount.slack_bot_token, channelName);
 
     // Fetch messages from the channel
     console.log('Fetching messages with params:', {
@@ -120,33 +66,15 @@ serve(async (req) => {
       requestedCount: messageCount
     });
 
-    const messagesResponse = await fetch(
-      `https://slack.com/api/conversations.history?channel=${channel.id}&limit=${messageCount}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${slackAccount.slack_bot_token}`,
-        },
-      }
-    );
-
-    const messagesData = await messagesResponse.json();
-    console.log('Slack messages response:', {
-      success: messagesData.ok,
-      messageCount: messagesData.messages?.length,
-      error: messagesData.error
-    });
-
-    if (!messagesData.ok) {
-      throw new Error(`Failed to fetch messages: ${messagesData.error}`);
-    }
+    const messages = await fetchSlackMessages(slackAccount.slack_bot_token, channel.id, messageCount);
 
     // Format messages for response
-    const messages = messagesData.messages.map((msg: any) => msg.text);
+    const formattedMessages = messages.map((msg: any) => msg.text);
 
     console.log('Formatted messages:', {
-      count: messages.length,
-      firstMessage: messages[0]?.substring(0, 50) + '...',
-      lastMessage: messages[messages.length - 1]?.substring(0, 50) + '...'
+      count: formattedMessages.length,
+      firstMessage: formattedMessages[0]?.substring(0, 50) + '...',
+      lastMessage: formattedMessages[formattedMessages.length - 1]?.substring(0, 50) + '...'
     });
 
     // Prepare VAPI response
@@ -154,7 +82,7 @@ serve(async (req) => {
       results: [{
         toolCallId,
         result: JSON.stringify({
-          Recent_messages: messages
+          Recent_messages: formattedMessages
         })
       }]
     };
