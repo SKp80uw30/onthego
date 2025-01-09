@@ -54,7 +54,8 @@ serve(async (req) => {
     console.log('Processing request for:', {
       channelName,
       messageCount,
-      workspaceName: slackAccount.slack_workspace_name
+      workspaceName: slackAccount.slack_workspace_name,
+      workspaceId: slackAccount.slack_workspace_id
     });
 
     // Get channel info
@@ -63,6 +64,7 @@ serve(async (req) => {
     // Fetch messages from the channel
     console.log('Fetching messages with params:', {
       channelId: channel.id,
+      channelName: channel.name,
       requestedCount: messageCount
     });
 
