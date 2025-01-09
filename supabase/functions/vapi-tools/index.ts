@@ -7,11 +7,51 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Handle CORS
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Get the JWT token from the request headers
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      console.error('No authorization header found');
+      throw new Error('Not authenticated');
+    }
+
+    // Create Supabase admin client
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Verify the JWT and get the user
+    const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader);
+    if (userError || !user) {
+      console.error('Error getting user:', userError);
+      throw new Error('Invalid user token');
+    }
+
+    console.log('Authenticated user:', user.id);
+
+    // Get the user's Slack account
+    const { data: slackAccount, error: slackError } = await supabase
+      .from('slack_accounts')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
+
+    if (slackError || !slackAccount) {
+      console.error('Error getting Slack account:', slackError);
+      throw new Error('No Slack account found for user');
+    }
+
+    console.log('Found Slack account:', {
+      workspaceId: slackAccount.slack_workspace_id,
+      workspaceName: slackAccount.slack_workspace_name
+    });
+
     const body = await req.json();
     console.log('Complete raw request body:', JSON.stringify(body, null, 2));
 
@@ -24,15 +64,9 @@ serve(async (req) => {
     }
 
     const toolName = toolCall.function.name;
-    const toolArgs = toolCall.function.arguments;
+    const toolArgs = JSON.parse(toolCall.function.arguments);
 
     console.log('Processing tool:', { toolName, arguments: toolArgs });
-
-    // Create Supabase client
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
 
     switch (toolName) {
       case 'Send_slack_message': {
@@ -41,17 +75,6 @@ serve(async (req) => {
             JSON.stringify({ error: 'Message not approved for sending' }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
-        }
-
-        // Get the first available Slack account (you might want to make this more specific)
-        const { data: slackAccount, error: slackError } = await supabase
-          .from('slack_accounts')
-          .select('slack_bot_token')
-          .limit(1)
-          .single();
-
-        if (slackError || !slackAccount) {
-          throw new Error('No Slack account found');
         }
 
         // Make request to Slack API
