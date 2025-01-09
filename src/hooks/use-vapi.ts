@@ -43,7 +43,7 @@ export const useVapi = (apiKey: string, assistantId: string) => {
         console.log('VAPI instance created, registering tool...');
         
         const toolHandler = createToolHandler();
-        vapiRef.current.addTool('Send_slack_message', toolHandler);
+        vapiRef.current.tools.add('Send_slack_message', toolHandler);
         
         console.log('Tool registered, setting up event listeners...');
         

@@ -32,8 +32,13 @@ export const createToolHandler = () => {
         throw error;
       }
 
+      if (!data?.ok) {
+        console.error('Error response from Slack:', data);
+        throw new Error(data?.error || 'Failed to send message to Slack');
+      }
+
       console.log('Successful response from vapi-tools:', data);
-      return data;
+      return { success: true, message: 'Message sent successfully' };
     } catch (error) {
       console.error('Error in send_slack_message tool handler:', error);
       throw error;
