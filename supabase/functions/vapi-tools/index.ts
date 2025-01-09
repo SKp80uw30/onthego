@@ -11,29 +11,25 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Received request:', {
-      method: req.method,
-      headers: Object.fromEntries(req.headers.entries())
-    });
-
     const body = await req.json();
     console.log('Complete raw request body:', JSON.stringify(body, null, 2));
 
-    // Extract tool call from request structure
-    console.log('Tool request details:', {
-      toolName: body.toolName,
-      toolArgs: body.toolArgs
-    });
+    // Extract tool call from the correct path
+    const toolCall = body.message?.toolCalls?.[0];
+    console.log('Tool call details:', toolCall);
 
-    if (!body.toolName || !body.toolArgs) {
+    if (!toolCall?.function?.name || !toolCall?.function?.arguments) {
       throw new Error('Invalid tool request structure');
     }
 
-    switch (body.toolName) {
-      case 'Send_slack_message':
-        console.log('Handling Send_slack_message:', body.toolArgs);
-        
-        if (!body.toolArgs.Send_message_approval) {
+    const toolName = toolCall.function.name;
+    const toolArgs = toolCall.function.arguments;
+
+    console.log('Processing tool:', { toolName, arguments: toolArgs });
+
+    switch (toolName) {
+      case 'Send_slack_message': {
+        if (!toolArgs.Send_message_approval) {
           return new Response(
             JSON.stringify({ error: 'Message not approved for sending' }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -48,8 +44,8 @@ serve(async (req) => {
             'Authorization': `Bearer ${Deno.env.get('SLACK_BOT_TOKEN')}`,
           },
           body: JSON.stringify({
-            channel: body.toolArgs.Channel_name,
-            text: body.toolArgs.Channel_message,
+            channel: toolArgs.Channel_name,
+            text: toolArgs.Channel_message,
           })
         });
 
@@ -70,9 +66,10 @@ serve(async (req) => {
           JSON.stringify(slackResult),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
+      }
 
       default:
-        throw new Error(`Unknown tool: ${body.toolName}`);
+        throw new Error(`Unknown tool: ${toolName}`);
     }
   } catch (error) {
     console.error('Error in vapi-tools function:', error);

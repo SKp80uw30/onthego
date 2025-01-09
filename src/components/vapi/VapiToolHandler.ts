@@ -6,10 +6,18 @@ export const createToolHandler = () => {
 
     try {
       const requestBody = {
-        tool: 'send_slack_message',
-        parameters: {
-          channelName: parameters.Channel_name,
-          message: parameters.Channel_message
+        message: {
+          toolCalls: [{
+            type: "function",
+            function: {
+              name: "Send_slack_message",
+              arguments: {
+                Channel_name: parameters.Channel_name,
+                Channel_message: parameters.Channel_message,
+                Send_message_approval: parameters.Send_message_approval
+              }
+            }
+          }]
         }
       };
       
