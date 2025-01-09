@@ -24,14 +24,7 @@ serve(async (req) => {
     // Log specific parts we're interested in
     console.log('Message object:', body.message);
     console.log('Tool calls:', body.message?.toolCalls);
-    if (body.message?.toolCalls?.[0]) {
-      console.log('First tool call details:', {
-        id: body.message.toolCalls[0].id,
-        function: body.message.toolCalls[0].function,
-        type: body.message.toolCalls[0].type
-      });
-    }
-
+    
     const toolCall = body.message?.toolCalls?.[0];
     console.log('Tool call details:', toolCall);
 
@@ -40,6 +33,7 @@ serve(async (req) => {
     }
 
     const toolName = toolCall.function.name;
+    const toolCallId = toolCall.id; // Extract the toolCallId
     // Don't parse arguments if they're already an object
     const toolArgs = typeof toolCall.function.arguments === 'string' 
       ? JSON.parse(toolCall.function.arguments)
@@ -52,12 +46,17 @@ serve(async (req) => {
         if (!toolArgs.Send_message_approval) {
           console.log('Message not approved for sending');
           return new Response(
-            JSON.stringify({ error: 'Message not approved for sending' }),
+            JSON.stringify({
+              results: [{
+                toolCallId,
+                result: "Message not approved for sending"
+              }]
+            }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
-        // Get the first available Slack account (we know this works from our SlackService)
+        // Get the first available Slack account
         const { data: slackAccount, error: accountError } = await supabase
           .from('slack_accounts')
           .select('*')
@@ -88,16 +87,29 @@ serve(async (req) => {
         });
 
         const slackResult = await response.json();
-        console.log('Slack API response:', slackResult);
+        console.log('Slack API response:', JSON.stringify(slackResult, null, 2));
 
         if (!slackResult.ok) {
           console.error('Slack API error:', slackResult.error);
-          throw new Error(`Slack API error: ${slackResult.error}`);
+          return new Response(
+            JSON.stringify({
+              results: [{
+                toolCallId,
+                result: `Failed to send message: ${slackResult.error}`
+              }]
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
         }
 
         console.log('Message sent successfully to Slack');
         return new Response(
-          JSON.stringify(slackResult),
+          JSON.stringify({
+            results: [{
+              toolCallId,
+              result: "Message sent successfully to Slack"
+            }]
+          }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -113,8 +125,19 @@ serve(async (req) => {
       message: error.message,
       stack: error.stack
     });
+    
+    // If we have a toolCallId from the request, include it in the error response
+    const toolCallId = error.toolCallId || 
+      (error.request?.body?.message?.toolCalls?.[0]?.id) || 
+      'unknown_call_id';
+      
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({
+        results: [{
+          toolCallId,
+          result: `Error: ${error.message}`
+        }]
+      }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
