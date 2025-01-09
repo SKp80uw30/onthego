@@ -13,22 +13,41 @@ serve(async (req) => {
   }
 
   try {
+    // Log all incoming request headers
+    console.log('Incoming request headers:', {
+      headers: Object.fromEntries(req.headers.entries()),
+      method: req.method,
+      url: req.url
+    });
+
     // Verify VAPI secret token
     const vapiSecret = req.headers.get('x-vapi-secret');
+    console.log('VAPI Secret verification:', {
+      hasSecret: !!vapiSecret,
+      matches: vapiSecret === Deno.env.get('VAPI_SERVER_TOKEN')
+    });
+
     if (vapiSecret !== Deno.env.get('VAPI_SERVER_TOKEN')) {
       console.error('Invalid VAPI secret token');
       throw new Error('Unauthorized: Invalid VAPI secret token');
     }
 
     const toolCallId = req.headers.get('x-tool-call-id');
+    console.log('Tool Call ID:', toolCallId);
+
     if (!toolCallId) {
       throw new Error('Missing tool call ID');
     }
 
     const body = await req.json();
-    console.log('Request body:', JSON.stringify(body, null, 2));
+    console.log('Complete request body:', JSON.stringify(body, null, 2));
+    console.log('Request parameters:', {
+      channelName: body.Channel_name,
+      messageCount: body.Number_fetch_messages,
+      otherFields: Object.keys(body)
+    });
 
-    // Get the first available Slack account (you might want to make this more specific later)
+    // Get the first available Slack account
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -40,6 +59,13 @@ serve(async (req) => {
       .limit(1)
       .single();
 
+    console.log('Slack account query:', {
+      success: !accountError,
+      hasToken: !!slackAccount?.slack_bot_token,
+      workspaceName: slackAccount?.slack_workspace_name,
+      error: accountError
+    });
+
     if (accountError || !slackAccount?.slack_bot_token) {
       console.error('Error fetching Slack account:', accountError);
       throw new Error('Failed to get Slack account');
@@ -49,6 +75,12 @@ serve(async (req) => {
     const channelName = body.Channel_name;
     const messageCount = body.Number_fetch_messages || 5;
 
+    console.log('Processing request for:', {
+      channelName,
+      messageCount,
+      workspaceName: slackAccount.slack_workspace_name
+    });
+
     // First get the channel ID
     const channelListResponse = await fetch('https://slack.com/api/conversations.list', {
       headers: {
@@ -57,6 +89,12 @@ serve(async (req) => {
     });
 
     const channelList = await channelListResponse.json();
+    console.log('Slack channels response:', {
+      success: channelList.ok,
+      channelCount: channelList.channels?.length,
+      error: channelList.error
+    });
+
     if (!channelList.ok) {
       throw new Error(`Failed to fetch channels: ${channelList.error}`);
     }
@@ -65,11 +103,23 @@ serve(async (req) => {
       c.name.toLowerCase() === channelName.toLowerCase()
     );
 
+    console.log('Channel lookup result:', {
+      channelName,
+      found: !!channel,
+      channelId: channel?.id,
+      isMember: channel?.is_member
+    });
+
     if (!channel) {
       throw new Error(`Channel ${channelName} not found`);
     }
 
     // Fetch messages from the channel
+    console.log('Fetching messages with params:', {
+      channelId: channel.id,
+      requestedCount: messageCount
+    });
+
     const messagesResponse = await fetch(
       `https://slack.com/api/conversations.history?channel=${channel.id}&limit=${messageCount}`,
       {
@@ -80,6 +130,12 @@ serve(async (req) => {
     );
 
     const messagesData = await messagesResponse.json();
+    console.log('Slack messages response:', {
+      success: messagesData.ok,
+      messageCount: messagesData.messages?.length,
+      error: messagesData.error
+    });
+
     if (!messagesData.ok) {
       throw new Error(`Failed to fetch messages: ${messagesData.error}`);
     }
@@ -87,22 +143,26 @@ serve(async (req) => {
     // Format messages for response
     const messages = messagesData.messages.map((msg: any) => msg.text);
 
-    console.log('Successfully fetched messages:', {
-      channelName,
-      messageCount: messages.length,
-      messages
+    console.log('Formatted messages:', {
+      count: messages.length,
+      firstMessage: messages[0]?.substring(0, 50) + '...',
+      lastMessage: messages[messages.length - 1]?.substring(0, 50) + '...'
     });
 
-    // Return the response in VAPI's expected format
+    // Prepare VAPI response
+    const response = {
+      results: [{
+        toolCallId,
+        result: JSON.stringify({
+          Recent_messages: messages
+        })
+      }]
+    };
+
+    console.log('Final VAPI response:', JSON.stringify(response, null, 2));
+
     return new Response(
-      JSON.stringify({
-        results: [{
-          toolCallId,
-          result: JSON.stringify({
-            Recent_messages: messages
-          })
-        }]
-      }),
+      JSON.stringify(response),
       { 
         headers: { 
           ...corsHeaders, 
@@ -112,16 +172,26 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error in vapi-fetch-messages function:', error);
+    console.error('Detailed error in vapi-fetch-messages:', {
+      error,
+      message: error.message,
+      stack: error.stack,
+      type: error.constructor.name
+    });
+
     const toolCallId = req.headers.get('x-tool-call-id') || 'unknown_call_id';
     
+    const errorResponse = {
+      results: [{
+        toolCallId,
+        result: `Error: ${error.message}`
+      }]
+    };
+
+    console.log('Error response being sent:', JSON.stringify(errorResponse, null, 2));
+
     return new Response(
-      JSON.stringify({
-        results: [{
-          toolCallId,
-          result: `Error: ${error.message}`
-        }]
-      }),
+      JSON.stringify(errorResponse),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
