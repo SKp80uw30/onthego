@@ -1,11 +1,12 @@
 import React from 'react';
-import { MessageSquare, Mic, Slack } from 'lucide-react';
+import { MessageSquare, Slack } from 'lucide-react';
 import { OnboardingCard } from '@/components/OnboardingCard';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { ConnectedChannels } from '@/components/slack/ConnectedChannels';
 
 export const OnboardingSection = () => {
   // Fetch Slack accounts with detailed error logging
@@ -52,6 +53,9 @@ export const OnboardingSection = () => {
     ? `Connected to ${workspaceName} Workspace`
     : "Link your Slack workspace to get started";
 
+  // For demonstration - replace with actual channels data when available
+  const connectedChannels = ['general', 'random', 'development'];
+
   return (
     <div className="grid gap-4 md:gap-6 mb-8">
       <OnboardingCard
@@ -76,10 +80,12 @@ export const OnboardingSection = () => {
         )}
       </OnboardingCard>
       <OnboardingCard
-        title="Voice Commands"
-        description="Control your messages with simple voice commands"
-        icon={<Mic className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
-      />
+        title="Slack Channels Connected"
+        description="Manage your connected Slack channels"
+        icon={<MessageSquare className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
+      >
+        <ConnectedChannels channels={connectedChannels} />
+      </OnboardingCard>
       <OnboardingCard
         title="Smart Replies"
         description="AI-powered responses for quick communication"
