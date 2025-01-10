@@ -29,8 +29,10 @@ Deno.serve(async (req) => {
       throw new Error('Slack account not found');
     }
 
+    console.log('Successfully retrieved Slack token');
+
     // Call Slack API to get the list of channels
-    const response = await fetch('https://slack.com/api/conversations.list', {
+    const response = await fetch('https://slack.com/api/conversations.list?types=public_channel,private_channel', {
       headers: {
         'Authorization': `Bearer ${slackAccount.slack_bot_token}`,
         'Content-Type': 'application/json',
@@ -38,6 +40,13 @@ Deno.serve(async (req) => {
     });
 
     const channelsData = await response.json();
+    
+    console.log('Slack API response:', {
+      ok: channelsData.ok,
+      channelCount: channelsData.channels?.length,
+      error: channelsData.error,
+      responseStatus: response.status
+    });
     
     if (!channelsData.ok) {
       console.error('Error from Slack API:', channelsData.error);
