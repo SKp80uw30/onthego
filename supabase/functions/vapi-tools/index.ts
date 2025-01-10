@@ -168,8 +168,9 @@ serve(async (req) => {
         });
 
         // Now fetch messages from the channel
+        const messageCount = toolArgs.Number_fetch_messages || 5;
         const messagesResponse = await fetch(
-          `https://slack.com/api/conversations.history?channel=${channel.id}&limit=5`,
+          `https://slack.com/api/conversations.history?channel=${channel.id}&limit=${messageCount}`,
           {
             headers: {
               'Authorization': `Bearer ${slackAccount.slack_bot_token}`,
