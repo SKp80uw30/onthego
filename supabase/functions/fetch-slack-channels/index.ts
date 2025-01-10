@@ -39,7 +39,27 @@ Deno.serve(async (req) => {
     const slackAccount = slackAccounts[0];
     console.log('Found workspace:', slackAccount.slack_workspace_name);
 
-    // Call Slack API to get the list of channels, including private channels
+    // First, let's check the bot token's scopes
+    const authTest = await fetch('https://slack.com/api/auth.test', {
+      headers: {
+        'Authorization': `Bearer ${slackAccount.slack_bot_token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const authData = await authTest.json();
+    console.log('Auth test response:', {
+      ok: authData.ok,
+      error: authData.error,
+      scopes: authData.scopes
+    });
+
+    if (!authData.ok) {
+      console.error('Auth test failed:', authData.error);
+      throw new Error(`Auth test failed: ${authData.error}`);
+    }
+
+    // Call Slack API to get the list of channels
     const response = await fetch('https://slack.com/api/conversations.list?types=public_channel,private_channel,mpim', {
       headers: {
         'Authorization': `Bearer ${slackAccount.slack_bot_token}`,
@@ -53,11 +73,16 @@ Deno.serve(async (req) => {
       ok: channelsData.ok,
       channelCount: channelsData.channels?.length,
       error: channelsData.error,
-      responseStatus: response.status
+      needed: channelsData.needed, // This will show which scope is missing
+      provided: channelsData.provided // This will show what scopes we have
     });
     
     if (!channelsData.ok) {
-      console.error('Error from Slack API:', channelsData.error);
+      console.error('Error from Slack API:', {
+        error: channelsData.error,
+        needed: channelsData.needed,
+        provided: channelsData.provided
+      });
       throw new Error(channelsData.error);
     }
 
