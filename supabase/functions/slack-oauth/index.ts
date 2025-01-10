@@ -11,16 +11,15 @@ const clientId = Deno.env.get('SLACK_CLIENT_ID')
 const clientSecret = Deno.env.get('SLACK_CLIENT_SECRET')
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
     const supabase = createClient(supabaseUrl!, supabaseKey!)
-    const { code } = await req.json()
+    const { code, isReconnect } = await req.json()
 
-    console.log('Received code:', code)
+    console.log('Processing OAuth request:', { isReconnect })
 
     // Exchange the code for an access token
     const response = await fetch('https://slack.com/api/oauth.v2.access', {
@@ -65,7 +64,7 @@ Deno.serve(async (req) => {
       .eq('slack_workspace_id', data.team.id)
       .single()
 
-    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "not found" which is expected
+    if (checkError && checkError.code !== 'PGRST116') {
       console.error('Check workspace error:', checkError)
       throw new Error(`Database check error: ${checkError.message}`)
     }
@@ -77,6 +76,7 @@ Deno.serve(async (req) => {
         .update({
           slack_workspace_name: data.team.name,
           slack_bot_token: data.access_token,
+          needs_reauth: false, // Reset the reauth flag
         })
         .eq('id', existingWorkspace.id)
 
@@ -93,6 +93,7 @@ Deno.serve(async (req) => {
           slack_workspace_id: data.team.id,
           slack_workspace_name: data.team.name,
           slack_bot_token: data.access_token,
+          needs_reauth: false,
         })
 
       if (insertError) {
