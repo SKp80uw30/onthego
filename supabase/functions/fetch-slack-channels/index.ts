@@ -22,11 +22,18 @@ Deno.serve(async (req) => {
       .from('slack_accounts')
       .select('slack_bot_token')
       .eq('id', slackAccountId)
-      .single();
+      .maybeSingle();
 
-    if (slackError || !slackAccount) {
+    if (slackError) {
       console.error('Error fetching slack account:', slackError);
-      throw new Error('Slack account not found');
+      throw new Error('Error fetching Slack account');
+    }
+
+    if (!slackAccount) {
+      console.log('No Slack account found for ID:', slackAccountId);
+      return new Response(JSON.stringify({ channels: [] }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     console.log('Successfully retrieved Slack token');
