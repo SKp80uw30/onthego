@@ -21,7 +21,6 @@ serve(async (req) => {
     console.log('Complete raw request body:', JSON.stringify(body, null, 2));
     console.log('Request headers:', Object.fromEntries(req.headers.entries()));
 
-    // Log specific parts we're interested in
     console.log('Message object:', body.message);
     console.log('Tool calls:', body.message?.toolCalls);
     
@@ -33,8 +32,7 @@ serve(async (req) => {
     }
 
     const toolName = toolCall.function.name;
-    const toolCallId = toolCall.id; // Extract the toolCallId
-    // Don't parse arguments if they're already an object
+    const toolCallId = toolCall.id;
     const toolArgs = typeof toolCall.function.arguments === 'string' 
       ? JSON.parse(toolCall.function.arguments)
       : toolCall.function.arguments;
@@ -73,7 +71,6 @@ serve(async (req) => {
           workspace: slackAccount.slack_workspace_name
         });
 
-        // Use the same direct Slack API call approach that works in SlackService
         const response = await fetch('https://slack.com/api/chat.postMessage', {
           method: 'POST',
           headers: {
@@ -114,6 +111,105 @@ serve(async (req) => {
         );
       }
 
+      case 'Fetch_slack_messages': {
+        console.log('Fetching Slack messages with args:', toolArgs);
+        
+        // Get the first available Slack account
+        const { data: slackAccount, error: accountError } = await supabase
+          .from('slack_accounts')
+          .select('*')
+          .limit(1)
+          .single();
+
+        if (accountError || !slackAccount?.slack_bot_token) {
+          console.error('Error fetching Slack account:', accountError);
+          throw new Error('Failed to get Slack account');
+        }
+
+        console.log('Using Slack account:', {
+          id: slackAccount.id,
+          workspace: slackAccount.slack_workspace_name
+        });
+
+        // First get the channel ID
+        const channelListResponse = await fetch('https://slack.com/api/conversations.list', {
+          headers: {
+            'Authorization': `Bearer ${slackAccount.slack_bot_token}`,
+          },
+        });
+
+        const channelList = await channelListResponse.json();
+        if (!channelList.ok) {
+          console.error('Slack API error:', channelList.error);
+          throw new Error(`Slack API error: ${channelList.error}`);
+        }
+
+        const channel = channelList.channels.find((c: any) => 
+          c.name.toLowerCase() === toolArgs.Channel_name.toLowerCase()
+        );
+        
+        if (!channel) {
+          console.error('Channel not found:', toolArgs.Channel_name);
+          return new Response(
+            JSON.stringify({
+              results: [{
+                toolCallId,
+                result: `Channel ${toolArgs.Channel_name} not found`
+              }]
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        console.log('Found channel:', { 
+          channelId: channel.id, 
+          channelName: channel.name,
+          isMember: channel.is_member 
+        });
+
+        // Now fetch messages from the channel
+        const messagesResponse = await fetch(
+          `https://slack.com/api/conversations.history?channel=${channel.id}&limit=5`,
+          {
+            headers: {
+              'Authorization': `Bearer ${slackAccount.slack_bot_token}`,
+            },
+          }
+        );
+
+        const messagesData = await messagesResponse.json();
+        if (!messagesData.ok) {
+          console.error('Failed to fetch messages:', messagesData.error);
+          return new Response(
+            JSON.stringify({
+              results: [{
+                toolCallId,
+                result: `Failed to fetch messages: ${messagesData.error}`
+              }]
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const messages = messagesData.messages.map((msg: any) => msg.text);
+        console.log('Successfully fetched messages:', {
+          count: messages.length,
+          preview: messages[0]?.substring(0, 50)
+        });
+
+        return new Response(
+          JSON.stringify({
+            results: [{
+              toolCallId,
+              result: JSON.stringify({
+                Recent_messages: messages
+              })
+            }]
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       default:
         console.error('Unknown tool requested:', toolName);
         throw new Error(`Unknown tool: ${toolName}`);
@@ -126,7 +222,6 @@ serve(async (req) => {
       stack: error.stack
     });
     
-    // If we have a toolCallId from the request, include it in the error response
     const toolCallId = error.toolCallId || 
       (error.request?.body?.message?.toolCalls?.[0]?.id) || 
       'unknown_call_id';
