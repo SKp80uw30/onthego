@@ -82,6 +82,7 @@ export const OnboardingSection = () => {
 
   const handleConnectSlack = async () => {
     try {
+      console.log('Initiating Slack OAuth flow...');
       const { data: { secrets }, error } = await supabase.functions.invoke('get-slack-client-id');
       if (error) throw error;
       
