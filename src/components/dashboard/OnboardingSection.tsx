@@ -39,7 +39,7 @@ export const OnboardingSection = () => {
   });
 
   // Fetch connected channels when we have a slack account
-  const { data: channelsData, isLoading: isLoadingChannels } = useQuery({
+  const { data: channelsData, isLoading: isLoadingChannels, error: channelsError } = useQuery({
     queryKey: ['slack-channels', slackAccounts?.[0]?.id],
     queryFn: async () => {
       if (!slackAccounts?.[0]?.id) {
@@ -54,9 +54,8 @@ export const OnboardingSection = () => {
       
       if (error) {
         console.error('Error fetching channels:', error);
-        // If we get a missing_scope error, it means the token is invalid
-        // We should delete the slack account
-        if (error.message.includes('missing_scope')) {
+        // If we get an account_inactive error, delete the slack account
+        if (error.message.includes('account_inactive')) {
           console.log('Invalid token detected, removing Slack account');
           const { error: deleteError } = await supabase
             .from('slack_accounts')
@@ -69,6 +68,7 @@ export const OnboardingSection = () => {
             console.log('Successfully deleted invalid Slack account');
             // Refetch slack accounts to update the UI
             refetchSlackAccounts();
+            toast.error('Slack connection expired. Please reconnect.');
           }
         }
         throw error;
@@ -101,8 +101,13 @@ export const OnboardingSection = () => {
     }
   };
 
-  const hasValidSlackAccount = Boolean(slackAccounts?.length);
-  const hasConnectedChannels = Boolean(channelsData?.channels?.length);
+  // Check if we have a valid Slack account (not loading and exists)
+  const hasValidSlackAccount = !isLoadingAccounts && Boolean(slackAccounts?.length);
+  
+  // Check if we have connected channels (not loading, no error, and channels exist)
+  const hasConnectedChannels = !isLoadingChannels && !channelsError && Boolean(channelsData?.channels?.length);
+  
+  // Get workspace name if available
   const workspaceName = slackAccounts?.[0]?.slack_workspace_name;
 
   return (
@@ -116,7 +121,7 @@ export const OnboardingSection = () => {
         <Button 
           onClick={handleConnectSlack}
           className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white"
-          disabled={hasValidSlackAccount}
+          disabled={isLoadingAccounts}
         >
           {hasValidSlackAccount ? `Connected to ${workspaceName}` : "Connect Slack"}
         </Button>
