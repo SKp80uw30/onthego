@@ -188,6 +188,7 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
+          needs_reauth: boolean | null
           slack_bot_token: string
           slack_user_handle: string | null
           slack_workspace_id: string
@@ -197,6 +198,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           id?: string
+          needs_reauth?: boolean | null
           slack_bot_token: string
           slack_user_handle?: string | null
           slack_workspace_id: string
@@ -206,6 +208,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           id?: string
+          needs_reauth?: boolean | null
           slack_bot_token?: string
           slack_user_handle?: string | null
           slack_workspace_id?: string

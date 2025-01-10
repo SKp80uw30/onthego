@@ -5,9 +5,18 @@ import { Skeleton } from '@/components/ui/skeleton';
 interface ConnectedChannelsProps {
   channels?: string[];
   isLoading?: boolean;
+  needsReauth?: boolean;
 }
 
-export const ConnectedChannels = ({ channels = [], isLoading = false }: ConnectedChannelsProps) => {
+export const ConnectedChannels = ({ channels = [], isLoading = false, needsReauth = false }: ConnectedChannelsProps) => {
+  if (needsReauth) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Please reconnect your Slack workspace to view channels
+      </p>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-2">

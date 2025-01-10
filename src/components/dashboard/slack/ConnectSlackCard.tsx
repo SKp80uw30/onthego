@@ -9,12 +9,14 @@ interface ConnectSlackCardProps {
   isLoadingAccounts: boolean;
   hasValidSlackAccount: boolean;
   workspaceName?: string;
+  needsReauth?: boolean;
 }
 
 export const ConnectSlackCard = ({
   isLoadingAccounts,
   hasValidSlackAccount,
   workspaceName,
+  needsReauth,
 }: ConnectSlackCardProps) => {
   const handleConnectSlack = async () => {
     try {
@@ -37,19 +39,25 @@ export const ConnectSlackCard = ({
     }
   };
 
+  const buttonText = needsReauth 
+    ? "Reconnect to Slack" 
+    : hasValidSlackAccount 
+      ? `Connected to ${workspaceName}` 
+      : "Connect to Slack";
+
   return (
     <OnboardingCard
       title="Connect Slack"
-      description=""
+      description={needsReauth ? "Your Slack connection needs to be renewed" : ""}
       icon={<Slack className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
-      isCompleted={hasValidSlackAccount}
+      isCompleted={hasValidSlackAccount && !needsReauth}
     >
       <Button 
         onClick={handleConnectSlack}
         className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white"
         disabled={isLoadingAccounts}
       >
-        {hasValidSlackAccount ? `Connected to ${workspaceName}` : "Connect to Slack"}
+        {buttonText}
       </Button>
     </OnboardingCard>
   );

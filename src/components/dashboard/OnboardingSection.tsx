@@ -58,6 +58,7 @@ export const OnboardingSection = () => {
   const hasValidSlackAccount = !isLoadingAccounts && Boolean(slackAccounts?.length);
   const hasConnectedChannels = !isLoadingChannels && Boolean(channelsData?.channels?.length);
   const workspaceName = slackAccounts?.[0]?.slack_workspace_name;
+  const needsReauth = slackAccounts?.[0]?.needs_reauth;
 
   return (
     <div className="grid gap-4 md:gap-6 mb-8">
@@ -65,17 +66,20 @@ export const OnboardingSection = () => {
         isLoadingAccounts={isLoadingAccounts}
         hasValidSlackAccount={hasValidSlackAccount}
         workspaceName={workspaceName}
+        needsReauth={needsReauth}
       />
 
       <SlackChannelsCard
         hasConnectedChannels={hasConnectedChannels}
         channels={channelsData?.channels || []}
         isLoading={isLoadingAccounts || isLoadingChannels}
+        needsReauth={needsReauth}
       />
 
       <ChatNavigationCard
         hasValidSlackAccount={hasValidSlackAccount}
         hasConnectedChannels={hasConnectedChannels}
+        needsReauth={needsReauth}
       />
     </div>
   );
