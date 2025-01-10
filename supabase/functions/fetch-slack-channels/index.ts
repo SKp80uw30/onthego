@@ -74,8 +74,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Call Slack API to get the list of channels
-    const response = await fetch('https://slack.com/api/conversations.list?types=public_channel,private_channel,mpim', {
+    // Call Slack API to get the list of channels where the bot is a member
+    const response = await fetch('https://slack.com/api/conversations.list?types=public_channel,private_channel,mpim&limit=1000', {
       headers: {
         'Authorization': `Bearer ${slackAccount.slack_bot_token}`,
         'Content-Type': 'application/json',

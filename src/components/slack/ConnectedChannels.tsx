@@ -1,6 +1,7 @@
 import React from 'react';
 import { MessageSquare } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ConnectedChannelsProps {
   channels?: string[];
@@ -32,14 +33,16 @@ export const ConnectedChannels = ({ channels = [], isLoading = false, needsReaut
       <div className="flex-1">
         <h4 className="text-sm font-medium text-muted-foreground mb-2">Connected Channels</h4>
         {channels.length > 0 ? (
-          <ul className="space-y-2">
-            {channels.map((channel) => (
-              <li key={channel} className="flex items-center gap-2 text-sm">
-                <MessageSquare className="h-4 w-4 text-primary" />
-                <span>{channel}</span>
-              </li>
-            ))}
-          </ul>
+          <ScrollArea className="h-[200px] w-full rounded-md border p-4">
+            <ul className="space-y-2">
+              {channels.map((channel) => (
+                <li key={channel} className="flex items-center gap-2 text-sm">
+                  <MessageSquare className="h-4 w-4 text-primary" />
+                  <span>#{channel}</span>
+                </li>
+              ))}
+            </ul>
+          </ScrollArea>
         ) : (
           <p className="text-sm text-muted-foreground">No channels connected yet</p>
         )}
