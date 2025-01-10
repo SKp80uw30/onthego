@@ -28,6 +28,28 @@ export const OnboardingSection = () => {
     },
   });
 
+  // Fetch connected channels when we have a slack account
+  const { data: channelsData } = useQuery({
+    queryKey: ['slack-channels', slackAccounts?.[0]?.id],
+    queryFn: async () => {
+      if (!slackAccounts?.[0]?.id) return { channels: [] };
+      
+      console.log('Fetching channels for account:', slackAccounts[0].id);
+      const { data, error } = await supabase.functions.invoke('fetch-slack-channels', {
+        body: { slackAccountId: slackAccounts[0].id }
+      });
+      
+      if (error) {
+        console.error('Error fetching channels:', error);
+        throw error;
+      }
+      
+      console.log('Channels fetched:', data);
+      return data;
+    },
+    enabled: !!slackAccounts?.[0]?.id,
+  });
+
   const handleConnectSlack = async () => {
     try {
       const { data: { secrets }, error } = await supabase.functions.invoke('get-slack-client-id');
@@ -52,9 +74,6 @@ export const OnboardingSection = () => {
   const description = workspaceName 
     ? `Connected to ${workspaceName} Workspace`
     : "Link your Slack workspace to get started";
-
-  // For demonstration - replace with actual channels data when available
-  const connectedChannels = ['general', 'random', 'development'];
 
   return (
     <div className="grid gap-4 md:gap-6 mb-8">
@@ -84,7 +103,7 @@ export const OnboardingSection = () => {
         description="Manage your connected Slack channels"
         icon={<MessageSquare className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
       >
-        <ConnectedChannels channels={connectedChannels} />
+        <ConnectedChannels channels={channelsData?.channels || []} />
       </OnboardingCard>
       <OnboardingCard
         title="Smart Replies"

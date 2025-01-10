@@ -55,3 +55,6 @@ verify_jwt = false
 
 [functions.vapi-tools]
 verify_jwt = false
+
+[functions.fetch-slack-channels]
+verify_jwt = false
