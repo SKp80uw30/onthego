@@ -10,7 +10,7 @@ import { ConnectedChannels } from '@/components/slack/ConnectedChannels';
 
 export const OnboardingSection = () => {
   // Fetch Slack accounts with detailed error logging
-  const { data: slackAccounts } = useQuery({
+  const { data: slackAccounts, isLoading: isLoadingAccounts } = useQuery({
     queryKey: ['slack-accounts'],
     queryFn: async () => {
       console.log('Fetching slack accounts...');
@@ -29,10 +29,13 @@ export const OnboardingSection = () => {
   });
 
   // Fetch connected channels when we have a slack account
-  const { data: channelsData } = useQuery({
+  const { data: channelsData, isLoading: isLoadingChannels } = useQuery({
     queryKey: ['slack-channels', slackAccounts?.[0]?.id],
     queryFn: async () => {
-      if (!slackAccounts?.[0]?.id) return { channels: [] };
+      if (!slackAccounts?.[0]?.id) {
+        console.log('No slack account found, skipping channel fetch');
+        return { channels: [] };
+      }
       
       console.log('Fetching channels for account:', slackAccounts[0].id);
       const { data, error } = await supabase.functions.invoke('fetch-slack-channels', {
@@ -47,7 +50,7 @@ export const OnboardingSection = () => {
       console.log('Channels fetched:', data);
       return data;
     },
-    enabled: !!slackAccounts?.[0]?.id,
+    enabled: Boolean(slackAccounts?.[0]?.id),
   });
 
   const handleConnectSlack = async () => {
@@ -103,7 +106,10 @@ export const OnboardingSection = () => {
         description="Manage your connected Slack channels"
         icon={<MessageSquare className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
       >
-        <ConnectedChannels channels={channelsData?.channels || []} />
+        <ConnectedChannels 
+          channels={channelsData?.channels || []} 
+          isLoading={isLoadingAccounts || isLoadingChannels}
+        />
       </OnboardingCard>
       <OnboardingCard
         title="Smart Replies"

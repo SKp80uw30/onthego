@@ -1,11 +1,23 @@
 import React from 'react';
 import { MessageSquare } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface ConnectedChannelsProps {
   channels?: string[];
+  isLoading?: boolean;
 }
 
-export const ConnectedChannels = ({ channels = [] }: ConnectedChannelsProps) => {
+export const ConnectedChannels = ({ channels = [], isLoading = false }: ConnectedChannelsProps) => {
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-4 w-1/2" />
+        <Skeleton className="h-4 w-2/3" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col md:flex-row gap-4 md:gap-6 w-full">
       <div className="flex-1">
