@@ -115,7 +115,7 @@ export const OnboardingSection = () => {
     <div className="grid gap-4 md:gap-6 mb-8">
       <OnboardingCard
         title="Connect Slack"
-        description={workspaceName ? `Connected to ${workspaceName}` : "Link your Slack workspace to get started"}
+        description=""
         icon={<Slack className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
         isCompleted={hasValidSlackAccount}
       >
@@ -124,7 +124,7 @@ export const OnboardingSection = () => {
           className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white"
           disabled={isLoadingAccounts}
         >
-          {hasValidSlackAccount ? `Connected to ${workspaceName}` : "Connect Slack"}
+          {hasValidSlackAccount ? `Connected to ${workspaceName}` : "Connect to Slack"}
         </Button>
       </OnboardingCard>
 
