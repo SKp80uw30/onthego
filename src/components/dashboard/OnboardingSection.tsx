@@ -100,51 +100,54 @@ export const OnboardingSection = () => {
     }
   };
 
-  const workspaceName = slackAccounts?.[0]?.slack_workspace_name;
-  const description = workspaceName 
-    ? `Connected to ${workspaceName} Workspace`
-    : "Link your Slack workspace to get started";
-
   const hasValidSlackAccount = Boolean(slackAccounts?.length);
+  const hasConnectedChannels = Boolean(channelsData?.channels?.length);
+  const workspaceName = slackAccounts?.[0]?.slack_workspace_name;
 
   return (
     <div className="grid gap-4 md:gap-6 mb-8">
       <OnboardingCard
         title="Connect Slack"
-        description={description}
+        description={workspaceName ? `Connected to ${workspaceName}` : "Link your Slack workspace to get started"}
         icon={<Slack className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
         isCompleted={hasValidSlackAccount}
       >
-        {!hasValidSlackAccount ? (
-          <Button 
-            onClick={handleConnectSlack}
-            className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white"
-          >
-            Connect Slack
-          </Button>
-        ) : (
-          <Link to="/chat">
-            <Button className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white">
-              Go to Chat
-            </Button>
-          </Link>
-        )}
+        <Button 
+          onClick={handleConnectSlack}
+          className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white"
+          disabled={hasValidSlackAccount}
+        >
+          {hasValidSlackAccount ? `Connected to ${workspaceName}` : "Connect Slack"}
+        </Button>
       </OnboardingCard>
+
       <OnboardingCard
-        title="Slack Channels Connected"
+        title="Slack Channels"
         description="Manage your connected Slack channels"
         icon={<MessageSquare className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
+        isCompleted={hasConnectedChannels}
       >
         <ConnectedChannels 
           channels={channelsData?.channels || []} 
           isLoading={isLoadingAccounts || isLoadingChannels}
         />
       </OnboardingCard>
+
       <OnboardingCard
-        title="Smart Replies"
-        description="AI-powered responses for quick communication"
+        title="Go to Chat"
+        description="Start chatting with your Slack channels"
         icon={<MessageSquare className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
-      />
+        isDisabled={!hasValidSlackAccount || !hasConnectedChannels}
+      >
+        <Link to="/chat" className="block">
+          <Button 
+            className="w-full bg-[#8B5CF6] hover:bg-[#7C3AED] text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!hasValidSlackAccount || !hasConnectedChannels}
+          >
+            Go to Chat
+          </Button>
+        </Link>
+      </OnboardingCard>
     </div>
   );
 };

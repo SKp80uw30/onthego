@@ -10,6 +10,7 @@ interface OnboardingCardProps {
   children?: React.ReactNode;
   className?: string;
   isCompleted?: boolean;
+  isDisabled?: boolean;
 }
 
 export const OnboardingCard = ({
@@ -19,6 +20,7 @@ export const OnboardingCard = ({
   children,
   className,
   isCompleted,
+  isDisabled,
 }: OnboardingCardProps) => {
   return (
     <motion.div
@@ -28,6 +30,7 @@ export const OnboardingCard = ({
       className={cn(
         'glass-morphism rounded-xl p-4 md:p-6 card-hover',
         'border border-white/20',
+        isDisabled && 'opacity-50 cursor-not-allowed',
         className
       )}
     >
