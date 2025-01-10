@@ -7,12 +7,17 @@ import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { ConnectedChannels } from '@/components/slack/ConnectedChannels';
+import { useSessionContext } from '@supabase/auth-helpers-react';
 
 export const OnboardingSection = () => {
+  const { session } = useSessionContext();
+
   // Fetch Slack accounts with detailed error logging
   const { data: slackAccounts, isLoading: isLoadingAccounts, refetch: refetchSlackAccounts } = useQuery({
-    queryKey: ['slack-accounts'],
+    queryKey: ['slack-accounts', session?.user?.id], // Add session.user.id to queryKey to refetch on login/logout
     queryFn: async () => {
+      if (!session?.user?.id) return null;
+      
       console.log('Fetching slack accounts...');
       const { data, error } = await supabase
         .from('slack_accounts')
@@ -26,6 +31,7 @@ export const OnboardingSection = () => {
       console.log('Slack accounts fetched:', data);
       return data;
     },
+    enabled: !!session?.user?.id, // Only run query when user is logged in
   });
 
   // Fetch connected channels when we have a slack account
@@ -75,7 +81,6 @@ export const OnboardingSection = () => {
       
       const clientId = secrets.SLACK_CLIENT_ID;
       const redirectUri = `${window.location.origin}${window.location.pathname}`;
-      // Updated scope format to use commas instead of spaces
       const scope = 'channels:history,channels:read,chat:write,users:read,channels:join,groups:read';
       
       const state = Math.random().toString(36).substring(7);
