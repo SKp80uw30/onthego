@@ -87,8 +87,8 @@ export const OnboardingSection = () => {
       if (error) throw error;
       
       const clientId = secrets.SLACK_CLIENT_ID;
-      // Use the full current path as the redirect URI
-      const redirectUri = `${window.location.origin}${window.location.pathname}`;
+      // Use the exact path that was originally configured in Slack
+      const redirectUri = 'https://preview--onthego-vapi.lovable.app';
       const scope = 'channels:history,channels:read,chat:write,users:read,channels:join,groups:read';
       
       const state = Math.random().toString(36).substring(7);
