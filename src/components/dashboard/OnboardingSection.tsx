@@ -10,7 +10,7 @@ import { ConnectedChannels } from '@/components/slack/ConnectedChannels';
 
 export const OnboardingSection = () => {
   // Fetch Slack accounts with detailed error logging
-  const { data: slackAccounts, isLoading: isLoadingAccounts } = useQuery({
+  const { data: slackAccounts, isLoading: isLoadingAccounts, refetch: refetchSlackAccounts } = useQuery({
     queryKey: ['slack-accounts'],
     queryFn: async () => {
       console.log('Fetching slack accounts...');
@@ -44,6 +44,21 @@ export const OnboardingSection = () => {
       
       if (error) {
         console.error('Error fetching channels:', error);
+        // If we get a missing_scope error, it means the token is invalid
+        // We should delete the slack account
+        if (error.message.includes('missing_scope')) {
+          const { error: deleteError } = await supabase
+            .from('slack_accounts')
+            .delete()
+            .eq('id', slackAccounts[0].id);
+          
+          if (deleteError) {
+            console.error('Error deleting invalid slack account:', deleteError);
+          } else {
+            // Refetch slack accounts to update the UI
+            refetchSlackAccounts();
+          }
+        }
         throw error;
       }
       
