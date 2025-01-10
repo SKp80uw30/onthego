@@ -60,7 +60,8 @@ export const OnboardingSection = () => {
       
       const clientId = secrets.SLACK_CLIENT_ID;
       const redirectUri = `${window.location.origin}${window.location.pathname}`;
-      const scope = 'channels:history channels:read chat:write users:read';
+      // Updated scopes to include all necessary permissions
+      const scope = 'channels:history channels:read chat:write users:read channels:join groups:read';
       
       const state = Math.random().toString(36).substring(7);
       localStorage.setItem('slack_oauth_state', state);

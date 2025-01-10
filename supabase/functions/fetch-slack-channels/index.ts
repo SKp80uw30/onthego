@@ -9,7 +9,7 @@ Deno.serve(async (req) => {
   try {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''  // Changed to use service role key
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
     // Get the request parameters
@@ -39,8 +39,8 @@ Deno.serve(async (req) => {
     const slackAccount = slackAccounts[0];
     console.log('Found workspace:', slackAccount.slack_workspace_name);
 
-    // Call Slack API to get the list of channels
-    const response = await fetch('https://slack.com/api/conversations.list?types=public_channel,private_channel', {
+    // Call Slack API to get the list of channels, including private channels
+    const response = await fetch('https://slack.com/api/conversations.list?types=public_channel,private_channel,mpim', {
       headers: {
         'Authorization': `Bearer ${slackAccount.slack_bot_token}`,
         'Content-Type': 'application/json',
