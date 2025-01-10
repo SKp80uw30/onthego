@@ -47,11 +47,16 @@ export const OnboardingSection = () => {
     }
   };
 
+  const workspaceName = slackAccounts?.[0]?.slack_workspace_name;
+  const description = workspaceName 
+    ? `Connected to ${workspaceName} Workspace`
+    : "Link your Slack workspace to get started";
+
   return (
     <div className="grid gap-4 md:gap-6 mb-8">
       <OnboardingCard
         title="Connect Slack"
-        description={slackAccounts?.length ? "Connected to Slack workspace" : "Link your Slack workspace to get started"}
+        description={description}
         icon={<Slack className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
         isCompleted={Boolean(slackAccounts?.length)}
       >
