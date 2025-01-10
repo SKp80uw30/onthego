@@ -1,0 +1,33 @@
+import React from 'react';
+import { MessageSquare } from 'lucide-react';
+import { OnboardingCard } from '@/components/OnboardingCard';
+import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
+
+interface ChatNavigationCardProps {
+  hasValidSlackAccount: boolean;
+  hasConnectedChannels: boolean;
+}
+
+export const ChatNavigationCard = ({
+  hasValidSlackAccount,
+  hasConnectedChannels,
+}: ChatNavigationCardProps) => {
+  return (
+    <OnboardingCard
+      title="Go to Chat"
+      description="Start chatting with your Slack channels"
+      icon={<MessageSquare className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
+      isDisabled={!hasValidSlackAccount || !hasConnectedChannels}
+    >
+      <Link to="/chat" className="block">
+        <Button 
+          className="w-full bg-[#8B5CF6] hover:bg-[#7C3AED] text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={!hasValidSlackAccount || !hasConnectedChannels}
+        >
+          Go to Chat
+        </Button>
+      </Link>
+    </OnboardingCard>
+  );
+};
