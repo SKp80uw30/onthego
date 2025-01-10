@@ -12,31 +12,32 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     );
 
-    // Get the slack account ID from the request
+    // Get the request parameters
     const { slackAccountId } = await req.json();
     
-    console.log('Fetching channels for slack account:', slackAccountId);
+    console.log('Fetching channels for workspace...');
 
-    // Get the Slack token from our database
-    const { data: slackAccount, error: slackError } = await supabaseClient
+    // Get all slack accounts (we'll use the first active one if specific ID not found)
+    const { data: slackAccounts, error: slackError } = await supabaseClient
       .from('slack_accounts')
-      .select('slack_bot_token')
-      .eq('id', slackAccountId)
-      .maybeSingle();
+      .select('slack_bot_token, slack_workspace_name')
+      .order('created_at', { ascending: false })
+      .limit(1);
 
     if (slackError) {
-      console.error('Error fetching slack account:', slackError);
-      throw new Error('Error fetching Slack account');
+      console.error('Error fetching slack accounts:', slackError);
+      throw new Error('Error fetching Slack accounts');
     }
 
-    if (!slackAccount) {
-      console.log('No Slack account found for ID:', slackAccountId);
+    if (!slackAccounts || slackAccounts.length === 0) {
+      console.log('No Slack workspaces connected');
       return new Response(JSON.stringify({ channels: [] }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log('Successfully retrieved Slack token');
+    const slackAccount = slackAccounts[0];
+    console.log('Found workspace:', slackAccount.slack_workspace_name);
 
     // Call Slack API to get the list of channels
     const response = await fetch('https://slack.com/api/conversations.list?types=public_channel,private_channel', {
