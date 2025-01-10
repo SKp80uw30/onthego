@@ -87,8 +87,8 @@ export const OnboardingSection = () => {
       if (error) throw error;
       
       const clientId = secrets.SLACK_CLIENT_ID;
-      // Use the current origin as the redirect URI
-      const redirectUri = window.location.origin;
+      // Use the full current path as the redirect URI
+      const redirectUri = `${window.location.origin}${window.location.pathname}`;
       const scope = 'channels:history,channels:read,chat:write,users:read,channels:join,groups:read';
       
       const state = Math.random().toString(36).substring(7);
