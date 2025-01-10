@@ -17,9 +17,9 @@ Deno.serve(async (req) => {
 
   try {
     const supabase = createClient(supabaseUrl!, supabaseKey!)
-    const { code, isReconnect } = await req.json()
+    const { code, isReconnect, redirectUri } = await req.json()
 
-    console.log('Processing OAuth request:', { isReconnect })
+    console.log('Processing OAuth request:', { isReconnect, redirectUri })
 
     // Exchange the code for an access token
     const response = await fetch('https://slack.com/api/oauth.v2.access', {
@@ -29,6 +29,7 @@ Deno.serve(async (req) => {
         client_id: clientId!,
         client_secret: clientSecret!,
         code: code,
+        redirect_uri: redirectUri,
       }),
     })
 

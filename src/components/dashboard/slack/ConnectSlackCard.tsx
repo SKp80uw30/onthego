@@ -25,7 +25,13 @@ export const ConnectSlackCard = ({
       if (error) throw error;
       
       const clientId = secrets.SLACK_CLIENT_ID;
-      const redirectUri = window.location.origin;
+      // Use the current origin, but fall back to a default if needed
+      const redirectUri = typeof window !== 'undefined' 
+        ? window.location.origin 
+        : 'https://preview--onthego-vapi.lovable.app';
+      
+      console.log('Using redirect URI:', redirectUri);
+      
       const scope = 'channels:history,channels:read,chat:write,users:read,channels:join,groups:read';
       
       // Generate and store state for security
@@ -54,7 +60,13 @@ export const ConnectSlackCard = ({
         try {
           console.log('Processing OAuth callback...');
           const { error } = await supabase.functions.invoke('slack-oauth', {
-            body: { code, isReconnect }
+            body: { 
+              code,
+              isReconnect,
+              redirectUri: typeof window !== 'undefined' 
+                ? window.location.origin 
+                : 'https://preview--onthego-vapi.lovable.app'
+            }
           });
 
           if (error) throw error;
