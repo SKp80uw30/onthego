@@ -34,7 +34,7 @@ export const OnboardingSection = () => {
     enabled: !!session?.user?.id,
   });
 
-  const { data: channelsData, isLoading: isLoadingChannels } = useQuery({
+  const { data: channelsData, isLoading: isLoadingChannels, refetch: refetchChannels } = useQuery({
     queryKey: ['slack-channels', slackAccounts?.[0]?.id],
     queryFn: async () => {
       if (!slackAccounts?.[0]?.id) {
@@ -47,18 +47,35 @@ export const OnboardingSection = () => {
         body: { slackAccountId: slackAccounts[0].id }
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching channels:', error);
+        throw error;
+      }
       
       console.log('Channels fetched:', data);
       return data;
     },
     enabled: Boolean(slackAccounts?.[0]?.id),
+    refetchInterval: 30000, // Refresh every 30 seconds
   });
 
   const hasValidSlackAccount = !isLoadingAccounts && Boolean(slackAccounts?.length);
   const hasConnectedChannels = !isLoadingChannels && Boolean(channelsData?.channels?.length);
   const workspaceName = slackAccounts?.[0]?.slack_workspace_name;
   const needsReauth = slackAccounts?.[0]?.needs_reauth;
+
+  // Add refetch on focus
+  React.useEffect(() => {
+    const refetchData = async () => {
+      if (hasValidSlackAccount) {
+        console.log('Refetching data on window focus');
+        await Promise.all([refetchSlackAccounts(), refetchChannels()]);
+      }
+    };
+
+    window.addEventListener('focus', refetchData);
+    return () => window.removeEventListener('focus', refetchData);
+  }, [hasValidSlackAccount, refetchSlackAccounts, refetchChannels]);
 
   return (
     <div className="grid gap-4 md:gap-6 mb-8">
