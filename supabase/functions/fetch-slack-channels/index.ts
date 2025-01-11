@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
     });
 
     if (!authData.ok) {
-      // If token is invalid, we should mark this account as needing reauthorization
+      // If token is invalid, mark this account as needing reauthorization
       await supabaseClient
         .from('slack_accounts')
         .update({ needs_reauth: true })
@@ -74,42 +74,118 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Call Slack API to get the list of channels where the bot is a member
-    const response = await fetch('https://slack.com/api/conversations.list?types=public_channel,private_channel,mpim&limit=1000', {
-      headers: {
-        'Authorization': `Bearer ${slackAccount.slack_bot_token}`,
-        'Content-Type': 'application/json',
-      },
+    // Fetch all channel types in parallel
+    const [publicChannels, privateChannels, directMessages, groupMessages] = await Promise.all([
+      // Public channels
+      fetch('https://slack.com/api/conversations.list?types=public_channel&limit=1000', {
+        headers: {
+          'Authorization': `Bearer ${slackAccount.slack_bot_token}`,
+          'Content-Type': 'application/json',
+        },
+      }).then(res => res.json()),
+      
+      // Private channels
+      fetch('https://slack.com/api/conversations.list?types=private_channel&limit=1000', {
+        headers: {
+          'Authorization': `Bearer ${slackAccount.slack_bot_token}`,
+          'Content-Type': 'application/json',
+        },
+      }).then(res => res.json()),
+      
+      // Direct messages
+      fetch('https://slack.com/api/conversations.list?types=im&limit=1000', {
+        headers: {
+          'Authorization': `Bearer ${slackAccount.slack_bot_token}`,
+          'Content-Type': 'application/json',
+        },
+      }).then(res => res.json()),
+      
+      // Group messages
+      fetch('https://slack.com/api/conversations.list?types=mpim&limit=1000', {
+        headers: {
+          'Authorization': `Bearer ${slackAccount.slack_bot_token}`,
+          'Content-Type': 'application/json',
+        },
+      }).then(res => res.json()),
+    ]);
+    
+    console.log('Channel fetch responses:', {
+      publicOk: publicChannels.ok,
+      privateOk: privateChannels.ok,
+      dmsOk: directMessages.ok,
+      groupOk: groupMessages.ok,
+      publicCount: publicChannels.channels?.length,
+      privateCount: privateChannels.channels?.length,
+      dmCount: directMessages.channels?.length,
+      groupCount: groupMessages.channels?.length,
     });
 
-    const channelsData = await response.json();
-    
-    console.log('Slack API response:', {
-      ok: channelsData.ok,
-      channelCount: channelsData.channels?.length,
-      error: channelsData.error
-    });
-    
-    if (!channelsData.ok) {
-      console.error('Error from Slack API:', channelsData.error);
-      return new Response(
-        JSON.stringify({ 
-          error: `Failed to fetch channels: ${channelsData.error}`,
-          channels: [] 
-        }), 
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Combine all channels where the bot is a member
+    const allChannels = [
+      ...(publicChannels.ok ? publicChannels.channels : []),
+      ...(privateChannels.ok ? privateChannels.channels : []),
+      ...(directMessages.ok ? directMessages.channels : []),
+      ...(groupMessages.ok ? groupMessages.channels : [])
+    ].filter(channel => channel.is_member);
+
+    // Get user info for DMs
+    if (directMessages.ok && directMessages.channels?.length > 0) {
+      const userIds = directMessages.channels.map((dm: any) => dm.user);
+      const uniqueUserIds = [...new Set(userIds)].filter(Boolean);
+
+      if (uniqueUserIds.length > 0) {
+        const usersResponse = await fetch('https://slack.com/api/users.info', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${slackAccount.slack_bot_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ users: uniqueUserIds.join(',') })
+        });
+
+        const usersData = await usersResponse.json();
+        if (usersData.ok) {
+          // Map user IDs to their names
+          const userMap = new Map(usersData.users.map((user: any) => [user.id, user.name]));
+          
+          // Update DM channel names with user names
+          allChannels.forEach(channel => {
+            if (channel.is_im && channel.user) {
+              const userName = userMap.get(channel.user);
+              if (userName) {
+                channel.name = `dm-${userName}`;
+              }
+            }
+          });
+        }
+      }
     }
 
-    // Filter to only get channels where the bot is a member
-    const botChannels = channelsData.channels
-      .filter((channel: any) => channel.is_member)
-      .map((channel: any) => channel.name);
+    // Format channel names appropriately
+    const formattedChannels = allChannels.map(channel => {
+      if (channel.is_im) {
+        return channel.name; // Already formatted above
+      } else if (channel.is_mpim) {
+        return `group-${channel.name.replace('mpdm-', '')}`;
+      } else if (channel.is_private) {
+        return `private-${channel.name}`;
+      } else {
+        return channel.name;
+      }
+    });
 
-    console.log('Bot is member of channels:', botChannels);
+    console.log('Returning channels:', {
+      totalCount: formattedChannels.length,
+      types: {
+        public: formattedChannels.filter(name => !name.startsWith('dm-') && !name.startsWith('group-') && !name.startsWith('private-')).length,
+        private: formattedChannels.filter(name => name.startsWith('private-')).length,
+        dm: formattedChannels.filter(name => name.startsWith('dm-')).length,
+        group: formattedChannels.filter(name => name.startsWith('group-')).length,
+      }
+    });
 
     return new Response(
-      JSON.stringify({ channels: botChannels }), 
+      JSON.stringify({ channels: formattedChannels }), 
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {

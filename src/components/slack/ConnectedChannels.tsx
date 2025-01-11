@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, Lock, User, Users } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -28,6 +28,28 @@ export const ConnectedChannels = ({ channels = [], isLoading = false, needsReaut
     );
   }
 
+  const getChannelIcon = (channelName: string) => {
+    if (channelName.startsWith('private-')) {
+      return <Lock className="h-4 w-4 text-primary" />;
+    } else if (channelName.startsWith('dm-')) {
+      return <User className="h-4 w-4 text-primary" />;
+    } else if (channelName.startsWith('group-')) {
+      return <Users className="h-4 w-4 text-primary" />;
+    }
+    return <MessageSquare className="h-4 w-4 text-primary" />;
+  };
+
+  const getDisplayName = (channelName: string) => {
+    if (channelName.startsWith('private-')) {
+      return channelName.replace('private-', '');
+    } else if (channelName.startsWith('dm-')) {
+      return `@${channelName.replace('dm-', '')}`;
+    } else if (channelName.startsWith('group-')) {
+      return channelName.replace('group-', '');
+    }
+    return `#${channelName}`;
+  };
+
   return (
     <div className="flex flex-col md:flex-row gap-4 md:gap-6 w-full">
       <div className="flex-1">
@@ -37,8 +59,8 @@ export const ConnectedChannels = ({ channels = [], isLoading = false, needsReaut
             <ul className="space-y-2">
               {channels.map((channel) => (
                 <li key={channel} className="flex items-center gap-2 text-sm">
-                  <MessageSquare className="h-4 w-4 text-primary" />
-                  <span>#{channel}</span>
+                  {getChannelIcon(channel)}
+                  <span>{getDisplayName(channel)}</span>
                 </li>
               ))}
             </ul>
