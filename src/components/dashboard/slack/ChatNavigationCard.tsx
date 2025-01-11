@@ -31,25 +31,27 @@ export const ChatNavigationCard = ({
         !isDisabled && 'border-primary/30 shadow-lg shadow-primary/10'
       )}
     >
-      <Link to="/chat" className="block w-[250px]">
-        <Button 
-          className={cn(
-            "w-full transition-all duration-300",
-            !isDisabled ? [
-              "bg-[#8B5CF6] hover:bg-[#7C3AED]",
-              "text-white shadow-md",
-              "hover:shadow-lg hover:scale-[1.02]",
-              "active:scale-[0.98]"
-            ] : [
-              "bg-gray-100 text-gray-400",
-              "cursor-not-allowed"
-            ]
-          )}
-          disabled={isDisabled}
-        >
-          Go to Chat
-        </Button>
-      </Link>
+      <div className="flex justify-end">
+        <Link to="/chat">
+          <Button 
+            className={cn(
+              "w-[250px] transition-all duration-300",
+              !isDisabled ? [
+                "bg-[#8B5CF6] hover:bg-[#7C3AED]",
+                "text-white shadow-md",
+                "hover:shadow-lg hover:scale-[1.02]",
+                "active:scale-[0.98]"
+              ] : [
+                "bg-gray-100 text-gray-400",
+                "cursor-not-allowed"
+              ]
+            )}
+            disabled={isDisabled}
+          >
+            Go to Chat
+          </Button>
+        </Link>
+      </div>
     </OnboardingCard>
   );
 };

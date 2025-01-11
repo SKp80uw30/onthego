@@ -100,18 +100,20 @@ export const ConnectSlackCard = ({
       icon={<Slack className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
       isCompleted={hasValidSlackAccount && !needsReauth}
     >
-      <Button 
-        onClick={handleConnectSlack}
-        className={cn(
-          "w-[250px] transition-all duration-300",
-          hasValidSlackAccount && !needsReauth
-            ? "bg-gray-100 hover:bg-gray-200 text-gray-600"
-            : "bg-[#8B5CF6] hover:bg-[#7C3AED] text-white"
-        )}
-        disabled={isLoadingAccounts || (hasValidSlackAccount && !needsReauth)}
-      >
-        {buttonText}
-      </Button>
+      <div className="flex justify-end">
+        <Button 
+          onClick={handleConnectSlack}
+          className={cn(
+            "w-[250px] transition-all duration-300",
+            hasValidSlackAccount && !needsReauth
+              ? "bg-gray-100 hover:bg-gray-200 text-gray-600"
+              : "bg-[#8B5CF6] hover:bg-[#7C3AED] text-white"
+          )}
+          disabled={isLoadingAccounts || (hasValidSlackAccount && !needsReauth)}
+        >
+          {buttonText}
+        </Button>
+      </div>
     </OnboardingCard>
   );
 };

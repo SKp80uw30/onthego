@@ -55,9 +55,9 @@ export const ConnectedChannels = ({ channels = [], isLoading = false, needsReaut
   const memberChannels = channels.filter(c => c.is_member);
 
   return (
-    <div className="w-full space-y-4">
+    <div className="w-full">
       {channels.length > 0 && memberChannels.length === 0 && (
-        <Alert>
+        <Alert className="mb-4">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
             The bot hasn't been invited to any channels yet. Use <code className="bg-secondary/50 px-1 rounded">/invite @onthego</code> in the channels where you want to use it.
@@ -65,11 +65,11 @@ export const ConnectedChannels = ({ channels = [], isLoading = false, needsReaut
         </Alert>
       )}
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
-        <div className="w-full">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
           <h4 className="text-sm font-medium text-muted-foreground mb-2">Member Channels</h4>
           {memberChannels.length > 0 ? (
-            <ScrollArea className="h-[200px] w-full rounded-md border p-4">
+            <ScrollArea className="h-[200px] rounded-md border p-4">
               <ul className="space-y-2">
                 {memberChannels.map((channel) => (
                   <li key={channel.name} className="flex items-center gap-2 text-sm">
@@ -84,10 +84,10 @@ export const ConnectedChannels = ({ channels = [], isLoading = false, needsReaut
           )}
         </div>
 
-        <div className="w-full">
+        <div>
           <h4 className="text-sm font-medium text-muted-foreground mb-2">Available Channels</h4>
           {availableChannels.length > 0 ? (
-            <ScrollArea className="h-[200px] w-full rounded-md border p-4">
+            <ScrollArea className="h-[200px] rounded-md border p-4">
               <ul className="space-y-2">
                 {availableChannels.map((channel) => (
                   <li key={channel.name} className="flex items-center gap-2 text-sm">
@@ -103,7 +103,7 @@ export const ConnectedChannels = ({ channels = [], isLoading = false, needsReaut
         </div>
       </div>
 
-      <div>
+      <div className="mt-4">
         <h4 className="text-sm font-medium text-muted-foreground mb-2">How to Install</h4>
         <p className="text-sm text-muted-foreground">
           Onthego must be invited to each channel you wish to use it in. Type <code className="bg-secondary/50 px-1 rounded">/invite @onthego</code> in any channel to install.
