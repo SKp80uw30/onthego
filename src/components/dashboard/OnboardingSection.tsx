@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ConnectSlackCard } from './slack/ConnectSlackCard';
 import { SlackChannelsCard } from './slack/SlackChannelsCard';
 import { ChatNavigationCard } from './slack/ChatNavigationCard';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export const OnboardingSection = () => {
   const { session } = useSessionContext();
@@ -63,6 +64,7 @@ export const OnboardingSection = () => {
   const hasConnectedChannels = !isLoadingChannels && Boolean(channelsData?.channels?.length);
   const workspaceName = slackAccounts?.[0]?.slack_workspace_name;
   const needsReauth = slackAccounts?.[0]?.needs_reauth;
+  const isChatActive = hasValidSlackAccount && hasConnectedChannels && !needsReauth;
 
   // Add refetch on focus
   React.useEffect(() => {
@@ -77,27 +79,55 @@ export const OnboardingSection = () => {
     return () => window.removeEventListener('focus', refetchData);
   }, [hasValidSlackAccount, refetchSlackAccounts, refetchChannels]);
 
-  return (
-    <div className="grid gap-4 md:gap-6 mb-8">
+  const renderCards = () => {
+    const cards = [
       <ConnectSlackCard
+        key="connect-slack"
         isLoadingAccounts={isLoadingAccounts}
         hasValidSlackAccount={hasValidSlackAccount}
         workspaceName={workspaceName}
         needsReauth={needsReauth}
-      />
-
+      />,
       <SlackChannelsCard
+        key="slack-channels"
         hasConnectedChannels={hasConnectedChannels}
         channels={channelsData?.channels || []}
         isLoading={isLoadingAccounts || isLoadingChannels}
         needsReauth={needsReauth}
-      />
-
+      />,
       <ChatNavigationCard
+        key="chat-navigation"
         hasValidSlackAccount={hasValidSlackAccount}
         hasConnectedChannels={hasConnectedChannels}
         needsReauth={needsReauth}
       />
+    ];
+
+    // If chat is active, move ChatNavigationCard to the top
+    if (isChatActive) {
+      const chatCard = cards.pop();
+      cards.unshift(chatCard!);
+    }
+
+    return cards;
+  };
+
+  return (
+    <div className="grid gap-4 md:gap-6 mb-8">
+      <AnimatePresence>
+        {renderCards().map((card, index) => (
+          <motion.div
+            key={card.key}
+            layout
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3, delay: index * 0.1 }}
+          >
+            {card}
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </div>
   );
 };
