@@ -23,8 +23,8 @@ export interface UseSlackDataReturn {
   workspaceName?: string;
   needsReauth?: boolean;
   isChatActive: boolean;
-  refetchSlackAccounts: () => Promise<void>;
-  refetchChannels: () => Promise<void>;
+  refetchSlackAccounts: () => Promise<any>;
+  refetchChannels: () => Promise<any>;
 }
 
 export const useSlackData = (): UseSlackDataReturn => {
@@ -33,7 +33,7 @@ export const useSlackData = (): UseSlackDataReturn => {
   const { 
     data: slackAccounts = [], 
     isLoading: isLoadingAccounts, 
-    refetch: refetchSlackAccounts 
+    refetch: refetchSlackAccountsOriginal 
   } = useQuery({
     queryKey: ['slack-accounts', session?.user?.id],
     queryFn: async () => {
@@ -62,7 +62,7 @@ export const useSlackData = (): UseSlackDataReturn => {
   const { 
     data: channelsData, 
     isLoading: isLoadingChannels, 
-    refetch: refetchChannels 
+    refetch: refetchChannelsOriginal 
   } = useQuery({
     queryKey: ['slack-channels', slackAccounts?.[0]?.id],
     queryFn: async () => {
@@ -93,6 +93,15 @@ export const useSlackData = (): UseSlackDataReturn => {
   const workspaceName = slackAccounts?.[0]?.slack_workspace_name;
   const needsReauth = slackAccounts?.[0]?.needs_reauth;
   const isChatActive = hasValidSlackAccount && hasConnectedChannels && !needsReauth;
+
+  // Wrap the refetch functions to match our interface
+  const refetchSlackAccounts = async () => {
+    await refetchSlackAccountsOriginal();
+  };
+
+  const refetchChannels = async () => {
+    await refetchChannelsOriginal();
+  };
 
   return {
     slackAccounts,
