@@ -103,7 +103,7 @@ export const ConnectSlackCard = ({
       <Button 
         onClick={handleConnectSlack}
         className={cn(
-          "w-[140px] transition-all duration-300",
+          "w-[200px] transition-all duration-300",
           hasValidSlackAccount && !needsReauth
             ? "bg-gray-100 hover:bg-gray-200 text-gray-600"
             : "bg-[#8B5CF6] hover:bg-[#7C3AED] text-white"

@@ -31,7 +31,7 @@ export const ChatNavigationCard = ({
         !isDisabled && 'border-primary/30 shadow-lg shadow-primary/10'
       )}
     >
-      <Link to="/chat" className="block w-[140px]">
+      <Link to="/chat" className="block w-[200px]">
         <Button 
           className={cn(
             "w-full transition-all duration-300",
