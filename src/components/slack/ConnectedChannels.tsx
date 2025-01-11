@@ -55,7 +55,7 @@ export const ConnectedChannels = ({ channels = [], isLoading = false, needsReaut
   const memberChannels = channels.filter(c => c.is_member);
 
   return (
-    <div className="space-y-4">
+    <div className="w-full space-y-4">
       {channels.length > 0 && memberChannels.length === 0 && (
         <Alert>
           <AlertCircle className="h-4 w-4" />
@@ -65,8 +65,8 @@ export const ConnectedChannels = ({ channels = [], isLoading = false, needsReaut
         </Alert>
       )}
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+        <div className="w-full">
           <h4 className="text-sm font-medium text-muted-foreground mb-2">Member Channels</h4>
           {memberChannels.length > 0 ? (
             <ScrollArea className="h-[200px] w-full rounded-md border p-4">
@@ -84,7 +84,7 @@ export const ConnectedChannels = ({ channels = [], isLoading = false, needsReaut
           )}
         </div>
 
-        <div>
+        <div className="w-full">
           <h4 className="text-sm font-medium text-muted-foreground mb-2">Available Channels</h4>
           {availableChannels.length > 0 ? (
             <ScrollArea className="h-[200px] w-full rounded-md border p-4">
