@@ -25,7 +25,6 @@ export const ConnectSlackCard = ({
       if (error) throw error;
       
       const clientId = secrets.SLACK_CLIENT_ID;
-      // Use the current origin, but fall back to a default if needed
       const redirectUri = typeof window !== 'undefined' 
         ? window.location.origin 
         : 'https://preview--onthego-vapi.lovable.app';
@@ -34,7 +33,6 @@ export const ConnectSlackCard = ({
       
       const scope = 'channels:history,channels:read,chat:write,users:read,channels:join,groups:read';
       
-      // Generate and store state for security
       const state = Math.random().toString(36).substring(7);
       localStorage.setItem('slack_oauth_state', state);
       localStorage.setItem('slack_reconnect', needsReauth ? 'true' : 'false');
@@ -47,7 +45,6 @@ export const ConnectSlackCard = ({
     }
   };
 
-  // Handle OAuth callback
   React.useEffect(() => {
     const handleOAuthCallback = async () => {
       const urlParams = new URLSearchParams(window.location.search);
@@ -71,14 +68,11 @@ export const ConnectSlackCard = ({
 
           if (error) throw error;
 
-          // Clear OAuth state
           localStorage.removeItem('slack_oauth_state');
           localStorage.removeItem('slack_reconnect');
 
-          // Show success message
           toast.success(isReconnect ? 'Successfully reconnected to Slack!' : 'Successfully connected to Slack!');
 
-          // Reload the page after a short delay to show updated state
           setTimeout(() => {
             window.location.href = window.location.origin;
           }, 1500);
@@ -107,8 +101,13 @@ export const ConnectSlackCard = ({
     >
       <Button 
         onClick={handleConnectSlack}
-        className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white"
-        disabled={isLoadingAccounts}
+        className={cn(
+          "w-full transition-all duration-300",
+          hasValidSlackAccount && !needsReauth
+            ? "bg-gray-100 hover:bg-gray-200 text-gray-600"
+            : "bg-[#8B5CF6] hover:bg-[#7C3AED] text-white"
+        )}
+        disabled={isLoadingAccounts || (hasValidSlackAccount && !needsReauth)}
       >
         {buttonText}
       </Button>
