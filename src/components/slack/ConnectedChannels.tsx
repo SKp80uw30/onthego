@@ -55,7 +55,7 @@ export const ConnectedChannels = ({ channels = [], isLoading = false, needsReaut
   const memberChannels = channels.filter(c => c.is_member);
 
   return (
-    <div className="w-full">
+    <div className="w-full mt-6">
       {channels.length > 0 && memberChannels.length === 0 && (
         <Alert className="mb-4">
           <AlertCircle className="h-4 w-4" />
