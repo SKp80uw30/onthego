@@ -8,6 +8,7 @@ interface OnboardingCardProps {
   description: string;
   icon: React.ReactNode;
   children?: React.ReactNode;
+  content?: React.ReactNode;
   className?: string;
   isCompleted?: boolean;
   isDisabled?: boolean;
@@ -18,6 +19,7 @@ export const OnboardingCard = ({
   description,
   icon,
   children,
+  content,
   className,
   isCompleted,
   isDisabled,
@@ -43,43 +45,56 @@ export const OnboardingCard = ({
         className
       )}
     >
-      <div className="flex items-start justify-between space-x-3 md:space-x-4">
-        <div className="flex items-start space-x-3 md:space-x-4 flex-grow">
-          <motion.div 
-            className="rounded-full bg-primary/10 p-2 md:p-3"
-            whileHover={!isDisabled ? { scale: 1.05, rotate: 5 } : undefined}
-            transition={{ type: "spring", stiffness: 400, damping: 17 }}
-          >
-            {icon}
-          </motion.div>
-          <div className="space-y-0.5 md:space-y-1">
-            <div className="flex items-center gap-2">
-              <h3 className="text-base md:text-lg font-semibold text-foreground">{title}</h3>
-              {isCompleted && (
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 400,
-                    damping: 17
-                  }}
-                >
-                  <CheckCircle2 className="h-5 w-5 text-green-500" />
-                </motion.div>
-              )}
+      <div className="space-y-4">
+        <div className="flex items-start justify-between space-x-3 md:space-x-4">
+          <div className="flex items-start space-x-3 md:space-x-4 flex-grow">
+            <motion.div 
+              className="rounded-full bg-primary/10 p-2 md:p-3"
+              whileHover={!isDisabled ? { scale: 1.05, rotate: 5 } : undefined}
+              transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            >
+              {icon}
+            </motion.div>
+            <div className="space-y-0.5 md:space-y-1">
+              <div className="flex items-center gap-2">
+                <h3 className="text-base md:text-lg font-semibold text-foreground">{title}</h3>
+                {isCompleted && (
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 400,
+                      damping: 17
+                    }}
+                  >
+                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  </motion.div>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground">{description}</p>
             </div>
-            <p className="text-sm text-muted-foreground">{description}</p>
           </div>
+          {children && (
+            <motion.div 
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 }}
+              className="flex-shrink-0 w-[140px]"
+            >
+              {children}
+            </motion.div>
+          )}
         </div>
-        {children && (
-          <motion.div 
-            initial={{ opacity: 0, x: 10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 }}
-            className="flex-shrink-0 w-[140px]"
+        
+        {content && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="w-full"
           >
-            {children}
+            {content}
           </motion.div>
         )}
       </div>

@@ -25,12 +25,13 @@ export const SlackChannelsCard = ({
       icon={<MessageSquare className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
       isCompleted={hasConnectedChannels}
       isDisabled={needsReauth}
-    >
-      <ConnectedChannels 
-        channels={channels || []} 
-        isLoading={isLoading}
-        needsReauth={needsReauth}
-      />
-    </OnboardingCard>
+      content={
+        <ConnectedChannels 
+          channels={channels || []} 
+          isLoading={isLoading}
+          needsReauth={needsReauth}
+        />
+      }
+    />
   );
 };
