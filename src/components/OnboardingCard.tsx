@@ -27,26 +27,58 @@ export const OnboardingCard = ({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
+      whileHover={!isDisabled ? { scale: 1.01 } : undefined}
+      transition={{ 
+        duration: 0.3,
+        scale: {
+          type: "spring",
+          stiffness: 300,
+          damping: 20
+        }
+      }}
       className={cn(
         'glass-morphism rounded-xl p-4 md:p-6 card-hover',
-        'border border-white/20',
+        'border border-white/20 transition-all duration-300',
         isDisabled && 'opacity-50 cursor-not-allowed',
         className
       )}
     >
       <div className="flex items-start space-x-3 md:space-x-4">
-        <div className="rounded-full bg-primary/10 p-2 md:p-3">
+        <motion.div 
+          className="rounded-full bg-primary/10 p-2 md:p-3"
+          whileHover={!isDisabled ? { scale: 1.05, rotate: 5 } : undefined}
+          transition={{ type: "spring", stiffness: 400, damping: 17 }}
+        >
           {icon}
-        </div>
+        </motion.div>
         <div className="space-y-0.5 md:space-y-1 flex-grow">
           <div className="flex items-center justify-between">
             <h3 className="text-base md:text-lg font-semibold text-foreground">{title}</h3>
             {isCompleted && (
-              <CheckCircle2 className="h-5 w-5 text-green-500" />
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{
+                  type: "spring",
+                  stiffness: 400,
+                  damping: 17
+                }}
+              >
+                <CheckCircle2 className="h-5 w-5 text-green-500" />
+              </motion.div>
             )}
           </div>
           <p className="text-sm text-muted-foreground">{description}</p>
-          {children && <div className="mt-3">{children}</div>}
+          {children && (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="mt-3"
+            >
+              {children}
+            </motion.div>
+          )}
         </div>
       </div>
     </motion.div>

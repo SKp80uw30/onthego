@@ -103,7 +103,6 @@ export const OnboardingSection = () => {
       />
     ];
 
-    // If chat is active, move ChatNavigationCard to the top
     if (isChatActive) {
       const chatCard = cards.pop();
       cards.unshift(chatCard!);
@@ -114,7 +113,7 @@ export const OnboardingSection = () => {
 
   return (
     <div className="grid gap-4 md:gap-6 mb-8">
-      <AnimatePresence>
+      <AnimatePresence mode="popLayout">
         {renderCards().map((card, index) => (
           <motion.div
             key={card.key}
@@ -122,7 +121,15 @@ export const OnboardingSection = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3, delay: index * 0.1 }}
+            transition={{ 
+              duration: 0.4,
+              delay: index * 0.1,
+              layout: {
+                type: "spring",
+                stiffness: 300,
+                damping: 30
+              }
+            }}
           >
             {card}
           </motion.div>
