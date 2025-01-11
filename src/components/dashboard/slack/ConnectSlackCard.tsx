@@ -4,6 +4,7 @@ import { OnboardingCard } from '@/components/OnboardingCard';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface ConnectSlackCardProps {
   isLoadingAccounts: boolean;
@@ -95,14 +96,14 @@ export const ConnectSlackCard = ({
   return (
     <OnboardingCard
       title="Connect Slack"
-      description={needsReauth ? "Your Slack connection needs to be renewed" : ""}
+      description={needsReauth ? "Your Slack connection needs to be renewed" : "Connect your Slack workspace to get started"}
       icon={<Slack className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
       isCompleted={hasValidSlackAccount && !needsReauth}
     >
       <Button 
         onClick={handleConnectSlack}
         className={cn(
-          "w-full transition-all duration-300",
+          "w-[140px] transition-all duration-300",
           hasValidSlackAccount && !needsReauth
             ? "bg-gray-100 hover:bg-gray-200 text-gray-600"
             : "bg-[#8B5CF6] hover:bg-[#7C3AED] text-white"
