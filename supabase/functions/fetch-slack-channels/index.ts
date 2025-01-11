@@ -93,25 +93,34 @@ Deno.serve(async (req) => {
     const allChannels = [
       ...(publicChannels.ok ? publicChannels.channels.map(channel => ({
         ...channel,
-        formatted_name: channel.name
+        formatted_name: channel.name,
+        is_public: true
       })) : []),
       ...(privateChannels.ok ? privateChannels.channels.map(channel => ({
         ...channel,
-        formatted_name: `private-${channel.name}`
+        formatted_name: `private-${channel.name}`,
+        is_public: false
       })) : [])
-    ].filter(channel => channel.is_member);
+    ];
+
+    console.log('Channel membership details:', allChannels.map(c => ({
+      name: c.name,
+      is_member: c.is_member,
+      num_members: c.num_members,
+      is_public: c.is_public
+    })));
+
+    // Format final channel names, including non-member channels
+    const formattedChannels = allChannels.map(channel => ({
+      name: channel.is_public ? channel.name : `private-${channel.name}`,
+      is_member: channel.is_member,
+      is_public: channel.is_public,
+      num_members: channel.num_members
+    }));
 
     console.log('Formatted channels:', {
-      totalCount: allChannels.length,
-      channels: allChannels.map(c => c.formatted_name)
-    });
-
-    // Format final channel names
-    const formattedChannels = allChannels.map(channel => {
-      if (channel.is_private) {
-        return `private-${channel.name}`;
-      }
-      return channel.name;
+      totalCount: formattedChannels.length,
+      channels: formattedChannels
     });
 
     return new Response(

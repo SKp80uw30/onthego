@@ -1,10 +1,18 @@
 import React from 'react';
-import { MessageSquare, Lock, User, Users } from 'lucide-react';
+import { MessageSquare, Lock, User, Users, AlertCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+
+interface Channel {
+  name: string;
+  is_member: boolean;
+  is_public: boolean;
+  num_members: number;
+}
 
 interface ConnectedChannelsProps {
-  channels?: string[];
+  channels?: Channel[];
   isLoading?: boolean;
   needsReauth?: boolean;
 }
@@ -28,51 +36,76 @@ export const ConnectedChannels = ({ channels = [], isLoading = false, needsReaut
     );
   }
 
-  const getChannelIcon = (channelName: string) => {
-    if (channelName.startsWith('private-')) {
+  const getChannelIcon = (channel: Channel) => {
+    if (!channel.is_public) {
       return <Lock className="h-4 w-4 text-primary" />;
-    } else if (channelName.startsWith('dm-')) {
-      return <User className="h-4 w-4 text-primary" />;
-    } else if (channelName.startsWith('group-')) {
-      return <Users className="h-4 w-4 text-primary" />;
     }
     return <MessageSquare className="h-4 w-4 text-primary" />;
   };
 
-  const getDisplayName = (channelName: string) => {
-    if (channelName.startsWith('private-')) {
-      return channelName.replace('private-', '');
-    } else if (channelName.startsWith('dm-')) {
-      return `@${channelName.replace('dm-', '')}`;
-    } else if (channelName.startsWith('group-')) {
-      return channelName.replace('group-', '');
+  const getDisplayName = (channel: Channel) => {
+    if (!channel.is_public) {
+      return channel.name.replace('private-', '');
     }
-    return `#${channelName}`;
+    return `#${channel.name}`;
   };
 
+  const availableChannels = channels.filter(c => !c.is_member);
+  const memberChannels = channels.filter(c => c.is_member);
+
   return (
-    <div className="flex flex-col md:flex-row gap-4 md:gap-6 w-full">
-      <div className="flex-1">
-        <h4 className="text-sm font-medium text-muted-foreground mb-2">Connected Channels</h4>
-        {channels.length > 0 ? (
-          <ScrollArea className="h-[200px] w-full rounded-md border p-4">
-            <ul className="space-y-2">
-              {channels.map((channel) => (
-                <li key={channel} className="flex items-center gap-2 text-sm">
-                  {getChannelIcon(channel)}
-                  <span>{getDisplayName(channel)}</span>
-                </li>
-              ))}
-            </ul>
-          </ScrollArea>
-        ) : (
-          <p className="text-sm text-muted-foreground">No channels connected yet</p>
-        )}
+    <div className="flex flex-col gap-4 w-full">
+      {channels.length > 0 && memberChannels.length === 0 && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            The bot hasn't been invited to any channels yet. Use <code className="bg-secondary/50 px-1 rounded">/invite @onthego</code> in the channels where you want to use it.
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      <div className="flex flex-col md:flex-row gap-4 md:gap-6">
+        <div className="flex-1">
+          <h4 className="text-sm font-medium text-muted-foreground mb-2">Member Channels</h4>
+          {memberChannels.length > 0 ? (
+            <ScrollArea className="h-[200px] w-full rounded-md border p-4">
+              <ul className="space-y-2">
+                {memberChannels.map((channel) => (
+                  <li key={channel.name} className="flex items-center gap-2 text-sm">
+                    {getChannelIcon(channel)}
+                    <span>{getDisplayName(channel)}</span>
+                  </li>
+                ))}
+              </ul>
+            </ScrollArea>
+          ) : (
+            <p className="text-sm text-muted-foreground">No channels connected yet</p>
+          )}
+        </div>
+
+        <div className="flex-1">
+          <h4 className="text-sm font-medium text-muted-foreground mb-2">Available Channels</h4>
+          {availableChannels.length > 0 ? (
+            <ScrollArea className="h-[200px] w-full rounded-md border p-4">
+              <ul className="space-y-2">
+                {availableChannels.map((channel) => (
+                  <li key={channel.name} className="flex items-center gap-2 text-sm">
+                    {getChannelIcon(channel)}
+                    <span>{getDisplayName(channel)}</span>
+                  </li>
+                ))}
+              </ul>
+            </ScrollArea>
+          ) : (
+            <p className="text-sm text-muted-foreground">No additional channels available</p>
+          )}
+        </div>
       </div>
-      <div className="flex-1">
+
+      <div>
         <h4 className="text-sm font-medium text-muted-foreground mb-2">How to Install</h4>
         <p className="text-sm text-muted-foreground">
-          Onthego must be invited to each channel you wish to use it in. Type <span className="font-mono bg-secondary/50 px-1 rounded">/invite @onthego</span> to install.
+          Onthego must be invited to each channel you wish to use it in. Type <code className="bg-secondary/50 px-1 rounded">/invite @onthego</code> in any channel to install.
         </p>
       </div>
     </div>
