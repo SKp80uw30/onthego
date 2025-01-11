@@ -55,7 +55,7 @@ export const ConnectedChannels = ({ channels = [], isLoading = false, needsReaut
   const memberChannels = channels.filter(c => c.is_member);
 
   return (
-    <div className="w-full mt-6">
+    <div className="w-full mt-8">
       {channels.length > 0 && memberChannels.length === 0 && (
         <Alert className="mb-4">
           <AlertCircle className="h-4 w-4" />
@@ -67,36 +67,40 @@ export const ConnectedChannels = ({ channels = [], isLoading = false, needsReaut
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <h4 className="text-sm font-medium text-muted-foreground mb-2">Member Channels</h4>
+          <h4 className="text-sm font-medium mb-3">Member Channels</h4>
           {memberChannels.length > 0 ? (
-            <ScrollArea className="h-[200px] rounded-md border p-4">
-              <ul className="space-y-2">
-                {memberChannels.map((channel) => (
-                  <li key={channel.name} className="flex items-center gap-2 text-sm">
-                    {getChannelIcon(channel)}
-                    <span>{getDisplayName(channel)}</span>
-                  </li>
-                ))}
-              </ul>
-            </ScrollArea>
+            <div className="bg-white/50 rounded-lg p-4">
+              <ScrollArea className="h-[200px]">
+                <ul className="space-y-2">
+                  {memberChannels.map((channel) => (
+                    <li key={channel.name} className="flex items-center gap-2 text-sm">
+                      {getChannelIcon(channel)}
+                      <span>{getDisplayName(channel)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </ScrollArea>
+            </div>
           ) : (
             <p className="text-sm text-muted-foreground">No channels connected yet</p>
           )}
         </div>
 
         <div>
-          <h4 className="text-sm font-medium text-muted-foreground mb-2">Available Channels</h4>
+          <h4 className="text-sm font-medium mb-3">Available Channels</h4>
           {availableChannels.length > 0 ? (
-            <ScrollArea className="h-[200px] rounded-md border p-4">
-              <ul className="space-y-2">
-                {availableChannels.map((channel) => (
-                  <li key={channel.name} className="flex items-center gap-2 text-sm">
-                    {getChannelIcon(channel)}
-                    <span>{getDisplayName(channel)}</span>
-                  </li>
-                ))}
-              </ul>
-            </ScrollArea>
+            <div className="bg-white/50 rounded-lg p-4">
+              <ScrollArea className="h-[200px]">
+                <ul className="space-y-2">
+                  {availableChannels.map((channel) => (
+                    <li key={channel.name} className="flex items-center gap-2 text-sm">
+                      {getChannelIcon(channel)}
+                      <span>{getDisplayName(channel)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </ScrollArea>
+            </div>
           ) : (
             <p className="text-sm text-muted-foreground">No additional channels available</p>
           )}
@@ -104,7 +108,7 @@ export const ConnectedChannels = ({ channels = [], isLoading = false, needsReaut
       </div>
 
       <div className="mt-4">
-        <h4 className="text-sm font-medium text-muted-foreground mb-2">How to Install</h4>
+        <h4 className="text-sm font-medium mb-2">How to Install</h4>
         <p className="text-sm text-muted-foreground">
           Onthego must be invited to each channel you wish to use it in. Type <code className="bg-secondary/50 px-1 rounded">/invite @onthego</code> in any channel to install.
         </p>
