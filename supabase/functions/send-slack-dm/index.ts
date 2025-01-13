@@ -21,8 +21,8 @@ async function getSlackAccount(supabase) {
   return slackAccount;
 }
 
-async function getUserId(botToken: string, username: string) {
-  console.log('Looking up user ID for username:', username);
+async function findUserId(botToken: string, identifier: string) {
+  console.log('Looking up user ID for identifier:', identifier);
   const response = await fetch('https://slack.com/api/users.list', {
     headers: {
       'Authorization': `Bearer ${botToken}`,
@@ -35,15 +35,24 @@ async function getUserId(botToken: string, username: string) {
     throw new Error(`Slack API error: ${data.error}`);
   }
 
+  // Try to match by email first, then by display name, then by real name
   const user = data.members.find(member => 
-    member.name === username || 
-    member.profile?.display_name === username ||
-    member.profile?.real_name === username
+    member.profile?.email === identifier || 
+    member.name === identifier || 
+    member.profile?.display_name === identifier ||
+    member.profile?.real_name === identifier
   );
 
   if (!user) {
-    throw new Error(`User ${username} not found`);
+    throw new Error(`User ${identifier} not found. Please try using their Slack email address or @username`);
   }
+
+  console.log('Found user:', {
+    id: user.id,
+    name: user.name,
+    real_name: user.profile?.real_name,
+    email: user.profile?.email
+  });
 
   return user.id;
 }
@@ -109,8 +118,10 @@ Deno.serve(async (req) => {
     }
 
     const slackAccount = await getSlackAccount(supabase);
-    const userId = await getUserId(slackAccount.slack_bot_token, toolArgs.Username);
-    await sendDirectMessage(slackAccount.slack_bot_token, userId, toolArgs.Message);
+    const userId = await findUserId(slackAccount.slack_bot_token, toolArgs.Username);
+    const result = await sendDirectMessage(slackAccount.slack_bot_token, userId, toolArgs.Message);
+
+    console.log('Message sent successfully:', result);
 
     return new Response(
       JSON.stringify({
