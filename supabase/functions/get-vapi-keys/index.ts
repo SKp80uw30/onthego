@@ -6,6 +6,12 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log('Received request:', {
+    method: req.method,
+    url: req.url,
+    headers: Object.fromEntries(req.headers.entries())
+  });
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     console.log('Handling CORS preflight request');
@@ -33,15 +39,20 @@ serve(async (req) => {
       throw new Error('Missing required VAPI configuration');
     }
 
-    const secrets = {
-      VAPI_PUBLIC_KEY: vapiPublicKey,
-      VAPI_ASSISTANT_KEY: vapiAssistantKey,
+    const response = {
+      secrets: {
+        VAPI_PUBLIC_KEY: vapiPublicKey,
+        VAPI_ASSISTANT_KEY: vapiAssistantKey,
+      }
     };
 
-    console.log('Successfully prepared VAPI keys response');
+    console.log('Preparing response:', {
+      hasSecrets: !!response.secrets,
+      responseStructure: Object.keys(response),
+    });
     
     return new Response(
-      JSON.stringify({ secrets }),
+      JSON.stringify(response),
       { 
         headers: { 
           ...corsHeaders,
