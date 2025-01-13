@@ -34,7 +34,12 @@ serve(async (req) => {
     
     return new Response(
       JSON.stringify({ secrets }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json' 
+        } 
+      }
     );
   } catch (error) {
     console.error('Error in get-vapi-keys function:', error.message);
