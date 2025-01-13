@@ -58,3 +58,9 @@ verify_jwt = false
 
 [functions.fetch-slack-channels]
 verify_jwt = false
+
+[functions.fetch-slack-dms]
+verify_jwt = false
+
+[functions.send-slack-dm]
+verify_jwt = false
