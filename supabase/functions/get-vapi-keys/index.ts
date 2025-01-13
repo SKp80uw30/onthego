@@ -50,6 +50,8 @@ serve(async (req) => {
       hasSecrets: !!response.secrets,
       responseStructure: Object.keys(response),
     });
+
+    console.log('Sending successful response');
     
     return new Response(
       JSON.stringify(response),
