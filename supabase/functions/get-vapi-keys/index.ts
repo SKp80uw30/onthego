@@ -12,16 +12,23 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Fetching VAPI keys from environment...');
+    console.log('Starting get-vapi-keys function execution...');
     
     const vapiPublicKey = Deno.env.get('VAPI_PUBLIC_KEY');
     const vapiAssistantKey = Deno.env.get('VAPI_ASSISTANT_KEY');
     
-    console.log('VAPI Public Key exists:', !!vapiPublicKey);
-    console.log('VAPI Assistant Key exists:', !!vapiAssistantKey);
+    console.log('Environment variables check:', {
+      hasPublicKey: !!vapiPublicKey,
+      hasAssistantKey: !!vapiAssistantKey,
+      publicKeyLength: vapiPublicKey?.length,
+      assistantKeyLength: vapiAssistantKey?.length
+    });
 
     if (!vapiPublicKey || !vapiAssistantKey) {
-      console.error('Missing required VAPI keys');
+      console.error('Missing required VAPI keys:', {
+        publicKey: !!vapiPublicKey,
+        assistantKey: !!vapiAssistantKey
+      });
       throw new Error('Missing required VAPI configuration');
     }
 
@@ -30,7 +37,7 @@ serve(async (req) => {
       VAPI_ASSISTANT_KEY: vapiAssistantKey
     };
 
-    console.log('Successfully retrieved VAPI keys');
+    console.log('Successfully retrieved VAPI keys, preparing response');
     
     return new Response(
       JSON.stringify({ secrets }),
@@ -42,7 +49,11 @@ serve(async (req) => {
       }
     );
   } catch (error) {
-    console.error('Error in get-vapi-keys function:', error.message);
+    console.error('Error in get-vapi-keys function:', {
+      error: error.message,
+      stack: error.stack,
+      type: typeof error
+    });
     
     return new Response(
       JSON.stringify({ 
