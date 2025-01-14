@@ -20,6 +20,28 @@ export const slackFunctions: FunctionDefinition[] = [
     }
   },
   {
+    name: 'send_direct_message',
+    description: 'Send a direct message to a Slack user. You can identify the user by their email, @username, display name, or real name.',
+    parameters: {
+      type: 'object',
+      properties: {
+        userIdentifier: {
+          type: 'string',
+          description: 'The user identifier - can be their email address, @username (without the @), display name, or real name'
+        },
+        message: {
+          type: 'string',
+          description: 'The message content to send'
+        },
+        Send_message_approval: {
+          type: 'boolean',
+          description: 'Confirmation that the message should be sent'
+        }
+      },
+      required: ['userIdentifier', 'message', 'Send_message_approval']
+    }
+  },
+  {
     name: 'fetch_messages',
     description: 'Fetch recent messages from a Slack channel',
     parameters: {

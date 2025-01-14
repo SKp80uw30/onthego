@@ -29,6 +29,12 @@ export interface SlackMessageArgs {
   message: string;
 }
 
+export interface SlackDirectMessageArgs {
+  userIdentifier: string;
+  message: string;
+  Send_message_approval: boolean;
+}
+
 export interface FetchMessagesArgs {
   channelName: string;
   count?: number;
