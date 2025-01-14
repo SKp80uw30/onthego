@@ -58,7 +58,27 @@ async function findUserId(botToken: string, identifier: string) {
 }
 
 async function sendDirectMessage(botToken: string, userId: string, message: string) {
-  console.log('Sending DM to user:', userId);
+  console.log('Opening DM channel with user:', userId);
+  
+  // First, open or get the DM channel
+  const conversationResponse = await fetch('https://slack.com/api/conversations.open', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${botToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ users: userId }),
+  });
+
+  const conversationData = await conversationResponse.json();
+  if (!conversationData.ok) {
+    console.error('Failed to open DM channel:', conversationData.error);
+    throw new Error(`Failed to open DM channel: ${conversationData.error}`);
+  }
+
+  const channelId = conversationData.channel.id;
+
+  console.log('Sending message to DM channel:', channelId);
   const response = await fetch('https://slack.com/api/chat.postMessage', {
     method: 'POST',
     headers: {
@@ -66,7 +86,7 @@ async function sendDirectMessage(botToken: string, userId: string, message: stri
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      channel: userId,
+      channel: channelId,
       text: message,
     }),
   });

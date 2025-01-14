@@ -51,6 +51,34 @@ export async function handleToolCall(toolCall: ToolCall) {
       };
     }
 
+    case 'Send_slack_dm': {
+      // Route to the dedicated DM edge function
+      const { data, error } = await supabase.functions.invoke('send-slack-dm', {
+        body: { message: toolCall }
+      });
+
+      if (error) throw error;
+      return {
+        toolCallId,
+        result: data.result
+      };
+    }
+
+    case 'Fetch_slack_dms': {
+      // Route to the dedicated DM edge function
+      const { data, error } = await supabase.functions.invoke('fetch-slack-dms', {
+        body: { message: toolCall }
+      });
+
+      if (error) throw error;
+      return {
+        toolCallId,
+        result: JSON.stringify({
+          Recent_messages: data.messages
+        })
+      };
+    }
+
     default:
       throw new Error(`Unknown tool: ${toolName}`);
   }
