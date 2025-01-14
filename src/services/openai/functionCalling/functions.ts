@@ -7,16 +7,20 @@ export const slackFunctions: FunctionDefinition[] = [
     parameters: {
       type: 'object',
       properties: {
-        channelName: {
+        Channel_name: {
           type: 'string',
           description: 'The name of the Slack channel to send the message to'
         },
-        message: {
+        Channel_message: {
           type: 'string',
           description: 'The message content to send'
+        },
+        Send_message_approval: {
+          type: 'boolean',
+          description: 'Confirmation that the message should be sent'
         }
       },
-      required: ['channelName', 'message']
+      required: ['Channel_name', 'Channel_message', 'Send_message_approval']
     }
   },
   {
@@ -47,16 +51,16 @@ export const slackFunctions: FunctionDefinition[] = [
     parameters: {
       type: 'object',
       properties: {
-        channelName: {
+        Channel_name: {
           type: 'string',
           description: 'The name of the Slack channel to fetch messages from'
         },
-        count: {
+        Number_fetch_messages: {
           type: 'number',
           description: 'Number of messages to fetch (default: 5)'
         }
       },
-      required: ['channelName']
+      required: ['Channel_name']
     }
   },
   {

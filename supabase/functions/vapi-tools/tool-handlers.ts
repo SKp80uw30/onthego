@@ -18,7 +18,7 @@ export async function handleToolCall(toolCall: ToolCall) {
   console.log('Processing tool:', { toolName, arguments: toolArgs });
 
   switch (toolName) {
-    case 'Send_slack_message': {
+    case 'send_message': {
       if (!toolArgs.Send_message_approval) {
         return {
           toolCallId,
@@ -37,21 +37,7 @@ export async function handleToolCall(toolCall: ToolCall) {
       };
     }
 
-    case 'Fetch_slack_messages': {
-      const messages = await fetchSlackMessages(
-        toolArgs.Channel_name as string,
-        toolArgs.Number_fetch_messages as number
-      );
-
-      return {
-        toolCallId,
-        result: JSON.stringify({
-          Recent_messages: messages
-        })
-      };
-    }
-
-    case 'Send_slack_dm': {
+    case 'send_direct_message': {
       // Route to the dedicated DM edge function
       const { data, error } = await supabase.functions.invoke('send-slack-dm', {
         body: { message: toolCall }
@@ -64,17 +50,16 @@ export async function handleToolCall(toolCall: ToolCall) {
       };
     }
 
-    case 'Fetch_slack_dms': {
-      // Route to the dedicated DM edge function
-      const { data, error } = await supabase.functions.invoke('fetch-slack-dms', {
-        body: { message: toolCall }
-      });
+    case 'fetch_messages': {
+      const messages = await fetchSlackMessages(
+        toolArgs.Channel_name as string,
+        toolArgs.Number_fetch_messages as number
+      );
 
-      if (error) throw error;
       return {
         toolCallId,
         result: JSON.stringify({
-          Recent_messages: data.messages
+          Recent_messages: messages
         })
       };
     }
