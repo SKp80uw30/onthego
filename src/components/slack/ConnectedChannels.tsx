@@ -1,9 +1,8 @@
 import React from 'react';
-import { MessageSquare, Lock } from 'lucide-react';
+import { MessageSquare, Lock, AlertCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle } from 'lucide-react';
 
 interface Channel {
   name: string;
@@ -56,14 +55,12 @@ export const ConnectedChannels = ({ channels = [], isLoading = false, needsReaut
 
   return (
     <div className="w-full mt-8">
-      {channels.length > 0 && memberChannels.length === 0 && (
-        <Alert className="mb-4">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            The bot hasn't been invited to any channels yet. Use <code className="bg-secondary/50 px-1 rounded">/invite @onthego</code> in the channels where you want to use it.
-          </AlertDescription>
-        </Alert>
-      )}
+      <Alert className="mb-4">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          <strong>Important:</strong> The bot can only be used in channels, not in direct messages (DMs). Use <code className="bg-secondary/50 px-1 rounded">/invite @onthego</code> in the channels where you want to use it.
+        </AlertDescription>
+      </Alert>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
