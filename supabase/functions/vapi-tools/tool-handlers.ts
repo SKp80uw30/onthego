@@ -1,3 +1,4 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { sendSlackMessage, fetchSlackMessages } from './slack-operations.ts';
 
 export interface ToolCall {
@@ -16,6 +17,12 @@ export async function handleToolCall(toolCall: ToolCall) {
     : toolCall.function.arguments;
 
   console.log('Processing tool:', { toolName, arguments: toolArgs });
+
+  // Initialize Supabase client
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  );
 
   switch (toolName) {
     case 'send_message': {
