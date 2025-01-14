@@ -21,13 +21,13 @@ export const slackFunctions: FunctionDefinition[] = [
   },
   {
     name: 'send_direct_message',
-    description: 'Send a direct message to a Slack user. You can identify the user by their email, @username, display name, or real name.',
+    description: 'Send a direct message to a Slack user whilst using onthego App',
     parameters: {
       type: 'object',
       properties: {
         userIdentifier: {
           type: 'string',
-          description: 'The user identifier - can be their email address, @username (without the @), display name, or real name'
+          description: 'can accept any of these formats: Email address (e.g., "user@company.com")'
         },
         message: {
           type: 'string',
