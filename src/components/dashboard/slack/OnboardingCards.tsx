@@ -4,7 +4,6 @@ import { SlackChannelsCard } from './SlackChannelsCard';
 import { SlackDMUsersCard } from './SlackDMUsersCard';
 import { VapiFrame } from '@/components/vapi/VapiFrame';
 import { OnboardingCard } from '@/components/OnboardingCard';
-import { Mic } from 'lucide-react';
 import type { SlackChannel, SlackDMUser } from '@/hooks/use-slack-data';
 
 interface OnboardingCardsProps {
@@ -51,7 +50,8 @@ export const OnboardingCards = ({
         className="mb-4"
       >
         <OnboardingCard
-          icon={<Mic className="h-5 w-5 text-primary" />}
+          title=""
+          description=""
           content={
             isLoadingVapi ? (
               <div className="text-center p-8">

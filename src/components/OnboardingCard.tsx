@@ -6,7 +6,7 @@ import { CheckCircle2 } from 'lucide-react';
 interface OnboardingCardProps {
   title: string;
   description: string;
-  icon: React.ReactNode;
+  icon?: React.ReactNode;
   children?: React.ReactNode;
   content?: React.ReactNode;
   className?: string;
@@ -48,13 +48,15 @@ export const OnboardingCard = ({
       <div className="space-y-4">
         <div className="flex items-start justify-between space-x-3 md:space-x-4">
           <div className="flex items-start space-x-3 md:space-x-4 flex-grow">
-            <motion.div 
-              className="rounded-full bg-primary/10 p-2 md:p-3"
-              whileHover={!isDisabled ? { scale: 1.05, rotate: 5 } : undefined}
-              transition={{ type: "spring", stiffness: 400, damping: 17 }}
-            >
-              {icon}
-            </motion.div>
+            {icon && (
+              <motion.div 
+                className="rounded-full bg-primary/10 p-2 md:p-3"
+                whileHover={!isDisabled ? { scale: 1.05, rotate: 5 } : undefined}
+                transition={{ type: "spring", stiffness: 400, damping: 17 }}
+              >
+                {icon}
+              </motion.div>
+            )}
             <div className="space-y-0.5 md:space-y-1">
               <div className="flex items-center gap-2">
                 <h3 className="text-base md:text-lg font-semibold text-foreground">{title}</h3>
