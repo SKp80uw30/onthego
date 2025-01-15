@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { CheckCircle2 } from 'lucide-react';
 
 interface OnboardingCardProps {
-  title: string;
+  title: React.ReactNode;  // Changed from string to ReactNode
   description: string;
   icon?: React.ReactNode;
   children?: React.ReactNode;
