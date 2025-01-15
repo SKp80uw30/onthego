@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const RETRY_AFTER_DEFAULT = 30; // Default retry after 30 seconds if not specified
+const RETRY_AFTER_DEFAULT = 30;
 const MAX_RETRIES = 3;
 
 async function wait(seconds: number) {
@@ -15,6 +15,7 @@ async function wait(seconds: number) {
 
 async function fetchSlackUsers(botToken: string, retryCount = 0): Promise<any> {
   try {
+    console.log('Fetching users from Slack API...');
     const response = await fetch('https://slack.com/api/users.list', {
       headers: {
         'Authorization': `Bearer ${botToken}`,
@@ -31,6 +32,7 @@ async function fetchSlackUsers(botToken: string, retryCount = 0): Promise<any> {
 
     const data = await response.json();
     if (!data.ok) {
+      console.error('Slack API error:', data.error);
       throw new Error(`Slack API error: ${data.error}`);
     }
 
@@ -38,7 +40,7 @@ async function fetchSlackUsers(botToken: string, retryCount = 0): Promise<any> {
   } catch (error) {
     if (retryCount < MAX_RETRIES) {
       console.log(`Error occurred, retrying (${retryCount + 1}/${MAX_RETRIES})`);
-      await wait(Math.pow(2, retryCount)); // Exponential backoff
+      await wait(Math.pow(2, retryCount));
       return fetchSlackUsers(botToken, retryCount + 1);
     }
     throw error;
@@ -80,6 +82,11 @@ serve(async (req) => {
     const data = await fetchSlackUsers(slackAccount.slack_bot_token);
     console.log(`Found ${data.members.length} total Slack users`);
 
+    // Log sample of raw data (first user)
+    if (data.members.length > 0) {
+      console.log('Sample raw user data:', JSON.stringify(data.members[0], null, 2));
+    }
+
     const users = data.members
       .filter((member: any) => !member.is_bot && !member.deleted && !member.is_restricted)
       .map((member: any) => ({
@@ -92,6 +99,7 @@ serve(async (req) => {
       }));
 
     console.log(`Processing ${users.length} active human users`);
+    console.log('Processed users data:', JSON.stringify(users, null, 2));
 
     const { error: upsertError } = await supabase
       .from('slack_dm_users')
@@ -121,6 +129,19 @@ serve(async (req) => {
         console.error('Error deactivating users:', deactivateError);
         throw new Error(`Failed to deactivate old DM users: ${deactivateError.message}`);
       }
+    }
+
+    // Verify stored data
+    const { data: storedUsers, error: fetchError } = await supabase
+      .from('slack_dm_users')
+      .select('*')
+      .eq('slack_account_id', slackAccountId)
+      .eq('is_active', true);
+
+    if (fetchError) {
+      console.error('Error fetching stored users:', fetchError);
+    } else {
+      console.log('Stored active users:', JSON.stringify(storedUsers, null, 2));
     }
 
     console.log('Successfully processed all DM users');
