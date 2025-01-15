@@ -46,10 +46,10 @@ export const Header = ({
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-              On-the-Go AI
+              On the Go
             </h1>
             <p className="text-sm md:text-base text-muted-foreground">
-              Manage your Slack messages hands-free with voice commands
+              Manage slack with voice commands on the go
             </p>
           </div>
           <div className="flex flex-col gap-2 items-end">
