@@ -2,12 +2,10 @@ import React from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { User } from 'lucide-react';
+import type { SlackDMUser } from '@/types/slack';
 
 interface ConnectedDMUsersProps {
-  dmUsers: Array<{
-    display_name?: string | null;
-    email?: string | null;
-  }>;
+  dmUsers: SlackDMUser[];
   isLoading: boolean;
   needsReauth?: boolean;
 }
@@ -41,7 +39,7 @@ export const ConnectedDMUsers = ({
     <div className="w-full mt-4">
       <div className="grid grid-cols-1 gap-4">
         <div>
-          <h4 className="text-sm font-medium mb-2">DM Channels</h4>
+          <h4 className="text-sm font-medium mb-2">Available DM Users</h4>
           {activeUsers.length > 0 ? (
             <div className="bg-white/50 rounded-lg p-2">
               <ScrollArea className="h-[180px]">
@@ -61,15 +59,15 @@ export const ConnectedDMUsers = ({
               </ScrollArea>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">No active DM channels yet</p>
+            <p className="text-sm text-muted-foreground">No active DM users available</p>
           )}
         </div>
       </div>
 
       <div className="mt-3">
-        <h4 className="text-sm font-medium mb-1">How to Start a DM</h4>
+        <h4 className="text-sm font-medium mb-1">Direct Messaging</h4>
         <p className="text-sm text-muted-foreground">
-          Type <code className="bg-secondary/50 px-1 rounded">/dm @username message</code> to start a DM conversation.
+          Use voice commands to send direct messages to Slack users
         </p>
       </div>
     </div>
