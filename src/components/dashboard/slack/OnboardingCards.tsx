@@ -51,8 +51,6 @@ export const OnboardingCards = ({
         className="mb-4"
       >
         <OnboardingCard
-          title="Voice Assistant"
-          description="Use voice commands to interact with your Slack workspace"
           icon={<Mic className="h-5 w-5 text-primary" />}
           content={
             isLoadingVapi ? (
