@@ -1,47 +1,40 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-
-export interface SlackChannel {
-  id: string;
-  name: string;
-}
+import type { SlackChannel } from '@/types/slack';
 
 export const useSlackChannels = (slackAccountId?: string) => {
-  const { 
-    data: channelsData, 
-    isLoading: isLoadingChannels, 
-    refetch: refetchChannels 
+  const {
+    data: channels,
+    isLoading: isLoadingChannels,
+    refetch: refetchChannels,
   } = useQuery({
     queryKey: ['slack-channels', slackAccountId],
     queryFn: async () => {
       if (!slackAccountId) {
         console.log('No slack account found, skipping channel fetch');
-        return { channels: [] };
+        return [];
       }
       
-      console.log('Fetching channels for account:', slackAccountId);
+      console.log('Fetching Slack channels for account:', slackAccountId);
       const { data, error } = await supabase.functions.invoke('fetch-slack-channels', {
         body: { slackAccountId }
       });
-      
+
       if (error) {
-        console.error('Error fetching channels:', error);
+        console.error('Error fetching Slack channels:', error);
         throw error;
       }
-      
-      console.log('Channels fetched:', data);
-      return data;
+
+      console.log('Channels fetched:', data?.channels?.length);
+      return data.channels as SlackChannel[];
     },
     enabled: Boolean(slackAccountId),
-    refetchInterval: 30000,
   });
 
-  const hasConnectedChannels = !isLoadingChannels && Boolean(channelsData?.channels?.length);
-
   return {
-    channels: channelsData?.channels || [],
+    channels: channels ?? [],
     isLoadingChannels,
-    hasConnectedChannels,
     refetchChannels,
+    hasConnectedChannels: (channels?.length ?? 0) > 0,
   };
 };

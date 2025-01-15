@@ -6,8 +6,7 @@ export const useSlackDMUsers = (slackAccountId?: string) => {
   const {
     data: dmUsers = [],
     isLoading: isLoadingDMUsers,
-    error: dmError,
-    refetch: refetchDMUsers
+    refetch: refetchDMUsers,
   } = useQuery({
     queryKey: ['slack-dm-users', slackAccountId],
     queryFn: async () => {
@@ -16,11 +15,10 @@ export const useSlackDMUsers = (slackAccountId?: string) => {
         return [];
       }
 
-      console.log('Starting DM users fetch for account:', slackAccountId);
-      
       try {
-        // First, trigger the edge function to update DM users
-        console.log('Calling fetch-slack-dms Edge Function...');
+        console.log('Starting DM users fetch process for account:', slackAccountId);
+        
+        // First trigger the edge function to update DM users
         const { data: functionData, error: functionError } = await supabase.functions.invoke('fetch-slack-dms', {
           body: { slackAccountId }
         });
@@ -30,7 +28,10 @@ export const useSlackDMUsers = (slackAccountId?: string) => {
           throw functionError;
         }
 
-        console.log('Edge function response:', functionData);
+        console.log('Edge function completed successfully:', functionData);
+
+        // Add a small delay to ensure the database has been updated
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         // Then fetch the updated users from the database
         console.log('Fetching updated DM users from database...');
@@ -46,21 +47,19 @@ export const useSlackDMUsers = (slackAccountId?: string) => {
           throw error;
         }
 
-        console.log(`Found ${data?.length} active DM users`);
+        console.log(`Found ${data?.length} active DM users in database`);
         return data as SlackDMUser[];
       } catch (error) {
-        console.error('Error in useSlackDMUsers:', error);
+        console.error('Error in DM users fetch process:', error);
         throw error;
       }
     },
     enabled: Boolean(slackAccountId),
-    refetchInterval: 30000, // Refetch every 30 seconds
   });
 
   return {
     dmUsers,
     isLoadingDMUsers,
-    dmError,
     refetchDMUsers,
   };
 };
