@@ -230,8 +230,10 @@ export type Database = {
           created_at: string | null
           display_name: string | null
           email: string | null
+          error_log: string | null
           id: string
           is_active: boolean | null
+          last_fetched: string | null
           slack_account_id: string | null
           slack_user_id: string
         }
@@ -239,8 +241,10 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           email?: string | null
+          error_log?: string | null
           id?: string
           is_active?: boolean | null
+          last_fetched?: string | null
           slack_account_id?: string | null
           slack_user_id: string
         }
@@ -248,8 +252,10 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           email?: string | null
+          error_log?: string | null
           id?: string
           is_active?: boolean | null
+          last_fetched?: string | null
           slack_account_id?: string | null
           slack_user_id?: string
         }
