@@ -53,14 +53,14 @@ export const ConnectedChannels = ({ channels = [], isLoading = false, needsReaut
   const memberChannels = channels.filter(c => c.is_member);
 
   return (
-    <div className="w-full mt-4">
-      <div className="grid grid-cols-1 gap-6">
+    <div className="w-full mt-2">
+      <div className="grid grid-cols-1 gap-3">
         <div>
-          <h4 className="text-sm font-medium mb-3">Member Channels</h4>
+          <h4 className="text-sm font-medium mb-2">Member Channels</h4>
           {memberChannels.length > 0 ? (
-            <div className="bg-white/50 rounded-lg p-4">
-              <ScrollArea className="h-[200px]">
-                <ul className="space-y-2">
+            <div className="bg-white/50 rounded-lg p-3">
+              <ScrollArea className="h-[180px]">
+                <ul className="space-y-1.5">
                   {memberChannels.map((channel) => (
                     <li key={channel.name} className="flex items-center gap-2 text-sm">
                       {getChannelIcon(channel)}
@@ -76,11 +76,11 @@ export const ConnectedChannels = ({ channels = [], isLoading = false, needsReaut
         </div>
 
         <div>
-          <h4 className="text-sm font-medium mb-3">Available Channels</h4>
+          <h4 className="text-sm font-medium mb-2">Available Channels</h4>
           {availableChannels.length > 0 ? (
-            <div className="bg-white/50 rounded-lg p-4">
-              <ScrollArea className="h-[200px]">
-                <ul className="space-y-2">
+            <div className="bg-white/50 rounded-lg p-3">
+              <ScrollArea className="h-[180px]">
+                <ul className="space-y-1.5">
                   {availableChannels.map((channel) => (
                     <li key={channel.name} className="flex items-center gap-2 text-sm">
                       {getChannelIcon(channel)}
@@ -96,8 +96,8 @@ export const ConnectedChannels = ({ channels = [], isLoading = false, needsReaut
         </div>
       </div>
 
-      <div className="mt-4">
-        <h4 className="text-sm font-medium mb-2">How to Install</h4>
+      <div className="mt-3">
+        <h4 className="text-sm font-medium mb-1">How to Install</h4>
         <p className="text-sm text-muted-foreground">
           Type <code className="bg-secondary/50 px-1 rounded">/invite @onthego</code> in any channel to install.
         </p>
