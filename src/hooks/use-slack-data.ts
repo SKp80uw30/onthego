@@ -51,29 +51,16 @@ export const useSlackData = () => {
     enabled: !!slackAccounts?.[0]?.id,
   });
 
-  // Fetch DM users with explicit Edge Function call
+  // Fetch DM users
   const {
     data: dmUsers,
     isLoading: isLoadingDMUsers,
-    refetch: refetchDMUsers,
   } = useQuery({
     queryKey: ['slack-dm-users'],
     queryFn: async () => {
       if (!slackAccounts?.[0]?.id) return [];
 
       console.log('Fetching Slack DM users...');
-      
-      // First call the Edge Function to update DM users
-      const { error: fetchError } = await supabase.functions.invoke('fetch-slack-dms', {
-        body: { slackAccountId: slackAccounts[0].id }
-      });
-
-      if (fetchError) {
-        console.error('Error updating DM users:', fetchError);
-        throw fetchError;
-      }
-
-      // Then fetch the updated users from the database
       const { data, error } = await supabase
         .from('slack_dm_users')
         .select('*')
@@ -81,11 +68,10 @@ export const useSlackData = () => {
         .eq('is_active', true);
 
       if (error) {
-        console.error('Error fetching DM users from database:', error);
+        console.error('Error fetching Slack DM users:', error);
         throw error;
       }
 
-      console.log(`Found ${data?.length} active DM users`);
       return data as SlackDMUser[];
     },
     enabled: !!slackAccounts?.[0]?.id,
@@ -98,12 +84,11 @@ export const useSlackData = () => {
         console.log('Refetching Slack data...');
         refetchSlackAccounts();
         refetchChannels();
-        refetchDMUsers();
       }
     }, 30000); // Refetch every 30 seconds
 
     return () => clearInterval(interval);
-  }, [slackAccounts, refetchSlackAccounts, refetchChannels, refetchDMUsers]);
+  }, [slackAccounts, refetchSlackAccounts, refetchChannels]);
 
   const currentAccount = slackAccounts?.[0];
   
@@ -120,6 +105,5 @@ export const useSlackData = () => {
     dmUsers: dmUsers ?? [],
     refetchSlackAccounts,
     refetchChannels,
-    refetchDMUsers,
   };
 };
