@@ -33,16 +33,17 @@ export const useSlackData = () => {
     isLoading: isLoadingChannels,
     refetch: refetchChannels,
   } = useQuery({
-    queryKey: ['slack-channels'],
+    queryKey: ['slack-channels', slackAccounts?.[0]?.id],
     queryFn: async () => {
-      if (!slackAccounts?.[0]?.id) {
+      const slackAccountId = slackAccounts?.[0]?.id;
+      if (!slackAccountId) {
         console.log('No slack account found, skipping channel fetch');
         return [];
       }
       
-      console.log('Fetching Slack channels for account:', slackAccounts[0].id);
+      console.log('Fetching Slack channels for account:', slackAccountId);
       const { data, error } = await supabase.functions.invoke('fetch-slack-channels', {
-        body: { slackAccountId: slackAccounts[0].id }
+        body: { slackAccountId }
       });
 
       if (error) {
@@ -61,22 +62,36 @@ export const useSlackData = () => {
     data: dmUsers,
     isLoading: isLoadingDMUsers,
   } = useQuery({
-    queryKey: ['slack-dm-users'],
+    queryKey: ['slack-dm-users', slackAccounts?.[0]?.id],
     queryFn: async () => {
-      if (!slackAccounts?.[0]?.id) {
+      const slackAccountId = slackAccounts?.[0]?.id;
+      if (!slackAccountId) {
         console.log('No slack account found, skipping DM users fetch');
         return [];
       }
 
-      console.log('Fetching Slack DM users for account:', slackAccounts[0].id);
+      console.log('Fetching Slack DM users for account:', slackAccountId);
+      const { data: functionData, error: functionError } = await supabase.functions.invoke('fetch-slack-dms', {
+        body: { slackAccountId }
+      });
+
+      if (functionError) {
+        console.error('Error in fetch-slack-dms function:', functionError);
+        throw functionError;
+      }
+
+      console.log('Edge function response:', functionData);
+
+      // Fetch the updated users from the database
       const { data, error } = await supabase
         .from('slack_dm_users')
         .select('*')
-        .eq('slack_account_id', slackAccounts[0].id)
-        .eq('is_active', true);
+        .eq('slack_account_id', slackAccountId)
+        .eq('is_active', true)
+        .order('display_name');
 
       if (error) {
-        console.error('Error fetching Slack DM users:', error);
+        console.error('Error fetching DM users from database:', error);
         throw error;
       }
 
