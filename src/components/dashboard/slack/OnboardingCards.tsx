@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { SlackChannelsCard } from './SlackChannelsCard';
 import { SlackDMUsersCard } from './SlackDMUsersCard';
 import { VapiSection } from '../vapi/VapiSection';
-import type { SlackChannel, SlackDMUser } from '@/hooks/use-slack-data';
+import type { SlackChannel, SlackDMUser } from '@/types/slack';
 
 interface OnboardingCardsProps {
   isLoadingAccounts: boolean;

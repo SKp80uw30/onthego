@@ -2,7 +2,7 @@ import React from 'react';
 import { User } from 'lucide-react';
 import { OnboardingCard } from '@/components/OnboardingCard';
 import { ConnectedDMUsers } from '@/components/slack/ConnectedDMUsers';
-import type { SlackDMUser } from '@/hooks/use-slack-data';
+import type { SlackDMUser } from '@/types/slack';
 
 interface SlackDMUsersCardProps {
   dmUsers: SlackDMUser[];
@@ -25,7 +25,7 @@ export const SlackDMUsersCard = ({
       }
       description={needsReauth 
         ? "Please reconnect to Slack to view DM users" 
-        : "Users you can message directly through onthego"}
+        : "Send direct messages through voice commands"}
       isDisabled={needsReauth}
       content={
         <ConnectedDMUsers 
