@@ -2,8 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SlackChannelsCard } from './SlackChannelsCard';
 import { SlackDMUsersCard } from './SlackDMUsersCard';
-import { VapiFrame } from '@/components/vapi/VapiFrame';
-import { OnboardingCard } from '@/components/OnboardingCard';
+import { VapiSection } from '../vapi/VapiSection';
 import type { SlackChannel, SlackDMUser } from '@/hooks/use-slack-data';
 
 interface OnboardingCardsProps {
@@ -40,46 +39,12 @@ export const OnboardingCards = ({
 }: OnboardingCardsProps) => {
   return (
     <AnimatePresence mode="popLayout">
-      {/* VAPI Integration */}
-      <motion.div
-        layout
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -20 }}
-        transition={{ duration: 0.4 }}
-        className="mb-4"
-      >
-        <OnboardingCard
-          title=""
-          description=""
-          content={
-            isLoadingVapi ? (
-              <div className="text-center p-8">
-                <h3 className="text-lg font-semibold mb-2">Loading Voice Assistant...</h3>
-              </div>
-            ) : vapiError ? (
-              <div className="text-center p-8">
-                <h3 className="text-lg font-semibold mb-2">Voice Assistant Error</h3>
-                <p className="text-muted-foreground">{vapiError.message}</p>
-              </div>
-            ) : vapiKeys ? (
-              <VapiFrame 
-                apiKey={vapiKeys.VAPI_PUBLIC_KEY}
-                assistantId={vapiKeys.VAPI_ASSISTANT_KEY}
-              />
-            ) : (
-              <div className="text-center p-8">
-                <h3 className="text-lg font-semibold mb-2">Voice Assistant</h3>
-                <p className="text-muted-foreground">
-                  Failed to load VAPI configuration
-                </p>
-              </div>
-            )
-          }
-        />
-      </motion.div>
+      <VapiSection 
+        vapiKeys={vapiKeys}
+        isLoadingVapi={isLoadingVapi}
+        vapiError={vapiError}
+      />
 
-      {/* Slack Channels and DM Users */}
       <motion.div
         layout
         initial={{ opacity: 0, y: 20 }}
