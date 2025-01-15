@@ -1,7 +1,7 @@
 import React from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { User } from 'lucide-react';
+import { User, MessageCircle } from 'lucide-react';
 
 interface ConnectedDMUsersProps {
   dmUsers: Array<{
@@ -35,29 +35,64 @@ export const ConnectedDMUsers = ({
     );
   }
 
-  if (!dmUsers?.length) {
-    return (
-      <div className="text-sm text-muted-foreground">
-        No DM users connected yet. Users will appear here when you interact with them through onthego.
-      </div>
-    );
-  }
+  const activeUsers = dmUsers.filter(user => user.display_name || user.email);
+  const availableUsers = dmUsers.filter(user => !(user.display_name || user.email));
 
   return (
-    <ScrollArea className="h-[120px] rounded-md border p-2">
-      <div className="space-y-2">
-        {dmUsers.map((user, index) => (
-          <div
-            key={index}
-            className="flex items-center space-x-2 rounded-lg border border-border/50 bg-background/50 p-2"
-          >
-            <User className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm">
-              {user.display_name || user.email || 'Unknown User'}
-            </span>
-          </div>
-        ))}
+    <div className="w-full mt-4">
+      <div className="grid grid-cols-1 gap-6">
+        <div>
+          <h4 className="text-sm font-medium mb-3">DM Channels</h4>
+          {activeUsers.length > 0 ? (
+            <div className="bg-white/50 rounded-lg p-4">
+              <ScrollArea className="h-[200px]">
+                <div className="space-y-2">
+                  {activeUsers.map((user, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center space-x-2 rounded-lg border border-border/50 bg-background/50 p-2"
+                    >
+                      <MessageCircle className="h-4 w-4 text-primary" />
+                      <span className="text-sm">
+                        {user.display_name || user.email || 'Unknown User'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No active DM channels yet</p>
+          )}
+        </div>
+
+        <div>
+          <h4 className="text-sm font-medium mb-3">DM Channels Available</h4>
+          {availableUsers.length > 0 ? (
+            <div className="bg-white/50 rounded-lg p-4">
+              <ScrollArea className="h-[200px]">
+                <div className="space-y-2">
+                  {availableUsers.map((user, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center space-x-2 rounded-lg border border-border/50 bg-background/50 p-2"
+                    >
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">
+                        {user.display_name || user.email || 'Unknown User'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No additional DM channels available
+            </p>
+          )}
+        </div>
       </div>
-    </ScrollArea>
+    </div>
   );
 };

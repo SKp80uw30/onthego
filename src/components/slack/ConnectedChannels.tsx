@@ -1,8 +1,7 @@
 import React from 'react';
-import { MessageSquare, Lock, AlertCircle } from 'lucide-react';
+import { MessageSquare, Lock } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface Channel {
   name: string;
@@ -54,15 +53,8 @@ export const ConnectedChannels = ({ channels = [], isLoading = false, needsReaut
   const memberChannels = channels.filter(c => c.is_member);
 
   return (
-    <div className="w-full mt-8">
-      <Alert className="mb-4">
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          <strong>Important:</strong> The bot can only be used in channels, not in direct messages (DMs). Use <code className="bg-secondary/50 px-1 rounded">/invite @onthego</code> in the channels where you want to use it.
-        </AlertDescription>
-      </Alert>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="w-full mt-4">
+      <div className="grid grid-cols-1 gap-6">
         <div>
           <h4 className="text-sm font-medium mb-3">Member Channels</h4>
           {memberChannels.length > 0 ? (
@@ -107,7 +99,7 @@ export const ConnectedChannels = ({ channels = [], isLoading = false, needsReaut
       <div className="mt-4">
         <h4 className="text-sm font-medium mb-2">How to Install</h4>
         <p className="text-sm text-muted-foreground">
-          Onthego must be invited to each channel you wish to use it in. Type <code className="bg-secondary/50 px-1 rounded">/invite @onthego</code> in any channel to install.
+          Type <code className="bg-secondary/50 px-1 rounded">/invite @onthego</code> in any channel to install.
         </p>
       </div>
     </div>

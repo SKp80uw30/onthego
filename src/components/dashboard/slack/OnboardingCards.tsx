@@ -40,19 +40,19 @@ export const OnboardingCards = ({
         workspaceName={workspaceName}
         needsReauth={needsReauth}
       />,
-      <SlackChannelsCard
-        key="slack-channels"
-        hasConnectedChannels={hasConnectedChannels}
-        channels={channels}
-        isLoading={isLoadingAccounts || isLoadingChannels}
-        needsReauth={needsReauth}
-      />,
-      <SlackDMUsersCard
-        key="slack-dm-users"
-        dmUsers={dmUsers}
-        isLoading={isLoadingAccounts || isLoadingDMUsers}
-        needsReauth={needsReauth}
-      />,
+      <div key="channels-and-dms" className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <SlackChannelsCard
+          hasConnectedChannels={hasConnectedChannels}
+          channels={channels}
+          isLoading={isLoadingAccounts || isLoadingChannels}
+          needsReauth={needsReauth}
+        />
+        <SlackDMUsersCard
+          dmUsers={dmUsers}
+          isLoading={isLoadingAccounts || isLoadingDMUsers}
+          needsReauth={needsReauth}
+        />
+      </div>,
       <ChatNavigationCard
         key="chat-navigation"
         hasValidSlackAccount={hasValidSlackAccount}
