@@ -14,7 +14,7 @@ export const initiateSlackOAuth = async (needsReauth: boolean = false) => {
     
     console.log('Using redirect URI:', redirectUri);
     
-    const scope = 'channels:history,channels:read,chat:write,users:read,channels:join,groups:read';
+    const scope = 'channels:history,channels:read,chat:write,users:read,channels:join,groups:read,im:history,im:write';
     
     const state = Math.random().toString(36).substring(7);
     localStorage.setItem('slack_oauth_state', state);
