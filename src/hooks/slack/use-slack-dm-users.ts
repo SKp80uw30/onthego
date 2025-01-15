@@ -16,18 +16,20 @@ export const useSlackDMUsers = (slackAccountId?: string) => {
         return [];
       }
 
-      console.log('Fetching DM users for account:', slackAccountId);
+      console.log('Starting DM users fetch for account:', slackAccountId);
       
       // First, trigger the edge function to update DM users
       console.log('Calling fetch-slack-dms Edge Function...');
-      const { error: fetchError } = await supabase.functions.invoke('fetch-slack-dms', {
+      const { data: functionData, error: functionError } = await supabase.functions.invoke('fetch-slack-dms', {
         body: { slackAccountId }
       });
 
-      if (fetchError) {
-        console.error('Error fetching DM users:', fetchError);
-        throw fetchError;
+      if (functionError) {
+        console.error('Error in fetch-slack-dms function:', functionError);
+        throw functionError;
       }
+
+      console.log('Edge function response:', functionData);
 
       // Then fetch the updated users from the database
       console.log('Fetching updated DM users from database...');
