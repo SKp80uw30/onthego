@@ -64,7 +64,7 @@ export const ConnectedChannels = ({ channels = [], isLoading = false, needsReaut
                   {memberChannels.map((channel) => (
                     <li key={channel.name} className="flex items-center gap-2 text-sm">
                       {getChannelIcon(channel)}
-                      <span>{getDisplayName(channel)}</span>
+                      <span className="truncate">{getDisplayName(channel)}</span>
                     </li>
                   ))}
                 </ul>
@@ -84,7 +84,7 @@ export const ConnectedChannels = ({ channels = [], isLoading = false, needsReaut
                   {availableChannels.map((channel) => (
                     <li key={channel.name} className="flex items-center gap-2 text-sm">
                       {getChannelIcon(channel)}
-                      <span>{getDisplayName(channel)}</span>
+                      <span className="truncate">{getDisplayName(channel)}</span>
                     </li>
                   ))}
                 </ul>

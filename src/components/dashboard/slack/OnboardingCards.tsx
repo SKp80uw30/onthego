@@ -86,9 +86,9 @@ export const OnboardingCards = ({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
         transition={{ duration: 0.4, delay: 0.2 }}
-        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+        className="grid grid-cols-2 gap-4"
       >
-        <div className="space-y-4">
+        <div className="min-w-0">
           <SlackChannelsCard
             hasConnectedChannels={hasConnectedChannels}
             channels={channels}
@@ -96,7 +96,7 @@ export const OnboardingCards = ({
             needsReauth={needsReauth}
           />
         </div>
-        <div className="space-y-4">
+        <div className="min-w-0">
           <SlackDMUsersCard
             dmUsers={dmUsers}
             isLoading={isLoadingAccounts || isLoadingDMUsers}

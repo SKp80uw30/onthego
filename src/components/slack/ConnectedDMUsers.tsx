@@ -52,8 +52,8 @@ export const ConnectedDMUsers = ({
                       key={index}
                       className="flex items-center space-x-2 rounded-lg border border-border/50 bg-background/50 p-2"
                     >
-                      <MessageCircle className="h-4 w-4 text-primary" />
-                      <span className="text-sm">
+                      <MessageCircle className="h-4 w-4 text-primary flex-shrink-0" />
+                      <span className="truncate text-sm">
                         {user.display_name || user.email || 'Unknown User'}
                       </span>
                     </div>
@@ -77,8 +77,8 @@ export const ConnectedDMUsers = ({
                       key={index}
                       className="flex items-center space-x-2 rounded-lg border border-border/50 bg-background/50 p-2"
                     >
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">
+                      <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span className="truncate text-sm">
                         {user.display_name || user.email || 'Unknown User'}
                       </span>
                     </div>
