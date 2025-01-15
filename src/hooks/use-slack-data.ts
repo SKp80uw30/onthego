@@ -124,7 +124,7 @@ export const useSlackData = (): UseSlackDataReturn => {
       return data || [];
     },
     enabled: Boolean(slackAccounts?.[0]?.id),
-    refetchInterval: 30000,
+    refetchInterval: 30000, // Refetch every 30 seconds
   });
 
   const hasValidSlackAccount = !isLoadingAccounts && Boolean(slackAccounts?.length);
