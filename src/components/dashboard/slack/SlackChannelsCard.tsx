@@ -18,11 +18,15 @@ export const SlackChannelsCard = ({
 }: SlackChannelsCardProps) => {
   return (
     <OnboardingCard
-      title="Slack Channels"
+      title={
+        <div className="flex flex-col items-start gap-1">
+          <MessageSquare className="h-5 w-5 md:h-6 md:w-6 text-primary" />
+          <span>Slack Channels</span>
+        </div>
+      }
       description={needsReauth 
         ? "Please reconnect to Slack to view channels" 
         : "Manage your connected Slack channels"}
-      icon={<MessageSquare className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
       isCompleted={hasConnectedChannels}
       isDisabled={needsReauth}
       content={

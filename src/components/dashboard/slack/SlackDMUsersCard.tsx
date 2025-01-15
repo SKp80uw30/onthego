@@ -17,11 +17,15 @@ export const SlackDMUsersCard = ({
 }: SlackDMUsersCardProps) => {
   return (
     <OnboardingCard
-      title="Direct Messages"
+      title={
+        <div className="flex flex-col items-start gap-1">
+          <User className="h-5 w-5 md:h-6 md:w-6 text-primary" />
+          <span>Direct Messages</span>
+        </div>
+      }
       description={needsReauth 
         ? "Please reconnect to Slack to view DM users" 
         : "Users you can message directly through onthego"}
-      icon={<User className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
       isDisabled={needsReauth}
       content={
         <ConnectedDMUsers 

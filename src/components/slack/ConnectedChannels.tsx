@@ -35,13 +35,6 @@ export const ConnectedChannels = ({ channels = [], isLoading = false, needsReaut
     );
   }
 
-  const getChannelIcon = (channel: Channel) => {
-    if (!channel.is_public) {
-      return <Lock className="h-4 w-4 text-primary" />;
-    }
-    return <MessageSquare className="h-4 w-4 text-primary" />;
-  };
-
   const getDisplayName = (channel: Channel) => {
     if (!channel.is_public) {
       return channel.name.replace('private-', '');
@@ -58,13 +51,12 @@ export const ConnectedChannels = ({ channels = [], isLoading = false, needsReaut
         <div>
           <h4 className="text-sm font-medium mb-2">Member Channels</h4>
           {memberChannels.length > 0 ? (
-            <div className="bg-white/50 rounded-lg p-3">
+            <div className="bg-white/50 rounded-lg p-2">
               <ScrollArea className="h-[180px]">
-                <ul className="space-y-1.5">
+                <ul className="space-y-1">
                   {memberChannels.map((channel) => (
-                    <li key={channel.name} className="flex items-center gap-2 text-sm">
-                      {getChannelIcon(channel)}
-                      <span className="truncate">{getDisplayName(channel)}</span>
+                    <li key={channel.name} className="text-sm truncate px-2 py-1">
+                      {getDisplayName(channel)}
                     </li>
                   ))}
                 </ul>
@@ -78,13 +70,12 @@ export const ConnectedChannels = ({ channels = [], isLoading = false, needsReaut
         <div>
           <h4 className="text-sm font-medium mb-2">Available Channels</h4>
           {availableChannels.length > 0 ? (
-            <div className="bg-white/50 rounded-lg p-3">
+            <div className="bg-white/50 rounded-lg p-2">
               <ScrollArea className="h-[180px]">
-                <ul className="space-y-1.5">
+                <ul className="space-y-1">
                   {availableChannels.map((channel) => (
-                    <li key={channel.name} className="flex items-center gap-2 text-sm">
-                      {getChannelIcon(channel)}
-                      <span className="truncate">{getDisplayName(channel)}</span>
+                    <li key={channel.name} className="text-sm truncate px-2 py-1">
+                      {getDisplayName(channel)}
                     </li>
                   ))}
                 </ul>
