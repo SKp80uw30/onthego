@@ -19,6 +19,7 @@ export const useSlackDMUsers = (slackAccountId?: string) => {
       console.log('Fetching DM users for account:', slackAccountId);
       
       // First, trigger the edge function to update DM users
+      console.log('Calling fetch-slack-dms Edge Function...');
       const { error: fetchError } = await supabase.functions.invoke('fetch-slack-dms', {
         body: { slackAccountId }
       });
@@ -29,6 +30,7 @@ export const useSlackDMUsers = (slackAccountId?: string) => {
       }
 
       // Then fetch the updated users from the database
+      console.log('Fetching updated DM users from database...');
       const { data, error } = await supabase
         .from('slack_dm_users')
         .select('*')
@@ -41,7 +43,7 @@ export const useSlackDMUsers = (slackAccountId?: string) => {
         throw error;
       }
 
-      console.log('DM users fetched:', data?.length);
+      console.log(`Found ${data?.length} active DM users`);
       return data as SlackDMUser[];
     },
     enabled: Boolean(slackAccountId),
