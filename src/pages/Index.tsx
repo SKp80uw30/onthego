@@ -3,12 +3,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
 import { LoginForm } from '@/components/auth/LoginForm';
-import { Header } from '@/components/dashboard/Header';
 import { OnboardingSection } from '@/components/dashboard/OnboardingSection';
+import { useSlackData } from '@/hooks/use-slack-data';
 
 const Index = () => {
   const [session, setSession] = useState(null);
   const isMobile = useIsMobile();
+  const {
+    isLoadingAccounts,
+    hasValidSlackAccount,
+    workspaceName,
+    needsReauth,
+  } = useSlackData();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -38,7 +44,6 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-secondary/20">
       <div className="container mx-auto px-4 py-6 md:py-8">
-        <Header />
         <OnboardingSection />
       </div>
     </div>
