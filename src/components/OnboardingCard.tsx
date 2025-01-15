@@ -1,10 +1,12 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { CheckCircle2 } from 'lucide-react';
+import { CardIcon } from './card/CardIcon';
+import { CardTitle } from './card/CardTitle';
+import { CardContent } from './card/CardContent';
 
 interface OnboardingCardProps {
-  title: React.ReactNode;  // Changed from string to ReactNode
+  title: React.ReactNode;
   description: string;
   icon?: React.ReactNode;
   children?: React.ReactNode;
@@ -48,32 +50,9 @@ export const OnboardingCard = ({
       <div className="space-y-4">
         <div className="flex items-start justify-between space-x-3 md:space-x-4">
           <div className="flex items-start space-x-3 md:space-x-4 flex-grow">
-            {icon && (
-              <motion.div 
-                className="rounded-full bg-primary/10 p-2 md:p-3"
-                whileHover={!isDisabled ? { scale: 1.05, rotate: 5 } : undefined}
-                transition={{ type: "spring", stiffness: 400, damping: 17 }}
-              >
-                {icon}
-              </motion.div>
-            )}
+            {icon && <CardIcon icon={icon} isDisabled={isDisabled} />}
             <div className="space-y-0.5 md:space-y-1">
-              <div className="flex items-center gap-2">
-                <h3 className="text-base md:text-lg font-semibold text-foreground">{title}</h3>
-                {isCompleted && (
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{
-                      type: "spring",
-                      stiffness: 400,
-                      damping: 17
-                    }}
-                  >
-                    <CheckCircle2 className="h-5 w-5 text-green-500" />
-                  </motion.div>
-                )}
-              </div>
+              <CardTitle title={title} isCompleted={isCompleted} />
               <p className="text-sm text-muted-foreground">{description}</p>
             </div>
           </div>
@@ -89,16 +68,7 @@ export const OnboardingCard = ({
           )}
         </div>
         
-        {content && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="w-full"
-          >
-            {content}
-          </motion.div>
-        )}
+        {content && <CardContent content={content} />}
       </div>
     </motion.div>
   );
