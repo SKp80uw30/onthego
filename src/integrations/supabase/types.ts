@@ -225,6 +225,44 @@ export type Database = {
           },
         ]
       }
+      slack_dm_users: {
+        Row: {
+          created_at: string | null
+          display_name: string | null
+          email: string | null
+          id: string
+          is_active: boolean | null
+          slack_account_id: string | null
+          slack_user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          slack_account_id?: string | null
+          slack_user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          slack_account_id?: string | null
+          slack_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slack_dm_users_slack_account_id_fkey"
+            columns: ["slack_account_id"]
+            isOneToOne: false
+            referencedRelation: "slack_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           created_at: string | null

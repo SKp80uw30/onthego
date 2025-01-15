@@ -6,12 +6,14 @@ export const OnboardingSection = () => {
   const {
     isLoadingAccounts,
     isLoadingChannels,
+    isLoadingDMUsers,
     hasValidSlackAccount,
     hasConnectedChannels,
     workspaceName,
     needsReauth,
     isChatActive,
     channels,
+    dmUsers,
     refetchSlackAccounts,
     refetchChannels,
   } = useSlackData();
@@ -34,12 +36,14 @@ export const OnboardingSection = () => {
       <OnboardingCards
         isLoadingAccounts={isLoadingAccounts}
         isLoadingChannels={isLoadingChannels}
+        isLoadingDMUsers={isLoadingDMUsers}
         hasValidSlackAccount={hasValidSlackAccount}
         hasConnectedChannels={hasConnectedChannels}
         workspaceName={workspaceName}
         needsReauth={needsReauth}
         isChatActive={isChatActive}
         channels={channels}
+        dmUsers={dmUsers}
       />
     </div>
   );

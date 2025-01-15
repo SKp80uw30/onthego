@@ -2,29 +2,34 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ConnectSlackCard } from './ConnectSlackCard';
 import { SlackChannelsCard } from './SlackChannelsCard';
+import { SlackDMUsersCard } from './SlackDMUsersCard';
 import { ChatNavigationCard } from './ChatNavigationCard';
-import type { SlackChannel } from '@/hooks/use-slack-data';
+import type { SlackChannel, SlackDMUser } from '@/hooks/use-slack-data';
 
 interface OnboardingCardsProps {
   isLoadingAccounts: boolean;
   isLoadingChannels: boolean;
+  isLoadingDMUsers: boolean;
   hasValidSlackAccount: boolean;
   hasConnectedChannels: boolean;
   workspaceName?: string;
   needsReauth?: boolean;
   isChatActive: boolean;
   channels: SlackChannel[];
+  dmUsers: SlackDMUser[];
 }
 
 export const OnboardingCards = ({
   isLoadingAccounts,
   isLoadingChannels,
+  isLoadingDMUsers,
   hasValidSlackAccount,
   hasConnectedChannels,
   workspaceName,
   needsReauth,
   isChatActive,
   channels,
+  dmUsers,
 }: OnboardingCardsProps) => {
   const renderCards = () => {
     const cards = [
@@ -40,6 +45,12 @@ export const OnboardingCards = ({
         hasConnectedChannels={hasConnectedChannels}
         channels={channels}
         isLoading={isLoadingAccounts || isLoadingChannels}
+        needsReauth={needsReauth}
+      />,
+      <SlackDMUsersCard
+        key="slack-dm-users"
+        dmUsers={dmUsers}
+        isLoading={isLoadingAccounts || isLoadingDMUsers}
         needsReauth={needsReauth}
       />,
       <ChatNavigationCard

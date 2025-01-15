@@ -13,11 +13,18 @@ export interface SlackChannel {
   name: string;
 }
 
+export interface SlackDMUser {
+  display_name?: string | null;
+  email?: string | null;
+}
+
 export interface UseSlackDataReturn {
   slackAccounts: SlackAccount[];
   channels: SlackChannel[];
+  dmUsers: SlackDMUser[];
   isLoadingAccounts: boolean;
   isLoadingChannels: boolean;
+  isLoadingDMUsers: boolean;
   hasValidSlackAccount: boolean;
   hasConnectedChannels: boolean;
   workspaceName?: string;
@@ -25,6 +32,7 @@ export interface UseSlackDataReturn {
   isChatActive: boolean;
   refetchSlackAccounts: () => Promise<any>;
   refetchChannels: () => Promise<any>;
+  refetchDMUsers: () => Promise<any>;
 }
 
 export const useSlackData = (): UseSlackDataReturn => {
@@ -88,13 +96,43 @@ export const useSlackData = (): UseSlackDataReturn => {
     refetchInterval: 30000,
   });
 
+  const {
+    data: dmUsers = [],
+    isLoading: isLoadingDMUsers,
+    refetch: refetchDMUsersOriginal
+  } = useQuery({
+    queryKey: ['slack-dm-users', slackAccounts?.[0]?.id],
+    queryFn: async () => {
+      if (!slackAccounts?.[0]?.id) {
+        console.log('No slack account found, skipping DM users fetch');
+        return [];
+      }
+
+      console.log('Fetching DM users for account:', slackAccounts[0].id);
+      const { data, error } = await supabase
+        .from('slack_dm_users')
+        .select('display_name, email')
+        .eq('slack_account_id', slackAccounts[0].id)
+        .eq('is_active', true);
+
+      if (error) {
+        console.error('Error fetching DM users:', error);
+        throw error;
+      }
+
+      console.log('DM users fetched:', data);
+      return data || [];
+    },
+    enabled: Boolean(slackAccounts?.[0]?.id),
+    refetchInterval: 30000,
+  });
+
   const hasValidSlackAccount = !isLoadingAccounts && Boolean(slackAccounts?.length);
   const hasConnectedChannels = !isLoadingChannels && Boolean(channelsData?.channels?.length);
   const workspaceName = slackAccounts?.[0]?.slack_workspace_name;
   const needsReauth = slackAccounts?.[0]?.needs_reauth;
   const isChatActive = hasValidSlackAccount && hasConnectedChannels && !needsReauth;
 
-  // Wrap the refetch functions to match our interface
   const refetchSlackAccounts = async () => {
     await refetchSlackAccountsOriginal();
   };
@@ -103,11 +141,17 @@ export const useSlackData = (): UseSlackDataReturn => {
     await refetchChannelsOriginal();
   };
 
+  const refetchDMUsers = async () => {
+    await refetchDMUsersOriginal();
+  };
+
   return {
     slackAccounts,
     channels: channelsData?.channels || [],
+    dmUsers,
     isLoadingAccounts,
     isLoadingChannels,
+    isLoadingDMUsers,
     hasValidSlackAccount,
     hasConnectedChannels,
     workspaceName,
@@ -115,5 +159,6 @@ export const useSlackData = (): UseSlackDataReturn => {
     isChatActive,
     refetchSlackAccounts,
     refetchChannels,
+    refetchDMUsers,
   };
 };
