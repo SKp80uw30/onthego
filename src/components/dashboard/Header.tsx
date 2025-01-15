@@ -49,7 +49,7 @@ export const Header = ({
               On the Go
             </h1>
             <p className="text-sm md:text-base text-muted-foreground">
-              Manage slack with voice commands on the go
+              Manage slack with<br />commands on the go
             </p>
           </div>
           <div className="flex flex-col gap-2 items-end">
