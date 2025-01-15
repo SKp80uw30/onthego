@@ -29,12 +29,30 @@ export const OnboardingCards = ({
 }: OnboardingCardsProps) => {
   return (
     <AnimatePresence mode="popLayout">
+      {/* VAPI Chat Window Placeholder */}
       <motion.div
         layout
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
         transition={{ duration: 0.4 }}
+        className="mb-4 p-6 rounded-xl bg-white/80 backdrop-blur-sm border border-gray-200 shadow-lg"
+      >
+        <div className="text-center p-8">
+          <h3 className="text-lg font-semibold mb-2">Voice Assistant</h3>
+          <p className="text-muted-foreground">
+            VAPI Chat integration coming soon...
+          </p>
+        </div>
+      </motion.div>
+
+      {/* Slack Channels and DM Users */}
+      <motion.div
+        layout
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        transition={{ duration: 0.4, delay: 0.2 }}
         className="grid grid-cols-1 md:grid-cols-2 gap-4"
       >
         <div className="space-y-4">
@@ -51,23 +69,6 @@ export const OnboardingCards = ({
             isLoading={isLoadingAccounts || isLoadingDMUsers}
             needsReauth={needsReauth}
           />
-        </div>
-      </motion.div>
-      
-      {/* Placeholder for VAPI Chat Window */}
-      <motion.div
-        layout
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -20 }}
-        transition={{ duration: 0.4, delay: 0.2 }}
-        className="mt-4 p-6 rounded-xl bg-white/80 backdrop-blur-sm border border-gray-200 shadow-lg"
-      >
-        <div className="text-center p-8">
-          <h3 className="text-lg font-semibold mb-2">Voice Assistant</h3>
-          <p className="text-muted-foreground">
-            VAPI Chat integration coming soon...
-          </p>
         </div>
       </motion.div>
     </AnimatePresence>
