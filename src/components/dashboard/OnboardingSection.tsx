@@ -4,6 +4,7 @@ import { OnboardingCards } from './slack/OnboardingCards';
 import { Header } from './Header';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useQuery } from '@tanstack/react-query';
 
 export const OnboardingSection = () => {
   const {
@@ -20,6 +21,31 @@ export const OnboardingSection = () => {
     refetchSlackAccounts,
     refetchChannels,
   } = useSlackData();
+
+  const { data: vapiKeys, isLoading: isLoadingVapi, error: vapiError } = useQuery({
+    queryKey: ['vapi-keys'],
+    queryFn: async () => {
+      console.log('Fetching VAPI keys from Edge Function...');
+      const { data, error } = await supabase.functions.invoke('get-vapi-keys');
+      
+      if (error) {
+        console.error('Error fetching VAPI keys:', error);
+        toast.error('Failed to initialize voice service');
+        throw error;
+      }
+      
+      if (!data?.secrets?.VAPI_PUBLIC_KEY || !data?.secrets?.VAPI_ASSISTANT_KEY) {
+        console.error('Missing required VAPI configuration in response:', data);
+        throw new Error('Missing required VAPI configuration');
+      }
+      
+      console.log('VAPI keys fetched successfully');
+      return {
+        VAPI_PUBLIC_KEY: data.secrets.VAPI_PUBLIC_KEY,
+        VAPI_ASSISTANT_KEY: data.secrets.VAPI_ASSISTANT_KEY
+      };
+    },
+  });
 
   const handleConnectSlack = async () => {
     try {
@@ -81,6 +107,9 @@ export const OnboardingSection = () => {
         isChatActive={isChatActive}
         channels={channels}
         dmUsers={dmUsers}
+        vapiKeys={vapiKeys}
+        isLoadingVapi={isLoadingVapi}
+        vapiError={vapiError}
       />
     </div>
   );

@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SlackChannelsCard } from './SlackChannelsCard';
 import { SlackDMUsersCard } from './SlackDMUsersCard';
+import { VapiFrame } from '@/components/vapi/VapiFrame';
 import type { SlackChannel, SlackDMUser } from '@/hooks/use-slack-data';
 
 interface OnboardingCardsProps {
@@ -15,6 +16,12 @@ interface OnboardingCardsProps {
   isChatActive: boolean;
   channels: SlackChannel[];
   dmUsers: SlackDMUser[];
+  vapiKeys?: {
+    VAPI_PUBLIC_KEY: string;
+    VAPI_ASSISTANT_KEY: string;
+  };
+  isLoadingVapi?: boolean;
+  vapiError?: Error | null;
 }
 
 export const OnboardingCards = ({
@@ -26,24 +33,49 @@ export const OnboardingCards = ({
   needsReauth,
   channels,
   dmUsers,
+  vapiKeys,
+  isLoadingVapi,
+  vapiError,
 }: OnboardingCardsProps) => {
   return (
     <AnimatePresence mode="popLayout">
-      {/* VAPI Chat Window Placeholder */}
+      {/* VAPI Integration */}
       <motion.div
         layout
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
         transition={{ duration: 0.4 }}
-        className="mb-4 p-6 rounded-xl bg-white/80 backdrop-blur-sm border border-gray-200 shadow-lg"
+        className="mb-4"
       >
-        <div className="text-center p-8">
-          <h3 className="text-lg font-semibold mb-2">Voice Assistant</h3>
-          <p className="text-muted-foreground">
-            VAPI Chat integration coming soon...
-          </p>
-        </div>
+        {isLoadingVapi ? (
+          <div className="p-6 rounded-xl bg-white/80 backdrop-blur-sm border border-gray-200 shadow-lg">
+            <div className="text-center p-8">
+              <h3 className="text-lg font-semibold mb-2">Loading Voice Assistant...</h3>
+            </div>
+          </div>
+        ) : vapiError ? (
+          <div className="p-6 rounded-xl bg-white/80 backdrop-blur-sm border border-gray-200 shadow-lg">
+            <div className="text-center p-8">
+              <h3 className="text-lg font-semibold mb-2">Voice Assistant Error</h3>
+              <p className="text-muted-foreground">{vapiError.message}</p>
+            </div>
+          </div>
+        ) : vapiKeys ? (
+          <VapiFrame 
+            apiKey={vapiKeys.VAPI_PUBLIC_KEY}
+            assistantId={vapiKeys.VAPI_ASSISTANT_KEY}
+          />
+        ) : (
+          <div className="p-6 rounded-xl bg-white/80 backdrop-blur-sm border border-gray-200 shadow-lg">
+            <div className="text-center p-8">
+              <h3 className="text-lg font-semibold mb-2">Voice Assistant</h3>
+              <p className="text-muted-foreground">
+                Failed to load VAPI configuration
+              </p>
+            </div>
+          </div>
+        )}
       </motion.div>
 
       {/* Slack Channels and DM Users */}
