@@ -22,6 +22,7 @@ export const useSlackData = () => {
         throw error;
       }
 
+      console.log('Slack accounts fetched:', data);
       return data as SlackAccount[];
     },
   });
@@ -34,9 +35,12 @@ export const useSlackData = () => {
   } = useQuery({
     queryKey: ['slack-channels'],
     queryFn: async () => {
-      if (!slackAccounts?.[0]?.id) return [];
+      if (!slackAccounts?.[0]?.id) {
+        console.log('No slack account found, skipping channel fetch');
+        return [];
+      }
       
-      console.log('Fetching Slack channels...');
+      console.log('Fetching Slack channels for account:', slackAccounts[0].id);
       const { data, error } = await supabase.functions.invoke('fetch-slack-channels', {
         body: { slackAccountId: slackAccounts[0].id }
       });
@@ -46,6 +50,7 @@ export const useSlackData = () => {
         throw error;
       }
 
+      console.log('Channels fetched:', data?.channels?.length);
       return data.channels as SlackChannel[];
     },
     enabled: !!slackAccounts?.[0]?.id,
@@ -58,9 +63,12 @@ export const useSlackData = () => {
   } = useQuery({
     queryKey: ['slack-dm-users'],
     queryFn: async () => {
-      if (!slackAccounts?.[0]?.id) return [];
+      if (!slackAccounts?.[0]?.id) {
+        console.log('No slack account found, skipping DM users fetch');
+        return [];
+      }
 
-      console.log('Fetching Slack DM users...');
+      console.log('Fetching Slack DM users for account:', slackAccounts[0].id);
       const { data, error } = await supabase
         .from('slack_dm_users')
         .select('*')
@@ -72,6 +80,7 @@ export const useSlackData = () => {
         throw error;
       }
 
+      console.log('DM users fetched:', data?.length);
       return data as SlackDMUser[];
     },
     enabled: !!slackAccounts?.[0]?.id,
