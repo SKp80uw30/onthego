@@ -25,13 +25,13 @@ export const slackFunctions: FunctionDefinition[] = [
   },
   {
     name: 'send_direct_message',
-    description: 'Send a direct message to a Slack user whilst using onthego App',
+    description: 'Send a direct message to a Slack user',
     parameters: {
       type: 'object',
       properties: {
         userIdentifier: {
           type: 'string',
-          description: 'can accept any of these formats: Email address (e.g., "user@company.com")'
+          description: 'The display name or email of the Slack user to send the message to. Must be an active user in your workspace.'
         },
         message: {
           type: 'string',
@@ -61,24 +61,6 @@ export const slackFunctions: FunctionDefinition[] = [
         }
       },
       required: ['Channel_name']
-    }
-  },
-  {
-    name: 'fetch_mentions',
-    description: 'Fetch messages where the user was mentioned',
-    parameters: {
-      type: 'object',
-      properties: {
-        channelName: {
-          type: 'string',
-          description: 'The name of the channel to fetch mentions from (optional, defaults to all channels)'
-        },
-        count: {
-          type: 'number',
-          description: 'Number of mentions to fetch (default: 5)'
-        }
-      },
-      required: []
     }
   }
 ];

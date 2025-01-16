@@ -45,15 +45,41 @@ export async function handleToolCall(toolCall: ToolCall) {
     }
 
     case 'send_direct_message': {
+      if (!toolArgs.Send_message_approval) {
+        return {
+          toolCallId,
+          result: "Message not approved for sending"
+        };
+      }
+
       // Route to the dedicated DM edge function
+      console.log('Routing DM request to send-slack-dm function:', toolArgs);
       const { data, error } = await supabase.functions.invoke('send-slack-dm', {
-        body: { message: toolCall }
+        body: { 
+          message: {
+            toolCalls: [{
+              id: toolCallId,
+              function: {
+                name: 'Send_slack_dm',
+                arguments: JSON.stringify({
+                  Username: toolArgs.userIdentifier,
+                  Message: toolArgs.message,
+                  Send_message_approval: toolArgs.Send_message_approval
+                })
+              }
+            }]
+          }
+        }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error sending DM:', error);
+        throw error;
+      }
+
       return {
         toolCallId,
-        result: data.result
+        result: data.results[0].result
       };
     }
 
