@@ -21,33 +21,73 @@ async function getSlackAccount(supabase) {
   return slackAccount;
 }
 
+function normalizeString(str: string): string {
+  return str.toLowerCase()
+    .replace(/\s+/g, '') // Remove all whitespace
+    .replace(/[^a-z0-9]/g, ''); // Remove special characters
+}
+
+function calculateSimilarity(str1: string, str2: string): number {
+  const norm1 = normalizeString(str1);
+  const norm2 = normalizeString(str2);
+  
+  // Check for exact match after normalization
+  if (norm1 === norm2) return 1;
+  
+  // Check if one is contained within the other
+  if (norm1.includes(norm2) || norm2.includes(norm1)) return 0.8;
+  
+  return 0;
+}
+
 async function findDMUser(supabase, identifier: string) {
   console.log('Looking up DM user for identifier:', identifier);
   
-  // First try to find user in our database
-  const { data: dmUser, error: dbError } = await supabase
+  // Get all active DM users
+  const { data: dmUsers, error: dbError } = await supabase
     .from('slack_dm_users')
     .select('*')
-    .or(`display_name.ilike.${identifier},email.ilike.${identifier}`)
-    .eq('is_active', true)
-    .single();
+    .eq('is_active', true);
 
   if (dbError) {
     console.error('Error querying slack_dm_users:', dbError);
     throw new Error(`Failed to query user database: ${dbError.message}`);
   }
 
-  if (!dmUser) {
-    throw new Error(`User ${identifier} not found in active DM users. Please make sure they are in your Slack workspace and try again.`);
+  if (!dmUsers || dmUsers.length === 0) {
+    throw new Error('No active DM users found');
   }
 
-  console.log('Found DM user:', {
-    id: dmUser.id,
-    display_name: dmUser.display_name,
-    slack_user_id: dmUser.slack_user_id
-  });
+  // Find the best match
+  let bestMatch = null;
+  let bestSimilarity = 0;
 
-  return dmUser.slack_user_id;
+  for (const user of dmUsers) {
+    const displayNameSimilarity = user.display_name ? 
+      calculateSimilarity(identifier, user.display_name) : 0;
+    const emailSimilarity = user.email ? 
+      calculateSimilarity(identifier, user.email) : 0;
+
+    const similarity = Math.max(displayNameSimilarity, emailSimilarity);
+
+    if (similarity > bestSimilarity) {
+      bestSimilarity = similarity;
+      bestMatch = user;
+    }
+  }
+
+  // Require a minimum similarity threshold
+  if (bestSimilarity >= 0.8 && bestMatch) {
+    console.log('Found matching DM user:', {
+      id: bestMatch.id,
+      display_name: bestMatch.display_name,
+      slack_user_id: bestMatch.slack_user_id,
+      similarity: bestSimilarity
+    });
+    return bestMatch.slack_user_id;
+  }
+
+  throw new Error(`No matching user found for "${identifier}". Please try with their exact Slack display name or email.`);
 }
 
 async function sendDirectMessage(botToken: string, userId: string, message: string) {
