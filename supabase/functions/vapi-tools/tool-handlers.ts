@@ -56,8 +56,8 @@ export async function handleToolCall(toolCall: ToolCall) {
       }
     }
 
-    case 'Send_slack_dm': {
-      console.log('Handling Send_slack_dm with args:', toolArgs);
+    case 'send_direct_message': {
+      console.log('Handling send_direct_message with args:', toolArgs);
       
       if (!toolArgs.Send_message_approval) {
         console.log('DM not approved for sending');
@@ -75,9 +75,9 @@ export async function handleToolCall(toolCall: ToolCall) {
               toolCalls: [{
                 id: toolCallId,
                 function: {
-                  name: 'Send_slack_dm',
+                  name: 'send_direct_message',
                   arguments: JSON.stringify({
-                    Username: toolArgs.Username,
+                    Username: toolArgs.userIdentifier,
                     Message: toolArgs.Message,
                     Send_message_approval: toolArgs.Send_message_approval
                   })
@@ -98,29 +98,29 @@ export async function handleToolCall(toolCall: ToolCall) {
           result: data.results[0].result
         };
       } catch (error) {
-        console.error('Error in Send_slack_dm:', error);
+        console.error('Error in send_direct_message:', error);
         throw error;
       }
     }
 
-    case 'Fetch_slack_messages': {
-      console.log('Handling Fetch_slack_messages with args:', toolArgs);
+    case 'Fetch_slack_dms': {
+      console.log('Handling Fetch_slack_dms with args:', toolArgs);
       
       try {
         const messages = await fetchSlackMessages(
-          toolArgs.Channel_name as string,
-          toolArgs.Number_fetch_messages as number
+          toolArgs.userIdentifier as string,
+          toolArgs.messageCount as number
         );
 
-        console.log('Messages fetched successfully:', messages);
+        console.log('DMs fetched successfully:', messages);
         return {
           toolCallId,
           result: JSON.stringify({
-            Recent_messages: messages
+            Messages: messages
           })
         };
       } catch (error) {
-        console.error('Error fetching messages:', error);
+        console.error('Error fetching DMs:', error);
         throw error;
       }
     }

@@ -24,12 +24,12 @@ export const slackFunctions: FunctionDefinition[] = [
     }
   },
   {
-    name: "Send_slack_dm",
+    name: "send_direct_message",
     description: "Send a direct message to a Slack user",
     parameters: {
       type: "object",
       properties: {
-        Username: {
+        userIdentifier: {
           type: "string",
           description: "The username, email, or display name of the Slack user to send the message to"
         },
@@ -42,25 +42,25 @@ export const slackFunctions: FunctionDefinition[] = [
           description: "Confirmation that the message should be sent"
         }
       },
-      required: ["Username", "Message", "Send_message_approval"]
+      required: ["userIdentifier", "Message", "Send_message_approval"]
     }
   },
   {
-    name: "Fetch_slack_messages",
-    description: "Fetch recent messages from a Slack channel",
+    name: "Fetch_slack_dms",
+    description: "Fetch direct messages from Slack",
     parameters: {
       type: "object",
       properties: {
-        Channel_name: {
+        userIdentifier: {
           type: "string",
-          description: "The name of the Slack channel to fetch messages from"
+          description: "The username or email of the user to fetch DMs from"
         },
-        Number_fetch_messages: {
+        messageCount: {
           type: "number",
           description: "Number of messages to fetch (default: 5)"
         }
       },
-      required: ["Channel_name"]
+      required: ["userIdentifier"]
     }
   }
 ];
