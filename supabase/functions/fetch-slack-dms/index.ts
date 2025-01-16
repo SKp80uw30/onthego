@@ -61,7 +61,6 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Log Supabase connection details (without sensitive info)
     console.log('Supabase client initialized with URL:', Deno.env.get('SUPABASE_URL'));
 
     const { data: slackAccount, error: accountError } = await supabase
@@ -85,7 +84,6 @@ serve(async (req) => {
     const data = await fetchSlackUsers(slackAccount.slack_bot_token);
     console.log(`Found ${data.members.length} total Slack users`);
 
-    // Log sample of raw data (first user)
     if (data.members.length > 0) {
       console.log('Sample raw user data:', JSON.stringify(data.members[0], null, 2));
     }
@@ -99,12 +97,28 @@ serve(async (req) => {
         email: member.profile.email,
         is_active: true,
         last_fetched: new Date().toISOString(),
+        error_log: null // Clear any previous error logs for active users
       }));
 
     console.log(`Processing ${users.length} active human users`);
     console.log('Processed users data:', JSON.stringify(users, null, 2));
 
-    // Try to upsert the users and log any errors
+    // First, mark all existing users as inactive
+    const { error: deactivateAllError } = await supabase
+      .from('slack_dm_users')
+      .update({ 
+        is_active: false,
+        error_log: 'User not found in latest fetch',
+        last_fetched: new Date().toISOString()
+      })
+      .eq('slack_account_id', slackAccountId);
+
+    if (deactivateAllError) {
+      console.error('Error deactivating all users:', deactivateAllError);
+      console.error('Deactivation error details:', JSON.stringify(deactivateAllError, null, 2));
+    }
+
+    // Then upsert the current users
     const { data: upsertData, error: upsertError } = await supabase
       .from('slack_dm_users')
       .upsert(users, {
@@ -132,26 +146,6 @@ serve(async (req) => {
       console.error('Error details:', JSON.stringify(fetchError, null, 2));
     } else {
       console.log('Stored active users:', JSON.stringify(storedUsers, null, 2));
-    }
-
-    // Deactivate users that are no longer present
-    const activeUserIds = users.map(u => u.slack_user_id);
-    if (activeUserIds.length > 0) {
-      const { error: deactivateError } = await supabase
-        .from('slack_dm_users')
-        .update({ 
-          is_active: false,
-          last_fetched: new Date().toISOString(),
-          error_log: 'User not found in latest fetch'
-        })
-        .eq('slack_account_id', slackAccountId)
-        .not('slack_user_id', 'in', `(${activeUserIds.map(id => `'${id}'`).join(',')})`)
-        .eq('is_active', true);
-
-      if (deactivateError) {
-        console.error('Error deactivating users:', deactivateError);
-        console.error('Deactivation error details:', JSON.stringify(deactivateError, null, 2));
-      }
     }
 
     console.log('Successfully processed all DM users');
