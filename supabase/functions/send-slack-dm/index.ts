@@ -9,52 +9,45 @@ async function getSlackAccount(supabase) {
   console.log('Fetching Slack account...');
   const { data: slackAccount, error: accountError } = await supabase
     .from('slack_accounts')
-    .select('*')
+    .select('slack_bot_token')
     .limit(1)
     .single();
 
   if (accountError || !slackAccount?.slack_bot_token) {
     console.error('Error fetching Slack account:', accountError);
-    throw new Error('Failed to get Slack account');
+    throw new Error('Failed to get Slack account details');
   }
 
   return slackAccount;
 }
 
-async function findUserId(botToken: string, identifier: string) {
-  console.log('Looking up user ID for identifier:', identifier);
-  const response = await fetch('https://slack.com/api/users.list', {
-    headers: {
-      'Authorization': `Bearer ${botToken}`,
-    },
-  });
+async function findDMUser(supabase, identifier: string) {
+  console.log('Looking up DM user for identifier:', identifier);
+  
+  // First try to find user in our database
+  const { data: dmUser, error: dbError } = await supabase
+    .from('slack_dm_users')
+    .select('*')
+    .or(`display_name.ilike.${identifier},email.ilike.${identifier}`)
+    .eq('is_active', true)
+    .single();
 
-  const data = await response.json();
-  if (!data.ok) {
-    console.error('Slack API error:', data.error);
-    throw new Error(`Slack API error: ${data.error}`);
+  if (dbError) {
+    console.error('Error querying slack_dm_users:', dbError);
+    throw new Error(`Failed to query user database: ${dbError.message}`);
   }
 
-  // Try to match by email first, then by display name, then by real name
-  const user = data.members.find(member => 
-    member.profile?.email === identifier || 
-    member.name === identifier || 
-    member.profile?.display_name === identifier ||
-    member.profile?.real_name === identifier
-  );
-
-  if (!user) {
-    throw new Error(`User ${identifier} not found. Please try using their Slack email address or @username`);
+  if (!dmUser) {
+    throw new Error(`User ${identifier} not found in active DM users. Please make sure they are in your Slack workspace and try again.`);
   }
 
-  console.log('Found user:', {
-    id: user.id,
-    name: user.name,
-    real_name: user.profile?.real_name,
-    email: user.profile?.email
+  console.log('Found DM user:', {
+    id: dmUser.id,
+    display_name: dmUser.display_name,
+    slack_user_id: dmUser.slack_user_id
   });
 
-  return user.id;
+  return dmUser.slack_user_id;
 }
 
 async function sendDirectMessage(botToken: string, userId: string, message: string) {
@@ -138,7 +131,7 @@ Deno.serve(async (req) => {
     }
 
     const slackAccount = await getSlackAccount(supabase);
-    const userId = await findUserId(slackAccount.slack_bot_token, toolArgs.Username);
+    const userId = await findDMUser(supabase, toolArgs.Username);
     const result = await sendDirectMessage(slackAccount.slack_bot_token, userId, toolArgs.Message);
 
     console.log('Message sent successfully:', result);
