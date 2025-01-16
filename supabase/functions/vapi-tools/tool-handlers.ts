@@ -56,6 +56,53 @@ export async function handleToolCall(toolCall: ToolCall) {
       }
     }
 
+    case 'Send_slack_dm': {
+      console.log('Handling Send_slack_dm with args:', toolArgs);
+      
+      if (!toolArgs.Send_message_approval) {
+        console.log('DM not approved for sending');
+        return {
+          toolCallId,
+          result: "Message not approved for sending"
+        };
+      }
+
+      try {
+        console.log('Routing DM request to send-slack-dm function:', toolArgs);
+        const { data, error } = await supabase.functions.invoke('send-slack-dm', {
+          body: { 
+            message: {
+              toolCalls: [{
+                id: toolCallId,
+                function: {
+                  name: 'Send_slack_dm',
+                  arguments: JSON.stringify({
+                    Username: toolArgs.Username,
+                    Message: toolArgs.Message,
+                    Send_message_approval: toolArgs.Send_message_approval
+                  })
+                }
+              }]
+            }
+          }
+        });
+
+        if (error) {
+          console.error('Error sending DM:', error);
+          throw error;
+        }
+
+        console.log('DM sent successfully:', data);
+        return {
+          toolCallId,
+          result: data.results[0].result
+        };
+      } catch (error) {
+        console.error('Error in Send_slack_dm:', error);
+        throw error;
+      }
+    }
+
     case 'Fetch_slack_messages': {
       console.log('Handling Fetch_slack_messages with args:', toolArgs);
       
