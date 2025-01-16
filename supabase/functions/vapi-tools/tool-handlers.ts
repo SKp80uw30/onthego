@@ -16,7 +16,11 @@ export async function handleToolCall(toolCall: ToolCall) {
     ? JSON.parse(toolCall.function.arguments)
     : toolCall.function.arguments;
 
-  console.log('Processing tool:', { toolName, toolArgs });
+  console.log('Processing tool call:', { 
+    toolName, 
+    toolCallId,
+    arguments: toolArgs 
+  });
 
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
@@ -24,7 +28,9 @@ export async function handleToolCall(toolCall: ToolCall) {
   );
 
   switch (toolName) {
-    case 'send_message': {
+    case 'Send_slack_message': {
+      console.log('Handling Send_slack_message with args:', toolArgs);
+      
       if (!toolArgs.Send_message_approval) {
         console.log('Message not approved for sending');
         return {
@@ -50,52 +56,9 @@ export async function handleToolCall(toolCall: ToolCall) {
       }
     }
 
-    case 'send_direct_message': {
-      if (!toolArgs.Send_message_approval) {
-        console.log('DM not approved for sending');
-        return {
-          toolCallId,
-          result: "Message not approved for sending"
-        };
-      }
-
-      try {
-        console.log('Routing DM request to send-slack-dm function:', toolArgs);
-        const { data, error } = await supabase.functions.invoke('send-slack-dm', {
-          body: { 
-            message: {
-              toolCalls: [{
-                id: toolCallId,
-                function: {
-                  name: 'send_direct_message',
-                  arguments: JSON.stringify({
-                    Username: toolArgs.Username,
-                    Message: toolArgs.Message,
-                    Send_message_approval: toolArgs.Send_message_approval
-                  })
-                }
-              }]
-            }
-          }
-        });
-
-        if (error) {
-          console.error('Error sending DM:', error);
-          throw error;
-        }
-
-        console.log('DM sent successfully:', data);
-        return {
-          toolCallId,
-          result: data.results[0].result
-        };
-      } catch (error) {
-        console.error('Error in send_direct_message:', error);
-        throw error;
-      }
-    }
-
-    case 'fetch_messages': {
+    case 'Fetch_slack_messages': {
+      console.log('Handling Fetch_slack_messages with args:', toolArgs);
+      
       try {
         const messages = await fetchSlackMessages(
           toolArgs.Channel_name as string,
