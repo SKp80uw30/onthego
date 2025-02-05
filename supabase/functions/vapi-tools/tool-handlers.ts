@@ -56,8 +56,8 @@ export async function handleToolCall(toolCall: ToolCall) {
       }
     }
 
-    case 'send_direct_message': {
-      console.log('Handling send_direct_message with args:', toolArgs);
+    case 'Send_slack_dm': {
+      console.log('Handling Send_slack_dm with args:', toolArgs);
       
       if (!toolArgs.Send_message_approval) {
         console.log('DM not approved for sending');
@@ -74,7 +74,7 @@ export async function handleToolCall(toolCall: ToolCall) {
               toolCalls: [{
                 id: toolCallId,
                 function: {
-                  name: 'send_direct_message',
+                  name: 'Send_slack_dm',
                   arguments: {
                     Username: toolArgs.Username,
                     Message: toolArgs.Message,
@@ -92,9 +92,12 @@ export async function handleToolCall(toolCall: ToolCall) {
         }
 
         console.log('DM sent successfully:', data);
-        return data.results[0];
+        return {
+          toolCallId,
+          result: "Direct message sent successfully"
+        };
       } catch (error) {
-        console.error('Error in send_direct_message:', error);
+        console.error('Error in Send_slack_dm:', error);
         throw error;
       }
     }
@@ -134,7 +137,7 @@ export async function handleToolCall(toolCall: ToolCall) {
                   name: 'Fetch_slack_dms',
                   arguments: {
                     Username: toolArgs.Username,
-                    messageCount: toolArgs.messageCount || 5
+                    Number_fetch_messages: toolArgs.Number_fetch_messages || 5
                   }
                 }
               }]
@@ -151,11 +154,11 @@ export async function handleToolCall(toolCall: ToolCall) {
         return {
           toolCallId,
           result: JSON.stringify({
-            Messages: data.messages || []
+            Recent_messages: data.messages || []
           })
         };
       } catch (error) {
-        console.error('Error fetching DMs:', error);
+        console.error('Error in Fetch_slack_dms:', error);
         throw error;
       }
     }
