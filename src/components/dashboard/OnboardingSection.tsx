@@ -26,7 +26,13 @@ export const OnboardingSection = () => {
     queryKey: ['vapi-keys'],
     queryFn: async () => {
       console.log('Fetching VAPI keys from Edge Function...');
-      const { data, error } = await supabase.functions.invoke('get-vapi-keys');
+      const { data, error } = await supabase.functions.invoke('functions2', {
+        body: {
+          toolCall: {
+            toolName: 'get_vapi_keys'
+          }
+        }
+      });
       
       if (error) {
         console.error('Error fetching VAPI keys:', error);
