@@ -1,5 +1,5 @@
-import { SlackResponse, SlackChannel } from './types.ts';
 import { logError, logInfo } from '../../_shared/logging.ts';
+import type { SlackResponse, SlackChannel } from './types.ts';
 
 export async function callSlackApi(
   endpoint: string,
