@@ -1,3 +1,5 @@
+# A string used to distinguish different Supabase projects on the same host. Defaults to the working
+# directory name when running `supabase init`.
 project_id = "slomrtdygughdpenilco"
 
 [api]
@@ -33,5 +35,5 @@ double_confirm_changes = true
 enable_confirmations = false
 
 [functions]
-[functions.functions2]
+[functions.get-vapi-keys]
 verify_jwt = false
