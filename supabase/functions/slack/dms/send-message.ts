@@ -2,11 +2,12 @@ import { logError, logInfo } from '../../_shared/logging.ts';
 import { getSlackAccount } from '../common/auth.ts';
 import { callSlackApi } from '../common/api.ts';
 
-export async function sendDMMessage(
-  userId: string,
-  message: string
-): Promise<void> {
+export async function sendDMMessage(userId: string, message: string): Promise<void> {
   try {
+    if (!userId || !message) {
+      throw new Error('Missing required parameters: userId and message are required');
+    }
+
     const slackAccount = await getSlackAccount();
     
     logInfo('sendDMMessage', {
@@ -22,12 +23,12 @@ export async function sendDMMessage(
       { users: userId }
     );
 
-    if (!channelResponse.channel?.id) {
+    if (!channelResponse?.channel?.id) {
       throw new Error('Failed to open DM channel');
     }
 
     // Send the message to the DM channel
-    await callSlackApi(
+    const messageResponse = await callSlackApi(
       'chat.postMessage',
       slackAccount.slack_bot_token,
       'POST',
@@ -36,6 +37,10 @@ export async function sendDMMessage(
         text: message,
       }
     );
+
+    if (!messageResponse?.ok) {
+      throw new Error(`Failed to send message: ${messageResponse?.error || 'Unknown error'}`);
+    }
 
     logInfo('DM sent successfully', {
       userId,
