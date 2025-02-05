@@ -68,7 +68,6 @@ export async function handleToolCall(toolCall: ToolCall) {
       }
 
       try {
-        console.log('Routing DM request to send-slack-dm function:', toolArgs);
         const { data, error } = await supabase.functions.invoke('send-slack-dm', {
           body: { 
             message: {
@@ -76,11 +75,11 @@ export async function handleToolCall(toolCall: ToolCall) {
                 id: toolCallId,
                 function: {
                   name: 'send_direct_message',
-                  arguments: JSON.stringify({
-                    userIdentifier: toolArgs.userIdentifier,
+                  arguments: {
+                    Username: toolArgs.Username,
                     Message: toolArgs.Message,
                     Send_message_approval: toolArgs.Send_message_approval
-                  })
+                  }
                 }
               }]
             }
@@ -129,16 +128,33 @@ export async function handleToolCall(toolCall: ToolCall) {
       console.log('Handling Fetch_slack_dms with args:', toolArgs);
       
       try {
-        const messages = await fetchSlackMessages(
-          toolArgs.userIdentifier as string,
-          toolArgs.messageCount as number || 5
-        );
+        const { data, error } = await supabase.functions.invoke('send-slack-dm', {
+          body: { 
+            message: {
+              toolCalls: [{
+                id: toolCallId,
+                function: {
+                  name: 'fetch_dms',
+                  arguments: {
+                    Username: toolArgs.Username,
+                    messageCount: toolArgs.messageCount || 5
+                  }
+                }
+              }]
+            }
+          }
+        });
 
-        console.log('DMs fetched successfully:', messages);
+        if (error) {
+          console.error('Error fetching DMs:', error);
+          throw error;
+        }
+
+        console.log('DMs fetched successfully:', data);
         return {
           toolCallId,
           result: JSON.stringify({
-            Messages: messages
+            Messages: data.messages || []
           })
         };
       } catch (error) {
