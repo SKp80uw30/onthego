@@ -1,82 +1,32 @@
 import { logError, logInfo } from '../../_shared/logging.ts';
 import { sendDMMessage } from '../../slack/dms/send-message.ts';
-import { fetchDMMessages } from '../../slack/dms/fetch-messages.ts';
-import { createSupabaseClient } from '../../_shared/supabase.ts';
 
-export async function handleDMTools(toolName: string, args: Record<string, any>) {
+export async function handleDMMessage(args: {
+  User_id: string;
+  Message: string;
+  Send_message_approval: boolean;
+}): Promise<{ success: boolean; message: string }> {
   try {
-    const supabase = createSupabaseClient();
+    logInfo('handleDMMessage', args);
 
-    switch (toolName) {
-      case 'send_direct_message': {
-        if (!args.Send_message_approval) {
-          return "Message not approved for sending";
-        }
-
-        if (!args.userIdentifier || !args.Message) {
-          throw new Error('Missing required parameters: userIdentifier and Message');
-        }
-
-        // Find the user ID from the identifier
-        const { data: dmUsers, error } = await supabase
-          .from('slack_dm_users')
-          .select('*')
-          .eq('is_active', true);
-
-        if (error) {
-          throw new Error(`Failed to query DM users: ${error.message}`);
-        }
-
-        const userIdentifier = args.userIdentifier.toLowerCase();
-        const user = dmUsers.find(u => 
-          (u.display_name && u.display_name.toLowerCase() === userIdentifier) ||
-          (u.email && u.email.toLowerCase() === userIdentifier)
-        );
-
-        if (!user) {
-          throw new Error(`No matching user found for "${args.userIdentifier}"`);
-        }
-
-        await sendDMMessage(user.slack_user_id, args.Message);
-        return `Message sent successfully to ${args.userIdentifier}`;
-      }
-
-      case 'Fetch_slack_dms': {
-        if (!args.userIdentifier) {
-          throw new Error('Missing required parameter: userIdentifier');
-        }
-
-        const { data: dmUsers, error } = await supabase
-          .from('slack_dm_users')
-          .select('*')
-          .eq('is_active', true);
-
-        if (error) {
-          throw new Error(`Failed to query DM users: ${error.message}`);
-        }
-
-        const userIdentifier = args.userIdentifier.toLowerCase();
-        const user = dmUsers.find(u => 
-          (u.display_name && u.display_name.toLowerCase() === userIdentifier) ||
-          (u.email && u.email.toLowerCase() === userIdentifier)
-        );
-
-        if (!user) {
-          throw new Error(`No matching user found for "${args.userIdentifier}"`);
-        }
-
-        const messages = await fetchDMMessages(
-          user.slack_user_id,
-          args.messageCount || 5
-        );
-        return JSON.stringify({ Messages: messages });
-      }
-
-      default:
-        throw new Error(`Unknown DM tool: ${toolName}`);
+    if (!args.Send_message_approval) {
+      return {
+        success: false,
+        message: 'Message not approved for sending',
+      };
     }
+
+    await sendDMMessage(args.User_id, args.Message);
+
+    return {
+      success: true,
+      message: `Message sent to user ${args.User_id}`,
+    };
   } catch (error) {
-    logError('handleDMTools', error);
-    throw error;
+    logError('handleDMMessage', error);
+    return {
+      success: false,
+      message: `Failed to send message: ${error.message}`,
+    };
   }
 }
