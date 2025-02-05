@@ -1,54 +1,79 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from '../_shared/cors.ts';
 import { logError, logInfo } from '../_shared/logging.ts';
-import { handleChannelMessage } from './tools/channel-tools.ts';
-import { handleDMMessage } from './tools/dm-tools.ts';
 
-interface ToolCall {
-  toolName: string;
-  arguments: string | Record<string, any>;
-}
+serve(async (req) => {
+  console.log('Received request:', {
+    method: req.method,
+    url: req.url,
+    headers: Object.fromEntries(req.headers.entries())
+  });
 
-// Handle incoming requests
-Deno.serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('Handling CORS preflight request');
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { toolCall } = await req.json() as { toolCall: ToolCall };
-    logInfo('Processing tool call', toolCall);
+    console.log('Starting get-vapi-keys function execution...');
+    
+    const vapiPublicKey = Deno.env.get('VAPI_PUBLIC_KEY');
+    const vapiAssistantKey = Deno.env.get('VAPI_ASSISTANT_KEY');
+    
+    logInfo('Environment variables retrieved', {
+      hasPublicKey: !!vapiPublicKey,
+      hasAssistantKey: !!vapiAssistantKey,
+      publicKeyLength: vapiPublicKey?.length,
+      assistantKeyLength: vapiAssistantKey?.length,
+    });
 
-    // Parse arguments if they're a string
-    const args = typeof toolCall.arguments === 'string' 
-      ? JSON.parse(toolCall.arguments) 
-      : toolCall.arguments;
-
-    let result;
-    switch (toolCall.toolName) {
-      case 'Send_slack_message':
-        result = await handleChannelMessage(args);
-        break;
-      case 'Send_dm_message':
-        result = await handleDMMessage(args);
-        break;
-      default:
-        throw new Error(`Unknown tool: ${toolCall.toolName}`);
+    if (!vapiPublicKey || !vapiAssistantKey) {
+      logError('Missing required VAPI configuration', {
+        publicKey: !!vapiPublicKey,
+        assistantKey: !!vapiAssistantKey,
+      });
+      throw new Error('Missing required VAPI configuration');
     }
 
+    const response = {
+      secrets: {
+        VAPI_PUBLIC_KEY: vapiPublicKey,
+        VAPI_ASSISTANT_KEY: vapiAssistantKey,
+      }
+    };
+
+    logInfo('Preparing response', {
+      hasSecrets: !!response.secrets,
+      responseStructure: Object.keys(response),
+    });
+
+    console.log('Sending successful response');
+    
     return new Response(
-      JSON.stringify(result),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify(response),
+      { 
+        headers: { 
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
+      }
     );
   } catch (error) {
-    logError('VAPI tool handler', error);
+    logError('Error in get-vapi-keys function', {
+      error: error.message,
+      stack: error.stack,
+      type: typeof error,
+    });
+    
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        message: `Error processing tool call: ${error.message}` 
+      JSON.stringify({
+        error: error.message,
+        details: 'Failed to retrieve VAPI configuration',
       }),
       { 
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
   }

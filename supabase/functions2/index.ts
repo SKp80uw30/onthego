@@ -1,10 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from './_shared/cors.ts';
 import { logError, logInfo } from './_shared/logging.ts';
-import { sendSlackMessage } from './slack-api.ts'; // Import the sendSlackMessage function
 
-// Handle incoming requests
-Deno.serve(async (req) => {
+serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { 
@@ -59,7 +57,7 @@ Deno.serve(async (req) => {
     let result;
     switch (toolCall?.toolName) {
       case 'send_slack_message':
-        result = await sendSlackMessage(toolCall.arguments); // Call the sendSlackMessage function
+        // Handle Slack message sending
         break;
       default:
         throw new Error(`Unknown tool: ${toolCall?.toolName}`);
