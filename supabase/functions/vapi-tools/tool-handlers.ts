@@ -77,7 +77,7 @@ export async function handleToolCall(toolCall: ToolCall) {
                 function: {
                   name: 'send_direct_message',
                   arguments: JSON.stringify({
-                    Username: toolArgs.userIdentifier,
+                    userIdentifier: toolArgs.userIdentifier,
                     Message: toolArgs.Message,
                     Send_message_approval: toolArgs.Send_message_approval
                   })
@@ -103,13 +103,35 @@ export async function handleToolCall(toolCall: ToolCall) {
       }
     }
 
+    case 'Fetch_slack_messages': {
+      console.log('Handling Fetch_slack_messages with args:', toolArgs);
+      
+      try {
+        const messages = await fetchSlackMessages(
+          toolArgs.Channel_name as string,
+          toolArgs.Number_fetch_messages as number || 5
+        );
+
+        console.log('Messages fetched successfully:', messages);
+        return {
+          toolCallId,
+          result: JSON.stringify({
+            Recent_messages: messages
+          })
+        };
+      } catch (error) {
+        console.error('Error fetching messages:', error);
+        throw error;
+      }
+    }
+
     case 'Fetch_slack_dms': {
       console.log('Handling Fetch_slack_dms with args:', toolArgs);
       
       try {
         const messages = await fetchSlackMessages(
           toolArgs.userIdentifier as string,
-          toolArgs.messageCount as number
+          toolArgs.messageCount as number || 5
         );
 
         console.log('DMs fetched successfully:', messages);
