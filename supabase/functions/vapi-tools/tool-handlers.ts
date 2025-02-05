@@ -92,10 +92,7 @@ export async function handleToolCall(toolCall: ToolCall) {
         }
 
         console.log('DM sent successfully:', data);
-        return {
-          toolCallId,
-          result: data.results[0].result
-        };
+        return data.results[0];
       } catch (error) {
         console.error('Error in send_direct_message:', error);
         throw error;
@@ -134,7 +131,7 @@ export async function handleToolCall(toolCall: ToolCall) {
               toolCalls: [{
                 id: toolCallId,
                 function: {
-                  name: 'fetch_dms',
+                  name: 'Fetch_slack_dms',
                   arguments: {
                     Username: toolArgs.Username,
                     messageCount: toolArgs.messageCount || 5
