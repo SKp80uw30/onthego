@@ -1,6 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { logError, logInfo } from '../../_shared/logging.ts';
-import { callSlackApi } from '../common/api.ts';
+import { logError, logInfo } from './logging.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -34,106 +33,52 @@ async function getSlackAccount(supabase: any) {
 
     return data;
   } catch (error) {
-    logError('getSlackAccount', error, {
-      error_type: error.constructor.name,
-      error_stack: error.stack
-    });
+    logError('getSlackAccount', error);
     throw error;
   }
 }
 
 async function lookupSlackUser(token: string, userIdentifier: string) {
   try {
-    logInfo('lookupSlackUser', 'Starting user lookup', { 
-      userIdentifier,
-      isEmail: userIdentifier.includes('@')
-    });
+    logInfo('lookupSlackUser', 'Starting user lookup', { userIdentifier });
     
-    // First try to lookup by email if the identifier looks like an email
-    if (userIdentifier.includes('@')) {
-      logInfo('lookupSlackUser', 'Attempting email lookup', { email: userIdentifier });
-      try {
-        const response = await callSlackApi(
-          'users.lookupByEmail',
-          token,
-          'GET',
-          { email: userIdentifier }
-        );
-        if (response.ok && response.user) {
-          logInfo('lookupSlackUser', 'Successfully found user by email', {
-            userId: response.user.id,
-            userName: response.user.name,
-            isBot: response.user.is_bot
-          });
-          return response.user;
-        }
-      } catch (emailError) {
-        logError('lookupSlackUser', 'Email lookup failed', { 
-          error: emailError,
-          email: userIdentifier 
-        });
+    const response = await fetch('https://slack.com/api/users.list', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
       }
+    });
+
+    const data = await response.json();
+    logInfo('lookupSlackUser', 'Users list API response', { 
+      ok: data.ok,
+      memberCount: data.members?.length,
+      error: data.error
+    });
+
+    if (!data.ok || !data.members) {
+      throw new Error(`Failed to fetch users list: ${data.error}`);
     }
 
-    // If not found by email, try users.list with a search
-    logInfo('lookupSlackUser', 'Attempting users.list lookup');
-    const response = await callSlackApi(
-      'users.list',
-      token,
-      'GET',
-      {}
+    const user = data.members.find((member: any) => 
+      member.profile.display_name.toLowerCase() === userIdentifier.toLowerCase() ||
+      member.real_name?.toLowerCase() === userIdentifier.toLowerCase() ||
+      member.name.toLowerCase() === userIdentifier.toLowerCase()
     );
 
-    if (!response.ok || !response.members) {
-      logError('lookupSlackUser', 'Failed to fetch users list', { 
-        responseOk: response.ok,
-        hasMembers: !!response.members,
-        error: response.error 
-      });
-      throw new Error('Failed to fetch users list');
-    }
-
-    logInfo('lookupSlackUser', 'Retrieved users list', { 
-      totalUsers: response.members.length 
-    });
-
-    const user = response.members.find((member: any) => {
-      const matches = 
-        member.profile.display_name === userIdentifier ||
-        member.profile.real_name === userIdentifier ||
-        member.name === userIdentifier;
-      
-      if (matches) {
-        logInfo('lookupSlackUser', 'Found matching user in list', {
-          userId: member.id,
-          displayName: member.profile.display_name,
-          realName: member.profile.real_name,
-          userName: member.name
-        });
-      }
-      return matches;
-    });
-
     if (!user) {
-      logError('lookupSlackUser', 'No matching user found', { 
-        searchedIdentifier: userIdentifier,
-        availableUsers: response.members.map((m: any) => ({
-          id: m.id,
-          display_name: m.profile.display_name,
-          real_name: m.profile.real_name,
-          name: m.name
-        }))
-      });
       throw new Error(`No matching user found for "${userIdentifier}"`);
     }
 
+    logInfo('lookupSlackUser', 'Found matching user', {
+      userId: user.id,
+      displayName: user.profile.display_name,
+      email: user.profile.email
+    });
+
     return user;
   } catch (error) {
-    logError('lookupSlackUser', error, {
-      userIdentifier,
-      error_type: error.constructor.name,
-      error_stack: error.stack
-    });
+    logError('lookupSlackUser', error);
     throw error;
   }
 }
@@ -141,35 +86,31 @@ async function lookupSlackUser(token: string, userIdentifier: string) {
 async function openDMChannel(token: string, userId: string) {
   try {
     logInfo('openDMChannel', 'Opening DM channel', { userId });
-    const response = await callSlackApi(
-      'conversations.open',
-      token,
-      'POST',
-      { users: userId }
-    );
+    
+    const response = await fetch('https://slack.com/api/conversations.open', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ users: userId })
+    });
 
-    if (!response.ok || !response.channel) {
-      logError('openDMChannel', 'Failed to open DM channel', { 
-        responseOk: response.ok,
-        hasChannel: !!response.channel,
-        error: response.error,
-        userId 
-      });
-      throw new Error('Failed to open DM channel');
+    const data = await response.json();
+    logInfo('openDMChannel', 'API response', { 
+      ok: data.ok,
+      channelId: data.channel?.id,
+      error: data.error,
+      responseBody: data
+    });
+
+    if (!data.ok) {
+      throw new Error(`Failed to open DM channel: ${data.error}`);
     }
 
-    logInfo('openDMChannel', 'Successfully opened DM channel', {
-      channelId: response.channel.id,
-      userId
-    });
-
-    return response.channel;
+    return data.channel;
   } catch (error) {
-    logError('openDMChannel', error, {
-      userId,
-      error_type: error.constructor.name,
-      error_stack: error.stack
-    });
+    logError('openDMChannel', error);
     throw error;
   }
 }
@@ -181,38 +122,34 @@ async function sendMessage(token: string, channelId: string, message: string) {
       messageLength: message.length 
     });
     
-    const response = await callSlackApi(
-      'chat.postMessage',
-      token,
-      'POST',
-      {
+    const response = await fetch('https://slack.com/api/chat.postMessage', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
         channel: channelId,
         text: message,
-      }
-    );
+      })
+    });
 
-    if (!response.ok) {
-      logError('sendMessage', 'Failed to send message', { 
-        responseOk: response.ok,
-        error: response.error,
-        channelId 
-      });
-      throw new Error('Failed to send message');
+    const data = await response.json();
+    logInfo('sendMessage', 'API response', { 
+      ok: data.ok,
+      ts: data.ts,
+      channel: data.channel,
+      error: data.error,
+      responseBody: data
+    });
+
+    if (!data.ok) {
+      throw new Error(`Failed to send message: ${data.error}`);
     }
 
-    logInfo('sendMessage', 'Successfully sent message', {
-      channelId,
-      messageTs: response.ts,
-      threadTs: response.thread_ts
-    });
-
-    return response;
+    return data;
   } catch (error) {
-    logError('sendMessage', error, {
-      channelId,
-      error_type: error.constructor.name,
-      error_stack: error.stack
-    });
+    logError('sendMessage', error);
     throw error;
   }
 }
@@ -225,20 +162,13 @@ Deno.serve(async (req) => {
   try {
     const { userIdentifier, message } = await req.json();
     
-    logInfo('send-slack-dm', 'Processing request', {
+    logInfo('handler', 'Processing request', {
       userIdentifier,
-      messageLength: message?.length,
-      requestMethod: req.method,
-      headers: Object.fromEntries(req.headers)
+      messageLength: message?.length
     });
 
     if (!userIdentifier || !message) {
-      const error = 'Missing required parameters';
-      logError('send-slack-dm', error, { 
-        hasUserIdentifier: !!userIdentifier,
-        hasMessage: !!message 
-      });
-      throw new Error(error);
+      throw new Error('Missing required parameters');
     }
 
     const supabase = createClient(
@@ -246,22 +176,16 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // 1. Get Slack account and validate bot token
     const slackAccount = await getSlackAccount(supabase);
-    
-    // 2. Lookup Slack user
     const slackUser = await lookupSlackUser(slackAccount.slack_bot_token, userIdentifier);
-    
-    // 3. Open DM channel
     const channel = await openDMChannel(slackAccount.slack_bot_token, slackUser.id);
-    
-    // 4. Send message
-    await sendMessage(slackAccount.slack_bot_token, channel.id, message);
+    const messageResponse = await sendMessage(slackAccount.slack_bot_token, channel.id, message);
 
-    logInfo('send-slack-dm', 'Successfully completed DM flow', {
+    logInfo('handler', 'Successfully completed DM flow', {
       userIdentifier,
       userId: slackUser.id,
-      channelId: channel.id
+      channelId: channel.id,
+      messageTs: messageResponse.ts
     });
 
     return new Response(
@@ -269,15 +193,10 @@ Deno.serve(async (req) => {
         success: true,
         message: `Message sent to ${slackUser.profile.display_name || slackUser.name}`
       }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    logError('send-slack-dm', error, {
-      error_type: error.constructor.name,
-      error_stack: error.stack
-    });
+    logError('handler', error);
     
     return new Response(
       JSON.stringify({ 
