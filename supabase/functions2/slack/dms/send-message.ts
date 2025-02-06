@@ -55,7 +55,8 @@ async function lookupSlackUser(token: string, userIdentifier: string) {
       ok: data.ok,
       memberCount: data.members?.length,
       error: data.error,
-      responseStatus: response.status
+      responseStatus: response.status,
+      headers: Object.fromEntries(response.headers)
     });
 
     if (!data.ok || !data.members) {
@@ -76,7 +77,8 @@ async function lookupSlackUser(token: string, userIdentifier: string) {
       userId: user.id,
       displayName: user.profile.display_name,
       email: user.profile.email,
-      isBot: user.is_bot
+      isBot: user.is_bot,
+      teamId: user.team_id
     });
 
     return user;
@@ -88,7 +90,10 @@ async function lookupSlackUser(token: string, userIdentifier: string) {
 
 async function openDMChannel(token: string, userId: string) {
   try {
-    logInfo('openDMChannel', 'Opening DM channel', { userId });
+    logInfo('openDMChannel', 'Opening DM channel', { 
+      userId,
+      tokenPrefix: token.substring(0, 10) + '...'
+    });
     
     const response = await fetch('https://slack.com/api/conversations.open', {
       method: 'POST',
@@ -105,7 +110,9 @@ async function openDMChannel(token: string, userId: string) {
       channelId: data.channel?.id,
       error: data.error,
       responseStatus: response.status,
-      responseBody: data
+      responseHeaders: Object.fromEntries(response.headers),
+      responseBody: data,
+      requestBody: { users: userId }
     });
 
     if (!data.ok) {
@@ -121,22 +128,31 @@ async function openDMChannel(token: string, userId: string) {
 
 async function sendMessage(token: string, channelId: string, message: string) {
   try {
-    logInfo('sendMessage', 'Sending message', { 
+    logInfo('sendMessage', 'Preparing to send message', { 
       channelId,
       messageLength: message.length,
-      messagePreview: message.substring(0, 50)
+      messagePreview: message.substring(0, 50),
+      tokenPrefix: token.substring(0, 10) + '...'
     });
     
+    const requestBody = {
+      channel: channelId,
+      text: message,
+    };
+
+    logInfo('sendMessage', 'Request details', {
+      url: 'https://slack.com/api/chat.postMessage',
+      method: 'POST',
+      requestBody
+    });
+
     const response = await fetch('https://slack.com/api/chat.postMessage', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        channel: channelId,
-        text: message,
-      })
+      body: JSON.stringify(requestBody)
     });
 
     const data = await response.json();
@@ -146,11 +162,9 @@ async function sendMessage(token: string, channelId: string, message: string) {
       channel: data.channel,
       error: data.error,
       responseStatus: response.status,
+      responseHeaders: Object.fromEntries(response.headers),
       fullResponse: data,
-      requestBody: {
-        channel: channelId,
-        text: message
-      }
+      requestBody
     });
 
     if (!data.ok) {
@@ -197,7 +211,8 @@ Deno.serve(async (req) => {
       userId: slackUser.id,
       channelId: channel.id,
       messageTs: messageResponse.ts,
-      fullMessageResponse: messageResponse
+      fullMessageResponse: messageResponse,
+      workspaceId: slackAccount.slack_workspace_id
     });
 
     return new Response(
@@ -206,7 +221,8 @@ Deno.serve(async (req) => {
         message: `Message sent to ${slackUser.profile.display_name || slackUser.name}`,
         details: {
           channelId: channel.id,
-          messageTs: messageResponse.ts
+          messageTs: messageResponse.ts,
+          workspaceId: slackAccount.slack_workspace_id
         }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
