@@ -17,6 +17,8 @@ serve(async (req) => {
     console.log('Received request:', body);
 
     const toolCall = body.message?.toolCalls?.[0];
+    const slackAccountId = body.slackAccountId;
+
     if (!toolCall?.function?.name || !toolCall?.function?.arguments) {
       throw new Error('Invalid tool request structure');
     }
@@ -48,29 +50,52 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get the first slack account (assuming single account for now)
-    const { data: slackAccounts, error: accountError } = await supabase
+    // Get the specific slack account
+    const { data: slackAccount, error: accountError } = await supabase
       .from('slack_accounts')
       .select('*')
-      .limit(1);
+      .eq('id', slackAccountId)
+      .single();
 
-    if (accountError || !slackAccounts?.length) {
+    if (accountError || !slackAccount) {
       throw new Error('No Slack account found');
     }
 
-    const userToken = slackAccounts[0].slack_user_token;
+    const userToken = slackAccount.slack_user_token;
     if (!userToken) {
       throw new Error('No user token found. Please reconnect your Slack account.');
+    }
+
+    // Find the user ID from the identifier
+    const { data: dmUsers, error: dmError } = await supabase
+      .from('slack_dm_users')
+      .select('*')
+      .eq('slack_account_id', slackAccountId)
+      .eq('is_active', true);
+
+    if (dmError) {
+      throw new Error(`Failed to query DM users: ${dmError.message}`);
+    }
+
+    const userIdentifier = args.userIdentifier.toLowerCase();
+    const user = dmUsers.find(u => 
+      (u.display_name && u.display_name.toLowerCase() === userIdentifier) ||
+      (u.email && u.email.toLowerCase() === userIdentifier) ||
+      u.slack_user_id === userIdentifier
+    );
+
+    if (!user) {
+      throw new Error(`No matching user found for "${args.userIdentifier}"`);
     }
 
     // Open a DM channel
     const channelResponse = await fetch('https://slack.com/api/conversations.open', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${userToken}`, // Use user token instead of bot token
+        'Authorization': `Bearer ${userToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ users: args.userIdentifier })
+      body: JSON.stringify({ users: user.slack_user_id })
     });
 
     const channelData = await channelResponse.json();
@@ -82,13 +107,13 @@ serve(async (req) => {
     const messageResponse = await fetch('https://slack.com/api/chat.postMessage', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${userToken}`, // Use user token instead of bot token
+        'Authorization': `Bearer ${userToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         channel: channelData.channel.id,
         text: args.Message,
-        as_user: true // This ensures the message appears from the user
+        as_user: true
       })
     });
 
@@ -103,7 +128,7 @@ serve(async (req) => {
       JSON.stringify({
         results: [{
           toolCallId: toolCall.id,
-          result: `Message sent successfully to channel ${channelData.channel.id}`
+          result: `Message sent successfully to ${user.display_name || user.email || user.slack_user_id}`
         }]
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

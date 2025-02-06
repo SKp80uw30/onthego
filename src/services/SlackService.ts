@@ -18,7 +18,8 @@ export class SlackService {
                 }
               }
             }]
-          }
+          },
+          slackAccountId
         }
       });
 
