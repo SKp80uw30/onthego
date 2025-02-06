@@ -1,20 +1,110 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { getSlackAccount, findDMUser, openDMChannel, sendMessage } from './slack-utils.ts';
-import { logError, logInfo } from './logging.ts';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-Deno.serve(async (req) => {
+async function getSlackAccount(supabase: any) {
+  const { data, error } = await supabase
+    .from('slack_accounts')
+    .select('*')
+    .limit(1)
+    .single();
+
+  if (error) throw new Error(`Failed to get Slack account: ${error.message}`);
+  if (!data?.slack_bot_token) throw new Error('No valid Slack token found');
+  
+  return data;
+}
+
+async function findDMUser(supabase: any, slackAccountId: string, identifier: string) {
+  const { data: dmUsers, error } = await supabase
+    .from('slack_dm_users')
+    .select('*')
+    .eq('slack_account_id', slackAccountId)
+    .eq('is_active', true);
+
+  if (error) throw new Error(`Failed to query DM users: ${error.message}`);
+
+  const normalizedIdentifier = identifier.toLowerCase().trim();
+  const user = dmUsers.find(u => 
+    (u.display_name?.toLowerCase() === normalizedIdentifier) ||
+    (u.email?.toLowerCase() === normalizedIdentifier)
+  );
+
+  if (!user) throw new Error(`No matching user found for "${identifier}"`);
+  return user;
+}
+
+async function verifyBotPermissions(token: string) {
+  const response = await fetch('https://slack.com/api/auth.test', {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    }
+  });
+
+  const data = await response.json();
+  if (!data.ok) throw new Error(`Bot permissions test failed: ${data.error}`);
+  return data;
+}
+
+async function sendMessage(token: string, userId: string, message: string) {
+  // First open DM channel
+  const channelResponse = await fetch('https://slack.com/api/conversations.open', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ users: userId })
+  });
+
+  const channelData = await channelResponse.json();
+  if (!channelData.ok) throw new Error(`Failed to open DM channel: ${channelData.error}`);
+
+  // Send message
+  const messageResponse = await fetch('https://slack.com/api/chat.postMessage', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      channel: channelData.channel.id,
+      text: message,
+      as_user: true
+    })
+  });
+
+  const messageData = await messageResponse.json();
+  if (!messageData.ok) throw new Error(`Failed to send message: ${messageData.error}`);
+
+  // Verify message was sent
+  const verifyResponse = await fetch(`https://slack.com/api/conversations.history?channel=${channelData.channel.id}&limit=1`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    }
+  });
+
+  const verifyData = await verifyResponse.json();
+  if (!verifyData.ok || !verifyData.messages?.length) {
+    throw new Error('Message sent but not found in channel history');
+  }
+
+  return messageData;
+}
+
+serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const body = await req.json();
-    logInfo('handler', 'Received request:', body);
+    console.log('Received request:', body);
 
     const toolCall = body.message?.toolCalls?.[0];
     if (!toolCall?.function?.name || !toolCall?.function?.arguments) {
@@ -25,7 +115,7 @@ Deno.serve(async (req) => {
       ? JSON.parse(toolCall.function.arguments)
       : toolCall.function.arguments;
 
-    logInfo('handler', 'Parsed tool arguments:', args);
+    console.log('Parsed tool arguments:', args);
 
     if (!args.userIdentifier || !args.Message) {
       throw new Error('Missing required parameters: userIdentifier and Message');
@@ -49,11 +139,12 @@ Deno.serve(async (req) => {
     );
 
     const slackAccount = await getSlackAccount(supabase);
+    await verifyBotPermissions(slackAccount.slack_bot_token);
+    
     const slackUser = await findDMUser(supabase, slackAccount.id, args.userIdentifier);
-    const channel = await openDMChannel(slackAccount.slack_bot_token, slackUser.slack_user_id);
-    await sendMessage(slackAccount.slack_bot_token, channel.id, args.Message);
+    await sendMessage(slackAccount.slack_bot_token, slackUser.slack_user_id, args.Message);
 
-    logInfo('handler', 'Successfully completed DM flow');
+    console.log('Message sent successfully');
 
     return new Response(
       JSON.stringify({
@@ -66,7 +157,7 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    logError('handler', 'Error in send-slack-dm function:', error);
+    console.error('Error in send-slack-dm function:', error);
     
     return new Response(
       JSON.stringify({
