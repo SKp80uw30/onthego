@@ -41,6 +41,11 @@ async function findUserByIdentifier(identifier: string) {
 
 export async function sendDMMessage(userIdentifier: string, message: string): Promise<void> {
   try {
+    logInfo('sendDMMessage', {
+      userIdentifier,
+      messageLength: message?.length
+    });
+
     const user = await findUserByIdentifier(userIdentifier);
     const slackAccount = await getSlackAccount();
     const channel = await openDMChannel(slackAccount.slack_bot_token, user.slack_user_id);
