@@ -14,7 +14,7 @@ export const initiateSlackOAuth = async (needsReauth: boolean = false) => {
     
     console.log('Using redirect URI:', redirectUri);
     
-    // Updated scopes to include all necessary DM permissions
+    // Updated scopes to include user token scopes
     const scope = [
       'channels:history',
       'channels:read',
@@ -26,14 +26,16 @@ export const initiateSlackOAuth = async (needsReauth: boolean = false) => {
       'im:write',
       'mpim:write',
       'im:read',
-      'mpim:read'
+      'mpim:read',
+      'chat:write:user',  // Add user-specific write permission
+      'client'            // Add client scope for user token
     ].join(',');
     
     const state = Math.random().toString(36).substring(7);
     localStorage.setItem('slack_oauth_state', state);
     localStorage.setItem('slack_reconnect', needsReauth ? 'true' : 'false');
     
-    const slackUrl = `https://slack.com/oauth/v2/authorize?client_id=${clientId}&scope=${scope}&redirect_uri=${redirectUri}&state=${state}`;
+    const slackUrl = `https://slack.com/oauth/v2/authorize?client_id=${clientId}&scope=${scope}&user_scope=${scope}&redirect_uri=${redirectUri}&state=${state}`;
     window.location.href = slackUrl;
   } catch (error) {
     console.error('Error initiating Slack OAuth:', error);
