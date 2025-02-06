@@ -16,9 +16,8 @@ export const initiateSlackOAuth = async (needsReauth: boolean = false) => {
       throw new Error('Missing Slack client configuration');
     }
 
-    const redirectUri = typeof window !== 'undefined' 
-      ? `${window.location.origin}/` 
-      : 'https://preview--onthego-vapi.lovable.app/';
+    // Use a consistent redirect URI that matches what's configured in Slack
+    const redirectUri = 'https://preview--onthego-vapi.lovable.app/';
     
     console.log('Using redirect URI:', redirectUri);
     
@@ -76,9 +75,8 @@ export const handleOAuthCallback = async () => {
     }
 
     if (code && state && state === storedState) {
-      const redirectUri = typeof window !== 'undefined' 
-        ? `${window.location.origin}/`
-        : 'https://preview--onthego-vapi.lovable.app/';
+      // Use the same redirect URI as in the initial request
+      const redirectUri = 'https://preview--onthego-vapi.lovable.app/';
 
       const { error: functionError } = await supabase.functions.invoke('slack-oauth', {
         body: { 
