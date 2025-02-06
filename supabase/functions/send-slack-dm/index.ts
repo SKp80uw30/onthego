@@ -5,11 +5,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-async function getSlackAccount(supabase) {
+async function getSlackAccount(supabase: any) {
   console.log('Fetching Slack account...');
   const { data: slackAccount, error: accountError } = await supabase
     .from('slack_accounts')
-    .select('slack_bot_token')
+    .select('*')
     .limit(1)
     .single();
 
@@ -21,82 +21,105 @@ async function getSlackAccount(supabase) {
   return slackAccount;
 }
 
-function normalizeString(str: string): string {
-  if (!str) {
-    console.warn('Received empty or undefined string for normalization');
-    return '';
-  }
-  return str.toLowerCase()
-    .replace(/\s+/g, '')
-    .replace(/[^a-z0-9]/g, '');
-}
-
-function calculateSimilarity(str1: string, str2: string): number {
-  if (!str1 || !str2) {
-    console.warn('Received empty strings for similarity calculation', { str1, str2 });
-    return 0;
-  }
-  
-  const norm1 = normalizeString(str1);
-  const norm2 = normalizeString(str2);
-  
-  if (norm1 === norm2) return 1;
-  if (norm1.includes(norm2) || norm2.includes(norm1)) return 0.8;
-  return 0;
-}
-
-async function findDMUser(supabase, identifier: string) {
-  console.log('Looking up DM user for identifier:', identifier);
-  
-  if (!identifier) {
+async function lookupSlackUser(token: string, userIdentifier: string) {
+  if (!userIdentifier) {
     throw new Error('User identifier is required');
   }
 
-  const { data: dmUsers, error: dbError } = await supabase
-    .from('slack_dm_users')
-    .select('*')
-    .eq('is_active', true);
+  console.log('Looking up user:', userIdentifier);
 
-  if (dbError) {
-    console.error('Error querying slack_dm_users:', dbError);
-    throw new Error(`Failed to query user database: ${dbError.message}`);
-  }
+  // First try email lookup if it looks like an email
+  if (userIdentifier.includes('@')) {
+    try {
+      const emailResponse = await fetch('https://slack.com/api/users.lookupByEmail', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        method: 'GET',
+        body: JSON.stringify({ email: userIdentifier })
+      });
 
-  if (!dmUsers || dmUsers.length === 0) {
-    console.error('No active DM users found in database');
-    throw new Error('No active DM users found');
-  }
-
-  console.log(`Found ${dmUsers.length} active users to search through`);
-
-  let bestMatch = null;
-  let bestSimilarity = 0;
-
-  for (const user of dmUsers) {
-    const displayNameSimilarity = user.display_name ? 
-      calculateSimilarity(identifier, user.display_name) : 0;
-    const emailSimilarity = user.email ? 
-      calculateSimilarity(identifier, user.email) : 0;
-
-    const similarity = Math.max(displayNameSimilarity, emailSimilarity);
-
-    if (similarity > bestSimilarity) {
-      bestSimilarity = similarity;
-      bestMatch = user;
+      const emailData = await emailResponse.json();
+      if (emailData.ok && emailData.user) {
+        console.log('Found user by email:', emailData.user.name);
+        return emailData.user;
+      }
+    } catch (error) {
+      console.log('Email lookup failed, trying user list');
     }
   }
 
-  if (bestSimilarity >= 0.8 && bestMatch) {
-    console.log('Found matching user:', {
-      id: bestMatch.id,
-      display_name: bestMatch.display_name,
-      slack_user_id: bestMatch.slack_user_id,
-      similarity: bestSimilarity
-    });
-    return bestMatch.slack_user_id;
+  // If email lookup fails or it's not an email, try users.list
+  const response = await fetch('https://slack.com/api/users.list', {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    }
+  });
+
+  const data = await response.json();
+  if (!data.ok) {
+    throw new Error('Failed to fetch users list');
   }
 
-  throw new Error(`No matching user found for "${identifier}". Please try with their exact Slack display name or email.`);
+  const user = data.members.find(member => 
+    member.profile.display_name === userIdentifier ||
+    member.profile.real_name === userIdentifier ||
+    member.name === userIdentifier
+  );
+
+  if (!user) {
+    throw new Error(`No matching user found for "${userIdentifier}"`);
+  }
+
+  console.log('Found user:', user.name);
+  return user;
+}
+
+async function openDMChannel(token: string, userId: string) {
+  console.log('Opening DM channel with user:', userId);
+  
+  const response = await fetch('https://slack.com/api/conversations.open', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ users: userId })
+  });
+
+  const data = await response.json();
+  if (!data.ok || !data.channel) {
+    throw new Error('Failed to open DM channel');
+  }
+
+  console.log('Opened DM channel:', data.channel.id);
+  return data.channel;
+}
+
+async function sendMessage(token: string, channelId: string, message: string) {
+  console.log('Sending message to channel:', channelId);
+  
+  const response = await fetch('https://slack.com/api/chat.postMessage', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      channel: channelId,
+      text: message,
+    })
+  });
+
+  const data = await response.json();
+  if (!data.ok) {
+    throw new Error('Failed to send message');
+  }
+
+  console.log('Message sent successfully');
+  return data;
 }
 
 Deno.serve(async (req) => {
@@ -105,21 +128,30 @@ Deno.serve(async (req) => {
   }
 
   try {
+    console.log('Processing incoming request...');
     const body = await req.json();
-    console.log('Received request:', JSON.stringify(body, null, 2));
+    console.log('Request body:', JSON.stringify(body, null, 2));
 
+    // Extract tool call from VAPI format
     const toolCall = body.message?.toolCalls?.[0];
     if (!toolCall?.function?.name || !toolCall?.function?.arguments) {
       throw new Error('Invalid tool request structure');
     }
 
-    const toolArgs = typeof toolCall.function.arguments === 'string' 
+    // Parse arguments, handling both string and object formats
+    const args = typeof toolCall.function.arguments === 'string' 
       ? JSON.parse(toolCall.function.arguments)
       : toolCall.function.arguments;
 
-    console.log('Parsed tool arguments:', toolArgs);
+    console.log('Parsed arguments:', args);
 
-    if (!toolArgs.Send_message_approval) {
+    // Validate required parameters
+    if (!args.userIdentifier || !args.Message) {
+      throw new Error('Missing required parameters: userIdentifier and Message');
+    }
+
+    // Check message approval
+    if (!args.Send_message_approval) {
       return new Response(
         JSON.stringify({
           results: [{
@@ -131,64 +163,30 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Use userIdentifier instead of Username
-    if (!toolArgs.userIdentifier || !toolArgs.Message) {
-      throw new Error('Missing required parameters: userIdentifier and Message');
-    }
-
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // Get Slack account and validate bot token
     const slackAccount = await getSlackAccount(supabase);
-    const userId = await findDMUser(supabase, toolArgs.userIdentifier);
+    
+    // Lookup Slack user
+    const slackUser = await lookupSlackUser(slackAccount.slack_bot_token, args.userIdentifier);
+    
+    // Open DM channel
+    const channel = await openDMChannel(slackAccount.slack_bot_token, slackUser.id);
+    
+    // Send message
+    await sendMessage(slackAccount.slack_bot_token, channel.id, args.Message);
 
-    // Open DM channel and send message
-    console.log('Opening DM channel with user:', userId);
-    const conversationResponse = await fetch('https://slack.com/api/conversations.open', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${slackAccount.slack_bot_token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ users: userId }),
-    });
-
-    const conversationData = await conversationResponse.json();
-    if (!conversationData.ok) {
-      console.error('Failed to open DM channel:', conversationData.error);
-      throw new Error(`Failed to open DM channel: ${conversationData.error}`);
-    }
-
-    const channelId = conversationData.channel.id;
-    console.log('Sending message to DM channel:', channelId);
-
-    const messageResponse = await fetch('https://slack.com/api/chat.postMessage', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${slackAccount.slack_bot_token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        channel: channelId,
-        text: toolArgs.Message,
-      }),
-    });
-
-    const messageResult = await messageResponse.json();
-    if (!messageResult.ok) {
-      console.error('Failed to send DM:', messageResult.error);
-      throw new Error(`Failed to send DM: ${messageResult.error}`);
-    }
-
-    console.log('Message sent successfully:', messageResult);
+    console.log('Successfully completed DM flow');
 
     return new Response(
       JSON.stringify({
         results: [{
           toolCallId: toolCall.id,
-          result: `Message sent successfully to ${toolArgs.userIdentifier}`
+          result: `Message sent successfully to ${slackUser.profile.display_name || slackUser.name}`
         }]
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -196,11 +194,6 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('Error in send-slack-dm function:', error);
-    console.error('Error details:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack
-    });
     
     return new Response(
       JSON.stringify({
@@ -210,8 +203,8 @@ Deno.serve(async (req) => {
         }]
       }),
       { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
   }
