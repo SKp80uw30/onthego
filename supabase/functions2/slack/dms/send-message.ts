@@ -28,7 +28,8 @@ async function getSlackAccount(supabase: any) {
     logInfo('getSlackAccount', 'Successfully retrieved Slack account', {
       hasToken: !!data.slack_bot_token,
       workspaceId: data.slack_workspace_id,
-      workspaceName: data.slack_workspace_name
+      workspaceName: data.slack_workspace_name,
+      tokenLength: data.slack_bot_token?.length
     });
 
     return data;
@@ -53,7 +54,8 @@ async function lookupSlackUser(token: string, userIdentifier: string) {
     logInfo('lookupSlackUser', 'Users list API response', { 
       ok: data.ok,
       memberCount: data.members?.length,
-      error: data.error
+      error: data.error,
+      responseStatus: response.status
     });
 
     if (!data.ok || !data.members) {
@@ -73,7 +75,8 @@ async function lookupSlackUser(token: string, userIdentifier: string) {
     logInfo('lookupSlackUser', 'Found matching user', {
       userId: user.id,
       displayName: user.profile.display_name,
-      email: user.profile.email
+      email: user.profile.email,
+      isBot: user.is_bot
     });
 
     return user;
@@ -101,6 +104,7 @@ async function openDMChannel(token: string, userId: string) {
       ok: data.ok,
       channelId: data.channel?.id,
       error: data.error,
+      responseStatus: response.status,
       responseBody: data
     });
 
@@ -119,7 +123,8 @@ async function sendMessage(token: string, channelId: string, message: string) {
   try {
     logInfo('sendMessage', 'Sending message', { 
       channelId,
-      messageLength: message.length 
+      messageLength: message.length,
+      messagePreview: message.substring(0, 50)
     });
     
     const response = await fetch('https://slack.com/api/chat.postMessage', {
@@ -140,7 +145,12 @@ async function sendMessage(token: string, channelId: string, message: string) {
       ts: data.ts,
       channel: data.channel,
       error: data.error,
-      responseBody: data
+      responseStatus: response.status,
+      fullResponse: data,
+      requestBody: {
+        channel: channelId,
+        text: message
+      }
     });
 
     if (!data.ok) {
@@ -164,7 +174,8 @@ Deno.serve(async (req) => {
     
     logInfo('handler', 'Processing request', {
       userIdentifier,
-      messageLength: message?.length
+      messageLength: message?.length,
+      messagePreview: message?.substring(0, 50)
     });
 
     if (!userIdentifier || !message) {
@@ -185,13 +196,18 @@ Deno.serve(async (req) => {
       userIdentifier,
       userId: slackUser.id,
       channelId: channel.id,
-      messageTs: messageResponse.ts
+      messageTs: messageResponse.ts,
+      fullMessageResponse: messageResponse
     });
 
     return new Response(
       JSON.stringify({ 
         success: true,
-        message: `Message sent to ${slackUser.profile.display_name || slackUser.name}`
+        message: `Message sent to ${slackUser.profile.display_name || slackUser.name}`,
+        details: {
+          channelId: channel.id,
+          messageTs: messageResponse.ts
+        }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
