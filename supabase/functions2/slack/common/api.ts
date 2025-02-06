@@ -1,5 +1,5 @@
 import { SlackApiResponse } from './types.ts';
-import { logError } from '../../_shared/logging.ts';
+import { logError, logInfo } from '../../_shared/logging.ts';
 
 export async function callSlackApi(
   endpoint: string,
@@ -11,6 +11,11 @@ export async function callSlackApi(
   const url = new URL(`${baseUrl}/${endpoint}`);
   
   try {
+    logInfo('callSlackApi', `Calling Slack API: ${endpoint}`, {
+      method,
+      hasParams: Object.keys(params).length > 0
+    });
+
     const headers = {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
@@ -41,9 +46,14 @@ export async function callSlackApi(
       throw new Error(data.error || 'Unknown Slack API error');
     }
 
+    logInfo('callSlackApi', `Successfully called ${endpoint}`, {
+      statusCode: response.status,
+      endpoint
+    });
+
     return data;
   } catch (error) {
-    logError('callSlackApi', error);
+    logError('callSlackApi', error instanceof Error ? error : new Error(String(error)));
     throw error;
   }
 }

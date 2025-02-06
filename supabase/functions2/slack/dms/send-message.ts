@@ -3,17 +3,15 @@ import { logError, logInfo } from '../../_shared/logging.ts';
 import { getSlackAccount } from '../common/auth.ts';
 import { callSlackApi } from '../common/api.ts';
 
-export async function sendDMMessage(
-  userId: string,
-  message: string
-): Promise<void> {
+export async function sendDMMessage(userId: string, message: string): Promise<void> {
   try {
     const slackAccount = await getSlackAccount();
     const channel = await openDMChannel(slackAccount.slack_bot_token, userId);
 
-    logInfo('sendDMMessage', {
+    logInfo('sendDMMessage', 'Sending DM', {
       userId,
-      message,
+      messageLength: message.length,
+      channelId: channel.id
     });
 
     await callSlackApi(
@@ -26,7 +24,7 @@ export async function sendDMMessage(
       }
     );
   } catch (error) {
-    logError('sendDMMessage', error);
+    logError('sendDMMessage', error instanceof Error ? error : new Error(String(error)));
     throw error;
   }
 }
@@ -52,6 +50,16 @@ Deno.serve(async (req) => {
 
   try {
     const { userId, message } = await req.json();
+    
+    logInfo('send-slack-dm', 'Processing request', {
+      userId,
+      messageLength: message?.length
+    });
+
+    if (!userId || !message) {
+      throw new Error('Missing required parameters: userId and message are required');
+    }
+
     await sendDMMessage(userId, message);
     
     return new Response(
@@ -59,8 +67,13 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
+    logError('send-slack-dm', error instanceof Error ? error : new Error(String(error)));
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : String(error),
+        success: false 
+      }),
       { 
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
