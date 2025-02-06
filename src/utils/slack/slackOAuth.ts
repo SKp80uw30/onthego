@@ -43,7 +43,8 @@ export const initiateSlackOAuth = async (needsReauth: boolean = false) => {
     localStorage.setItem('slack_oauth_state', state);
     localStorage.setItem('slack_reconnect', needsReauth ? 'true' : 'false');
     
-    const slackUrl = `https://slack.com/oauth/v2/authorize?client_id=${clientId}&scope=${scope}&user_scope=${scope}&redirect_uri=${redirectUri}&state=${state}`;
+    // Add team parameter to restrict to single workspace
+    const slackUrl = `https://slack.com/oauth/v2/authorize?client_id=${clientId}&scope=${scope}&user_scope=${scope}&redirect_uri=${redirectUri}&state=${state}&team=T06QXMXV6KX`;
     
     console.log('Redirecting to Slack OAuth URL:', slackUrl);
     window.location.href = slackUrl;
@@ -58,6 +59,7 @@ export const handleOAuthCallback = async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
     const state = urlParams.get('state');
+    const error = urlParams.get('error');
     const storedState = localStorage.getItem('slack_oauth_state');
     const isReconnect = localStorage.getItem('slack_reconnect') === 'true';
 
@@ -65,15 +67,20 @@ export const handleOAuthCallback = async () => {
       hasCode: !!code, 
       hasState: !!state, 
       stateMatch: state === storedState,
-      isReconnect 
+      isReconnect,
+      error 
     });
+
+    if (error) {
+      throw new Error(`Slack OAuth error: ${error}`);
+    }
 
     if (code && state && state === storedState) {
       const redirectUri = typeof window !== 'undefined' 
         ? `${window.location.origin}/`
         : 'https://preview--onthego-vapi.lovable.app/';
 
-      const { error } = await supabase.functions.invoke('slack-oauth', {
+      const { error: functionError } = await supabase.functions.invoke('slack-oauth', {
         body: { 
           code,
           isReconnect,
@@ -81,9 +88,9 @@ export const handleOAuthCallback = async () => {
         }
       });
 
-      if (error) {
-        console.error('Error in OAuth callback:', error);
-        throw error;
+      if (functionError) {
+        console.error('Error in OAuth callback:', functionError);
+        throw functionError;
       }
 
       localStorage.removeItem('slack_oauth_state');
@@ -94,10 +101,12 @@ export const handleOAuthCallback = async () => {
       // Clean up URL parameters and refresh the page
       window.history.replaceState({}, document.title, window.location.pathname);
       window.location.reload();
+    } else {
+      throw new Error('Invalid OAuth state or missing code');
     }
   } catch (error) {
     console.error('Error in OAuth callback:', error);
-    toast.error('Failed to complete Slack connection. Please try again.');
+    toast.error(`Failed to complete Slack connection: ${error.message}`);
     
     // Clean up storage and URL even on error
     localStorage.removeItem('slack_oauth_state');
