@@ -1,128 +1,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getSlackAccount, findDMUser, openDMChannel, sendMessage } from './slack-utils.ts';
+import { logError, logInfo } from './logging.ts';
+import type { VapiToolCall } from './types.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-interface VapiToolCall {
-  message: {
-    toolCalls: [{
-      function: {
-        name: string;
-        arguments: string | {
-          userIdentifier: string;
-          Message: string;
-          Send_message_approval: boolean;
-        };
-      };
-    }];
-  };
-}
-
-async function getSlackAccount(supabase: any) {
-  console.log('Fetching Slack account...');
-  const { data: slackAccount, error: accountError } = await supabase
-    .from('slack_accounts')
-    .select('*')
-    .limit(1)
-    .single();
-
-  if (accountError || !slackAccount?.slack_bot_token) {
-    console.error('Error fetching Slack account:', accountError);
-    throw new Error('Failed to get Slack account details');
-  }
-
-  console.log('Successfully retrieved Slack account with workspace:', slackAccount.slack_workspace_name);
-  return slackAccount;
-}
-
-async function findDMUser(supabase: any, slackAccountId: string, userIdentifier: string) {
-  console.log('Looking up DM user with identifier:', userIdentifier);
-  
-  if (!userIdentifier) {
-    throw new Error('User identifier is required');
-  }
-
-  const { data: dmUsers, error } = await supabase
-    .from('slack_dm_users')
-    .select('*')
-    .eq('slack_account_id', slackAccountId)
-    .eq('is_active', true);
-
-  if (error) {
-    console.error('Error querying DM users:', error);
-    throw new Error(`Failed to query DM users: ${error.message}`);
-  }
-
-  console.log(`Found ${dmUsers.length} active DM users`);
-
-  const normalizedIdentifier = userIdentifier.toLowerCase().trim();
-  const user = dmUsers.find(u => 
-    (u.display_name && u.display_name.toLowerCase() === normalizedIdentifier) ||
-    (u.email && u.email.toLowerCase() === normalizedIdentifier)
-  );
-
-  if (!user) {
-    console.error('No matching user found for identifier:', userIdentifier);
-    throw new Error(`No matching user found for "${userIdentifier}". Available users: ${dmUsers.map(u => u.display_name || u.email).join(', ')}`);
-  }
-
-  console.log('Found matching user:', { 
-    userId: user.slack_user_id,
-    displayName: user.display_name,
-    email: user.email 
-  });
-
-  return user;
-}
-
-async function openDMChannel(token: string, userId: string) {
-  console.log('Opening DM channel with user:', userId);
-  
-  const response = await fetch('https://slack.com/api/conversations.open', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ users: userId })
-  });
-
-  const data = await response.json();
-  if (!data.ok || !data.channel) {
-    console.error('Failed to open DM channel:', data.error);
-    throw new Error('Failed to open DM channel');
-  }
-
-  console.log('Successfully opened DM channel:', data.channel.id);
-  return data.channel;
-}
-
-async function sendMessage(token: string, channelId: string, message: string) {
-  console.log('Sending message to channel:', channelId);
-  
-  const response = await fetch('https://slack.com/api/chat.postMessage', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      channel: channelId,
-      text: message,
-    })
-  });
-
-  const data = await response.json();
-  if (!data.ok) {
-    console.error('Failed to send message:', data.error);
-    throw new Error('Failed to send message');
-  }
-
-  console.log('Message sent successfully');
-  return data;
-}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -131,7 +15,7 @@ Deno.serve(async (req) => {
 
   try {
     const body: VapiToolCall = await req.json();
-    console.log('Received request:', JSON.stringify(body, null, 2));
+    logInfo('handler', 'Received request:', body);
 
     const toolCall = body.message?.toolCalls?.[0];
     if (!toolCall?.function?.name || !toolCall?.function?.arguments) {
@@ -143,7 +27,7 @@ Deno.serve(async (req) => {
       ? JSON.parse(toolCall.function.arguments)
       : toolCall.function.arguments;
 
-    console.log('Parsed tool arguments:', JSON.stringify(args, null, 2));
+    logInfo('handler', 'Parsed tool arguments:', args);
 
     // Validate required parameters
     if (!args.userIdentifier || !args.Message) {
@@ -180,7 +64,7 @@ Deno.serve(async (req) => {
     // Send message
     await sendMessage(slackAccount.slack_bot_token, channel.id, args.Message);
 
-    console.log('Successfully completed DM flow');
+    logInfo('handler', 'Successfully completed DM flow');
 
     return new Response(
       JSON.stringify({
@@ -193,7 +77,7 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error in send-slack-dm function:', error);
+    logError('handler', 'Error in send-slack-dm function:', error);
     
     return new Response(
       JSON.stringify({
