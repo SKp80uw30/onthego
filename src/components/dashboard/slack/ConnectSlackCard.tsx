@@ -3,7 +3,7 @@ import { Slack } from 'lucide-react';
 import { OnboardingCard } from '@/components/OnboardingCard';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { initiateSlackOAuth, handleOAuthCallback } from '@/utils/slack/slackOAuth';
+import { initiateSlackOAuth } from '@/utils/slack/slackOAuth';
 
 interface ConnectSlackCardProps {
   isLoadingAccounts: boolean;
@@ -18,9 +18,10 @@ export const ConnectSlackCard = ({
   workspaceName,
   needsReauth,
 }: ConnectSlackCardProps) => {
-  React.useEffect(() => {
-    handleOAuthCallback();
-  }, []);
+  const handleConnect = async () => {
+    console.log('Initiating Slack connection...', { needsReauth });
+    await initiateSlackOAuth(needsReauth);
+  };
 
   const buttonText = needsReauth 
     ? "Reconnect to Slack" 
@@ -37,7 +38,7 @@ export const ConnectSlackCard = ({
     >
       <div className="flex justify-end">
         <Button 
-          onClick={() => initiateSlackOAuth(needsReauth)}
+          onClick={handleConnect}
           className={cn(
             "w-[250px] transition-all duration-300",
             hasValidSlackAccount && !needsReauth
