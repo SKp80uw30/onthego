@@ -135,9 +135,31 @@ async function sendMessage(token: string, channelId: string, message: string) {
       tokenPrefix: token.substring(0, 10) + '...'
     });
     
+    // First verify bot permissions
+    const authTestResponse = await fetch('https://slack.com/api/auth.test', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      }
+    });
+    
+    const authData = await authTestResponse.json();
+    logInfo('sendMessage', 'Auth test response', {
+      ok: authData.ok,
+      botId: authData.bot_id,
+      userId: authData.user_id,
+      teamId: authData.team_id,
+      error: authData.error
+    });
+
+    if (!authData.ok) {
+      throw new Error(`Auth test failed: ${authData.error}`);
+    }
+
     const requestBody = {
       channel: channelId,
       text: message,
+      as_user: true  // Important: Send as the authenticated bot user
     };
 
     logInfo('sendMessage', 'Request details', {
@@ -161,6 +183,7 @@ async function sendMessage(token: string, channelId: string, message: string) {
       ts: data.ts,
       channel: data.channel,
       error: data.error,
+      warning: data.warning,
       responseStatus: response.status,
       responseHeaders: Object.fromEntries(response.headers),
       fullResponse: data,
@@ -170,6 +193,27 @@ async function sendMessage(token: string, channelId: string, message: string) {
     if (!data.ok) {
       throw new Error(`Failed to send message: ${data.error}`);
     }
+
+    // Verify the message was actually sent by trying to fetch it
+    const verifyResponse = await fetch(`https://slack.com/api/conversations.history`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        channel: channelId,
+        limit: 1
+      })
+    });
+
+    const verifyData = await verifyResponse.json();
+    logInfo('sendMessage', 'Verification response', {
+      ok: verifyData.ok,
+      hasMessages: verifyData.messages?.length > 0,
+      latestMessage: verifyData.messages?.[0]?.text,
+      error: verifyData.error
+    });
 
     return data;
   } catch (error) {
