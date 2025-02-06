@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { logError, logInfo } from './logging.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -39,6 +41,26 @@ serve(async (req) => {
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Create Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Get the first slack account (assuming single account for now)
+    const { data: slackAccounts, error: accountError } = await supabase
+      .from('slack_accounts')
+      .select('*')
+      .limit(1);
+
+    if (accountError || !slackAccounts?.length) {
+      throw new Error('No Slack account found');
+    }
+
+    const userToken = slackAccounts[0].slack_user_token;
+    if (!userToken) {
+      throw new Error('No user token found. Please reconnect your Slack account.');
     }
 
     // Open a DM channel

@@ -31,7 +31,7 @@ export const ConnectSlackCard = ({
   return (
     <OnboardingCard
       title="Connect Slack"
-      description={needsReauth ? "Your Slack connection needs to be renewed" : "Connect your Slack workspace to get started"}
+      description={needsReauth ? "Your Slack connection needs to be renewed to enable sending messages as yourself" : "Connect your Slack workspace to get started"}
       icon={<Slack className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
       isCompleted={hasValidSlackAccount && !needsReauth}
     >
