@@ -1,7 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getSlackAccount, findDMUser, openDMChannel, sendMessage } from './slack-utils.ts';
 import { logError, logInfo } from './logging.ts';
-import type { VapiToolCall } from './types.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,7 +13,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const body: VapiToolCall = await req.json();
+    const body = await req.json();
     logInfo('handler', 'Received request:', body);
 
     const toolCall = body.message?.toolCalls?.[0];
@@ -22,19 +21,16 @@ Deno.serve(async (req) => {
       throw new Error('Invalid tool request structure');
     }
 
-    // Parse arguments, handling both string and object formats
     const args = typeof toolCall.function.arguments === 'string' 
       ? JSON.parse(toolCall.function.arguments)
       : toolCall.function.arguments;
 
     logInfo('handler', 'Parsed tool arguments:', args);
 
-    // Validate required parameters
     if (!args.userIdentifier || !args.Message) {
       throw new Error('Missing required parameters: userIdentifier and Message');
     }
 
-    // Check message approval
     if (!args.Send_message_approval) {
       return new Response(
         JSON.stringify({
@@ -52,16 +48,9 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get Slack account and validate bot token
     const slackAccount = await getSlackAccount(supabase);
-    
-    // Lookup Slack user
     const slackUser = await findDMUser(supabase, slackAccount.id, args.userIdentifier);
-    
-    // Open DM channel
     const channel = await openDMChannel(slackAccount.slack_bot_token, slackUser.slack_user_id);
-    
-    // Send message
     await sendMessage(slackAccount.slack_bot_token, channel.id, args.Message);
 
     logInfo('handler', 'Successfully completed DM flow');
