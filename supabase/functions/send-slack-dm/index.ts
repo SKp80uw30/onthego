@@ -17,28 +17,22 @@ serve(async (req) => {
     const reqBody = await req.json();
     console.log('Received request:', reqBody);
 
-    const toolCall = reqBody.message?.toolCalls?.[0];
-    const slackAccountId = reqBody.slackAccountId;
+    if (!reqBody.toolCalls?.[0]?.function?.arguments) {
+      console.error('Invalid request structure:', reqBody);
+      throw new Error('Invalid request structure');
+    }
 
+    const args = typeof reqBody.toolCalls[0].function.arguments === 'string'
+      ? JSON.parse(reqBody.toolCalls[0].function.arguments)
+      : reqBody.toolCalls[0].function.arguments;
+
+    console.log('Parsed arguments:', args);
+
+    const slackAccountId = args.slackAccountId;
     if (!slackAccountId) {
-      console.error('No slackAccountId provided in request:', reqBody);
+      console.error('No slackAccountId provided in arguments:', args);
       throw new Error('No slackAccountId provided');
     }
-
-    if (!toolCall?.function?.name || !toolCall?.function?.arguments) {
-      console.error('Invalid tool request structure:', toolCall);
-      throw new Error('Invalid tool request structure');
-    }
-
-    const args = typeof toolCall.function.arguments === 'string' 
-      ? JSON.parse(toolCall.function.arguments)
-      : toolCall.function.arguments;
-
-    console.log('Tool call details:', {
-      slackAccountId,
-      functionName: toolCall.function.name,
-      parsedArgs: args
-    });
 
     if (!args.userIdentifier || !args.Message) {
       console.error('Missing required parameters:', args);
@@ -47,12 +41,7 @@ serve(async (req) => {
 
     if (!args.Send_message_approval) {
       return new Response(
-        JSON.stringify({
-          results: [{
-            toolCallId: toolCall.id,
-            result: "Message not approved for sending"
-          }]
-        }),
+        JSON.stringify({ result: "Message not approved for sending" }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -63,7 +52,6 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     console.log('Fetching Slack account:', slackAccountId);
-    // Get the specific slack account
     const { data: slackAccount, error: accountError } = await supabase
       .from('slack_accounts')
       .select('*')
@@ -156,10 +144,7 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        results: [{
-          toolCallId: toolCall.id,
-          result: `Message sent successfully to ${user.display_name || user.email || user.slack_user_id}`
-        }]
+        result: `Message sent successfully to ${user.display_name || user.email || user.slack_user_id}`
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
