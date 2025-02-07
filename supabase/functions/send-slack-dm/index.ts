@@ -17,16 +17,17 @@ serve(async (req) => {
     const reqBody = await req.json();
     console.log('Received request:', reqBody);
 
-    if (!reqBody.toolCalls?.[0]?.function?.arguments) {
+    const toolCall = reqBody.message?.toolCalls?.[0];
+    if (!toolCall?.function?.arguments) {
       console.error('Invalid request structure:', reqBody);
       throw new Error('Invalid request structure');
     }
 
-    const args = typeof reqBody.toolCalls[0].function.arguments === 'string'
-      ? JSON.parse(reqBody.toolCalls[0].function.arguments)
-      : reqBody.toolCalls[0].function.arguments;
+    const args = typeof toolCall.function.arguments === 'string'
+      ? JSON.parse(toolCall.function.arguments)
+      : toolCall.function.arguments;
 
-    console.log('Parsed arguments:', args);
+    console.log('Parsed tool arguments:', args);
 
     const slackAccountId = args.slackAccountId;
     if (!slackAccountId) {
