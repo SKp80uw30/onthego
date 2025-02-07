@@ -21,10 +21,12 @@ serve(async (req) => {
     const slackAccountId = reqBody.slackAccountId;
 
     if (!slackAccountId) {
+      console.error('No slackAccountId provided in request');
       throw new Error('No slackAccountId provided');
     }
 
     if (!toolCall?.function?.name || !toolCall?.function?.arguments) {
+      console.error('Invalid tool request structure:', toolCall);
       throw new Error('Invalid tool request structure');
     }
 
@@ -35,6 +37,7 @@ serve(async (req) => {
     console.log('Parsed tool arguments:', args);
 
     if (!args.userIdentifier || !args.Message) {
+      console.error('Missing required parameters:', args);
       throw new Error('Missing required parameters: userIdentifier and Message');
     }
 

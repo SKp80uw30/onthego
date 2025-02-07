@@ -20,7 +20,7 @@ export class SlackService {
               }
             }]
           },
-          slackAccountId
+          slackAccountId: slackAccountId // Explicitly include slackAccountId
         }
       });
 
