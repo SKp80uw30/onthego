@@ -21,7 +21,7 @@ serve(async (req) => {
     const slackAccountId = reqBody.slackAccountId;
 
     if (!slackAccountId) {
-      console.error('No slackAccountId provided in request');
+      console.error('No slackAccountId provided in request:', reqBody);
       throw new Error('No slackAccountId provided');
     }
 
@@ -34,7 +34,11 @@ serve(async (req) => {
       ? JSON.parse(toolCall.function.arguments)
       : toolCall.function.arguments;
 
-    console.log('Parsed tool arguments:', args);
+    console.log('Tool call details:', {
+      slackAccountId,
+      functionName: toolCall.function.name,
+      parsedArgs: args
+    });
 
     if (!args.userIdentifier || !args.Message) {
       console.error('Missing required parameters:', args);
@@ -73,6 +77,7 @@ serve(async (req) => {
 
     const userToken = slackAccount.slack_user_token;
     if (!userToken) {
+      console.error('No user token found for account:', slackAccountId);
       throw new Error('No user token found. Please reconnect your Slack account.');
     }
 
@@ -98,6 +103,14 @@ serve(async (req) => {
     );
 
     if (!user) {
+      console.error('No matching user found:', {
+        searchedIdentifier: userIdentifier,
+        availableUsers: dmUsers.map(u => ({
+          display_name: u.display_name,
+          email: u.email,
+          slack_user_id: u.slack_user_id
+        }))
+      });
       throw new Error(`No matching user found for "${args.userIdentifier}"`);
     }
 
