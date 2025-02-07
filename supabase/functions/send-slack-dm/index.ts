@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { logError, logInfo } from './logging.ts';
@@ -13,11 +14,15 @@ serve(async (req) => {
   }
 
   try {
-    const body = await req.json();
-    console.log('Received request:', body);
+    const reqBody = await req.json();
+    console.log('Received request:', reqBody);
 
-    const toolCall = body.message?.toolCalls?.[0];
-    const slackAccountId = body.slackAccountId;
+    const toolCall = reqBody.message?.toolCalls?.[0];
+    const slackAccountId = reqBody.slackAccountId;
+
+    if (!slackAccountId) {
+      throw new Error('No slackAccountId provided');
+    }
 
     if (!toolCall?.function?.name || !toolCall?.function?.arguments) {
       throw new Error('Invalid tool request structure');
@@ -50,6 +55,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    console.log('Fetching Slack account:', slackAccountId);
     // Get the specific slack account
     const { data: slackAccount, error: accountError } = await supabase
       .from('slack_accounts')
@@ -58,6 +64,7 @@ serve(async (req) => {
       .single();
 
     if (accountError || !slackAccount) {
+      console.error('Error fetching Slack account:', { accountError, slackAccountId });
       throw new Error('No Slack account found');
     }
 
@@ -74,10 +81,13 @@ serve(async (req) => {
       .eq('is_active', true);
 
     if (dmError) {
+      console.error('Error fetching DM users:', dmError);
       throw new Error(`Failed to query DM users: ${dmError.message}`);
     }
 
     const userIdentifier = args.userIdentifier.toLowerCase();
+    console.log('Looking for user:', userIdentifier, 'in users:', dmUsers);
+    
     const user = dmUsers.find(u => 
       (u.display_name && u.display_name.toLowerCase() === userIdentifier) ||
       (u.email && u.email.toLowerCase() === userIdentifier) ||
@@ -87,6 +97,8 @@ serve(async (req) => {
     if (!user) {
       throw new Error(`No matching user found for "${args.userIdentifier}"`);
     }
+
+    console.log('Found matching user:', user);
 
     // Open a DM channel
     const channelResponse = await fetch('https://slack.com/api/conversations.open', {
@@ -100,6 +112,7 @@ serve(async (req) => {
 
     const channelData = await channelResponse.json();
     if (!channelData.ok) {
+      console.error('Error opening DM channel:', channelData);
       throw new Error(`Failed to open DM channel: ${channelData.error}`);
     }
 
@@ -119,6 +132,7 @@ serve(async (req) => {
 
     const messageData = await messageResponse.json();
     if (!messageData.ok) {
+      console.error('Error sending message:', messageData);
       throw new Error(`Failed to send message: ${messageData.error}`);
     }
 
@@ -139,10 +153,8 @@ serve(async (req) => {
     
     return new Response(
       JSON.stringify({
-        results: [{
-          toolCallId: body?.message?.toolCalls?.[0]?.id || 'unknown_call_id',
-          result: `Error: ${error.message}`
-        }]
+        error: error.message,
+        details: error.stack
       }),
       { 
         status: 400,

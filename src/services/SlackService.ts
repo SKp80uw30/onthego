@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -11,11 +12,11 @@ export class SlackService {
             toolCalls: [{
               function: {
                 name: 'send_direct_message',
-                arguments: {
+                arguments: JSON.stringify({
                   userIdentifier: channelName,
                   Message: message,
                   Send_message_approval: true
-                }
+                })
               }
             }]
           },
