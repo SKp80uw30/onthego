@@ -3,7 +3,7 @@ import { Slack } from 'lucide-react';
 import { OnboardingCard } from '@/components/OnboardingCard';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { initiateSlackOAuth } from '@/utils/slack/slackOAuth';
+import { initiateSlackOAuth, handleOAuthCallback } from '@/utils/slack/slackOAuth';
 
 interface ConnectSlackCardProps {
   isLoadingAccounts: boolean;
@@ -18,10 +18,9 @@ export const ConnectSlackCard = ({
   workspaceName,
   needsReauth,
 }: ConnectSlackCardProps) => {
-  const handleConnect = async () => {
-    console.log('Initiating Slack connection...', { needsReauth });
-    await initiateSlackOAuth(needsReauth);
-  };
+  React.useEffect(() => {
+    handleOAuthCallback();
+  }, []);
 
   const buttonText = needsReauth 
     ? "Reconnect to Slack" 
@@ -32,13 +31,13 @@ export const ConnectSlackCard = ({
   return (
     <OnboardingCard
       title="Connect Slack"
-      description={needsReauth ? "Your Slack connection needs to be renewed to enable sending messages as yourself" : "Connect your Slack workspace to get started"}
+      description={needsReauth ? "Your Slack connection needs to be renewed" : "Connect your Slack workspace to get started"}
       icon={<Slack className="h-5 w-5 md:h-6 md:w-6 text-primary" />}
       isCompleted={hasValidSlackAccount && !needsReauth}
     >
       <div className="flex justify-end">
         <Button 
-          onClick={handleConnect}
+          onClick={() => initiateSlackOAuth(needsReauth)}
           className={cn(
             "w-[250px] transition-all duration-300",
             hasValidSlackAccount && !needsReauth
