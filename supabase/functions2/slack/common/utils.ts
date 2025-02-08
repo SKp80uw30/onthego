@@ -1,38 +1,5 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { logError, logInfo } from './logging.ts';
 
-export async function getSlackAccount(supabase: any) {
-  try {
-    logInfo('getSlackAccount', 'Starting Slack account fetch');
-    const { data, error } = await supabase
-      .from('slack_accounts')
-      .select('*')
-      .limit(1)
-      .single();
-
-    if (error) {
-      logError('getSlackAccount', error, { error_details: error.details });
-      throw error;
-    }
-    
-    if (!data) {
-      logError('getSlackAccount', 'No Slack account found', { data });
-      throw new Error('No Slack account found');
-    }
-
-    logInfo('getSlackAccount', 'Successfully retrieved Slack account', {
-      hasToken: !!data.slack_bot_token,
-      workspaceId: data.slack_workspace_id,
-      workspaceName: data.slack_workspace_name,
-      tokenLength: data.slack_bot_token?.length
-    });
-
-    return data;
-  } catch (error) {
-    logError('getSlackAccount', error);
-    throw error;
-  }
-}
+import { logError, logInfo } from '../../_shared/logging.ts';
 
 export async function findDMUser(supabase: any, slackAccountId: string, userIdentifier: string) {
   try {
@@ -101,49 +68,12 @@ export async function openDMChannel(token: string, userId: string) {
   }
 }
 
-export async function verifyBotPermissions(token: string) {
-  try {
-    logInfo('verifyBotPermissions', 'Testing bot permissions');
-    
-    const response = await fetch('https://slack.com/api/auth.test', {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      }
-    });
-
-    const data = await response.json();
-    
-    if (!data.ok) {
-      logError('verifyBotPermissions', 'Bot permissions test failed', {
-        error: data.error,
-        details: data
-      });
-      throw new Error(`Bot permissions test failed: ${data.error}`);
-    }
-
-    logInfo('verifyBotPermissions', 'Bot permissions verified', {
-      botId: data.bot_id,
-      userId: data.user_id,
-      teamId: data.team_id
-    });
-
-    return data;
-  } catch (error) {
-    logError('verifyBotPermissions', error);
-    throw error;
-  }
-}
-
 export async function sendMessage(token: string, channelId: string, message: string) {
   try {
-    logInfo('sendMessage', 'Starting message send process', { 
+    logInfo('sendMessage', 'Sending message to channel', { 
       channelId,
       messageLength: message.length
     });
-
-    // First verify bot permissions
-    await verifyBotPermissions(token);
 
     const response = await fetch('https://slack.com/api/chat.postMessage', {
       method: 'POST',
@@ -168,24 +98,7 @@ export async function sendMessage(token: string, channelId: string, message: str
       throw new Error(`Failed to send message: ${data.error}`);
     }
 
-    // Verify the message was actually sent by checking channel history
-    const verifyResponse = await fetch(`https://slack.com/api/conversations.history?channel=${channelId}&limit=1`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      }
-    });
-
-    const verifyData = await verifyResponse.json();
-    
-    if (!verifyData.ok || !verifyData.messages?.length) {
-      logError('sendMessage', 'Message verification failed', {
-        error: verifyData.error,
-        details: verifyData
-      });
-      throw new Error('Message sent but not found in channel history');
-    }
-
-    logInfo('sendMessage', 'Message successfully sent and verified', {
+    logInfo('sendMessage', 'Message successfully sent', {
       messageTs: data.ts,
       channelId: data.channel
     });
