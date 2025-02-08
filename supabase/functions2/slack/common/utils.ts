@@ -1,6 +1,39 @@
 
 import { logError, logInfo } from '../../_shared/logging.ts';
 
+export async function verifyToken(token: string) {
+  try {
+    logInfo('verifyToken', 'Verifying Slack token and permissions');
+    
+    const response = await fetch('https://slack.com/api/auth.test', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = await response.json();
+    
+    if (!data.ok) {
+      logError('verifyToken', 'Token verification failed', {
+        error: data.error,
+        details: data
+      });
+      throw new Error(`Token verification failed: ${data.error}`);
+    }
+
+    logInfo('verifyToken', 'Token verified successfully', {
+      userId: data.user_id,
+      teamId: data.team_id
+    });
+    
+    return data;
+  } catch (error) {
+    logError('verifyToken', error);
+    throw error;
+  }
+}
+
 export async function findDMUser(supabase: any, slackAccountId: string, userIdentifier: string) {
   try {
     logInfo('findDMUser', `Looking up DM user with identifier: ${userIdentifier}`);
@@ -75,6 +108,7 @@ export async function sendMessage(token: string, channelId: string, message: str
       messageLength: message.length
     });
 
+    // Remove as_user flag since we're using user token
     const response = await fetch('https://slack.com/api/chat.postMessage', {
       method: 'POST',
       headers: {
@@ -83,8 +117,7 @@ export async function sendMessage(token: string, channelId: string, message: str
       },
       body: JSON.stringify({
         channel: channelId,
-        text: message,
-        as_user: true
+        text: message
       })
     });
 
@@ -109,3 +142,4 @@ export async function sendMessage(token: string, channelId: string, message: str
     throw error;
   }
 }
+

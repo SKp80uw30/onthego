@@ -2,7 +2,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { logError, logInfo } from '../../_shared/logging.ts';
 import { corsHeaders } from '../../_shared/cors.ts';
-import { findDMUser, openDMChannel, sendMessage } from '../common/utils.ts';
+import { findDMUser, openDMChannel, sendMessage, verifyToken } from '../common/utils.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -63,15 +63,19 @@ Deno.serve(async (req) => {
       throw new Error('No Slack account found');
     }
 
+    // We specifically need the user token for DMs
     if (!slackAccount.slack_user_token) {
       logError('sendDM', 'No user token found', { accountId: slackAccountId });
       throw new Error('No user token found. Please reconnect your Slack account.');
     }
 
+    // Verify the token has the correct permissions
+    await verifyToken(slackAccount.slack_user_token);
+    
     // Open DM channel
     const channel = await openDMChannel(slackAccount.slack_user_token, user.slack_user_id);
     
-    // Send the message
+    // Send the message using the user token
     await sendMessage(slackAccount.slack_user_token, channel.id, args.Message);
 
     return new Response(
@@ -96,3 +100,4 @@ Deno.serve(async (req) => {
     );
   }
 });
+
