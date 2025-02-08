@@ -5,12 +5,24 @@ export class SlackService {
   async sendMessage(message: string, channelName: string, slackAccountId: string): Promise<void> {
     try {
       console.log('Starting sendMessage operation:', { message, channelName, slackAccountId });
-      const { error, data } = await supabase.functions.invoke('send-slack-message', {
-        body: { message, channelName, slackAccountId }
+      const { error, data } = await supabase.functions.invoke('send-slack-dm', {
+        body: { 
+          toolCalls: [{
+            function: {
+              name: 'send_direct_message',
+              arguments: JSON.stringify({
+                userIdentifier: channelName,
+                Message: message,
+                Send_message_approval: true,
+                slackAccountId // Include slackAccountId in the arguments
+              })
+            }
+          }]
+        }
       });
 
       if (error) {
-        console.error('Error details from send-slack-message:', {
+        console.error('Error details from send-slack-dm:', {
           error,
           statusCode: error.status,
           message: error.message,

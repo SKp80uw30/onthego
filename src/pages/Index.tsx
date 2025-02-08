@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { OnboardingSection } from '@/components/dashboard/OnboardingSection';
 import { useSlackData } from '@/hooks/use-slack-data';
+import { handleOAuthCallback } from '@/utils/slack/slackOAuth';
 
 const Index = () => {
   const [session, setSession] = useState(null);
@@ -15,6 +16,16 @@ const Index = () => {
     workspaceName,
     needsReauth,
   } = useSlackData();
+
+  useEffect(() => {
+    // Handle Slack OAuth callback if code is present in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    if (code) {
+      console.log('Detected Slack OAuth callback, processing...');
+      handleOAuthCallback();
+    }
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
