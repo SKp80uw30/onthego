@@ -11,32 +11,17 @@ Deno.serve(async (req) => {
 
   try {
     const reqBody = await req.json();
-    console.log('Received request:', reqBody);
+    console.log('Received request body:', reqBody);
 
-    const toolCall = reqBody.message?.toolCalls?.[0];
-    if (!toolCall?.function?.arguments) {
-      console.error('Invalid request structure:', reqBody);
-      throw new Error('Invalid request structure');
+    // Validate required fields directly from request body
+    const { userIdentifier, Message, Send_message_approval, slackAccountId } = reqBody;
+
+    if (!userIdentifier || !Message || !slackAccountId) {
+      console.error('Missing required parameters:', reqBody);
+      throw new Error('Missing required parameters: userIdentifier, Message, and slackAccountId');
     }
 
-    const args = typeof toolCall.function.arguments === 'string'
-      ? JSON.parse(toolCall.function.arguments)
-      : toolCall.function.arguments;
-
-    console.log('Parsed tool arguments:', args);
-
-    const slackAccountId = args.slackAccountId;
-    if (!slackAccountId) {
-      console.error('No slackAccountId provided in arguments:', args);
-      throw new Error('No slackAccountId provided');
-    }
-
-    if (!args.userIdentifier || !args.Message) {
-      console.error('Missing required parameters:', args);
-      throw new Error('Missing required parameters: userIdentifier and Message');
-    }
-
-    if (!args.Send_message_approval) {
+    if (!Send_message_approval) {
       return new Response(
         JSON.stringify({ result: "Message not approved for sending" }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -49,7 +34,7 @@ Deno.serve(async (req) => {
     );
 
     // Find the user in our DM users table
-    const user = await findDMUser(supabase, slackAccountId, args.userIdentifier);
+    const user = await findDMUser(supabase, slackAccountId, userIdentifier);
 
     // Get the Slack account with the user token
     const { data: slackAccount, error: accountError } = await supabase
@@ -76,7 +61,7 @@ Deno.serve(async (req) => {
     const channel = await openDMChannel(slackAccount.slack_user_token, user.slack_user_id);
     
     // Send the message using the user token
-    await sendMessage(slackAccount.slack_user_token, channel.id, args.Message);
+    await sendMessage(slackAccount.slack_user_token, channel.id, Message);
 
     return new Response(
       JSON.stringify({
@@ -100,4 +85,3 @@ Deno.serve(async (req) => {
     );
   }
 });
-
