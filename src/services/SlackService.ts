@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -8,8 +9,8 @@ export class SlackService {
       const { error, data } = await supabase.functions.invoke('slack/dms/send-message', {
         body: { 
           userIdentifier: channelName,
-          Message: message,
-          Send_message_approval: true,
+          Message: message, // Maintaining capital M as server expects
+          Send_message_approval: true, // Maintaining exact casing as server expects
           slackAccountId
         }
       });

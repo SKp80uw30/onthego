@@ -11,13 +11,13 @@ Deno.serve(async (req) => {
 
   try {
     const reqBody = await req.json();
-    console.log('Received request body:', reqBody);
+    logInfo('send-message', 'Received request body:', reqBody);
 
-    // Validate required fields directly from request body
+    // Validate required fields with exact case-sensitive names
     const { userIdentifier, Message, Send_message_approval, slackAccountId } = reqBody;
 
     if (!userIdentifier || !Message || !slackAccountId) {
-      console.error('Missing required parameters:', reqBody);
+      logError('send-message', 'Missing required parameters', { reqBody });
       throw new Error('Missing required parameters: userIdentifier, Message, and slackAccountId');
     }
 
@@ -44,13 +44,13 @@ Deno.serve(async (req) => {
       .single();
 
     if (accountError || !slackAccount) {
-      logError('sendDM', 'No Slack account found', { error: accountError });
+      logError('send-message', 'No Slack account found', { error: accountError });
       throw new Error('No Slack account found');
     }
 
     // We specifically need the user token for DMs
     if (!slackAccount.slack_user_token) {
-      logError('sendDM', 'No user token found', { accountId: slackAccountId });
+      logError('send-message', 'No user token found', { accountId: slackAccountId });
       throw new Error('No user token found. Please reconnect your Slack account.');
     }
 
