@@ -11,13 +11,35 @@ Deno.serve(async (req) => {
 
   try {
     const reqBody = await req.json();
-    logInfo('send-message', 'Received request body:', reqBody);
+    logInfo('send-message', 'Raw request body received:', reqBody);
+
+    // Normalize the payload structure
+    let normalizedBody;
+    
+    if (reqBody.message?.toolCalls?.[0]?.function) {
+      // Handle nested toolCalls structure
+      const toolCall = reqBody.message.toolCalls[0];
+      const args = typeof toolCall.function.arguments === 'string' 
+        ? JSON.parse(toolCall.function.arguments)
+        : toolCall.function.arguments;
+      
+      normalizedBody = {
+        ...args,
+        slackAccountId: reqBody.slackAccountId // Preserve slackAccountId from top level if it exists
+      };
+      
+      logInfo('send-message', 'Normalized nested toolCalls payload:', normalizedBody);
+    } else {
+      // Handle flat structure
+      normalizedBody = reqBody;
+      logInfo('send-message', 'Using flat payload structure:', normalizedBody);
+    }
 
     // Validate required fields with exact case-sensitive names
-    const { userIdentifier, Message, Send_message_approval, slackAccountId } = reqBody;
+    const { userIdentifier, Message, Send_message_approval, slackAccountId } = normalizedBody;
 
     if (!userIdentifier || !Message || !slackAccountId) {
-      logError('send-message', 'Missing required parameters', { reqBody });
+      logError('send-message', 'Missing required parameters', { normalizedBody });
       throw new Error('Missing required parameters: userIdentifier, Message, and slackAccountId');
     }
 
