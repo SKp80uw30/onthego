@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
       
       normalizedBody = {
         ...args,
-        slackAccountId: reqBody.slackAccountId // Preserve slackAccountId from top level if it exists
+        slackAccountId: args.slackAccountId || reqBody.slackAccountId // Try args first, then fallback to top level
       };
       
       logInfo('send-message', 'Normalized nested toolCalls payload:', normalizedBody);

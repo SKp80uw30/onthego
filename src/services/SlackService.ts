@@ -6,12 +6,25 @@ export class SlackService {
   async sendMessage(message: string, channelName: string, slackAccountId: string): Promise<void> {
     try {
       console.log('Starting sendMessage operation:', { message, channelName, slackAccountId });
+      
+      // Create a payload that matches the expected format exactly
+      const messagePayload = {
+        userIdentifier: channelName,
+        Message: message, // Capital M
+        Send_message_approval: true, // Exact casing
+        slackAccountId // Include slackAccountId in the arguments
+      };
+
       const { error, data } = await supabase.functions.invoke('slack/dms/send-message', {
-        body: { 
-          userIdentifier: channelName,
-          Message: message, // Maintaining capital M as server expects
-          Send_message_approval: true, // Maintaining exact casing as server expects
-          slackAccountId
+        body: {
+          message: {
+            toolCalls: [{
+              function: {
+                name: "send_direct_message",
+                arguments: JSON.stringify(messagePayload)
+              }
+            }]
+          }
         }
       });
 
