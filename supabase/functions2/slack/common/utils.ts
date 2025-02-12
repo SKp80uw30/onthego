@@ -24,7 +24,8 @@ export async function verifyToken(token: string) {
 
     logInfo('verifyToken', 'Token verified successfully', {
       userId: data.user_id,
-      teamId: data.team_id
+      teamId: data.team_id,
+      scope: data.scope
     });
     
     return data;
@@ -36,7 +37,10 @@ export async function verifyToken(token: string) {
 
 export async function findDMUser(supabase: any, slackAccountId: string, userIdentifier: string) {
   try {
-    logInfo('findDMUser', `Looking up DM user with identifier: ${userIdentifier}`);
+    logInfo('findDMUser', 'Looking up DM user', { 
+      slackAccountId,
+      userIdentifier 
+    });
     
     const { data: dmUsers, error } = await supabase
       .from('slack_dm_users')
@@ -56,10 +60,22 @@ export async function findDMUser(supabase: any, slackAccountId: string, userIden
     );
 
     if (!user) {
+      logError('findDMUser', 'No matching user found', {
+        userIdentifier,
+        availableUsers: dmUsers.map(u => ({
+          display_name: u.display_name,
+          email: u.email
+        }))
+      });
       throw new Error(`No matching user found for "${userIdentifier}"`);
     }
 
-    logInfo('findDMUser', `Found matching user: ${user.display_name || user.email}`);
+    logInfo('findDMUser', 'Found matching user', {
+      userId: user.slack_user_id,
+      displayName: user.display_name,
+      email: user.email
+    });
+    
     return user;
   } catch (error) {
     logError('findDMUser', error);
@@ -69,7 +85,10 @@ export async function findDMUser(supabase: any, slackAccountId: string, userIden
 
 export async function openDMChannel(token: string, userId: string) {
   try {
-    logInfo('openDMChannel', 'Opening DM channel', { userId });
+    logInfo('openDMChannel', 'Opening DM channel', { 
+      userId,
+      tokenPrefix: token.substring(0, 10) + '...'
+    });
     
     const response = await fetch('https://slack.com/api/conversations.open', {
       method: 'POST',
@@ -85,13 +104,24 @@ export async function openDMChannel(token: string, userId: string) {
     if (!data.ok) {
       logError('openDMChannel', 'Failed to open DM channel', {
         error: data.error,
-        details: data
+        warning: data.warning,
+        details: data,
+        userId
       });
       throw new Error(`Failed to open DM channel: ${data.error}`);
     }
 
+    if (!data.channel?.id) {
+      logError('openDMChannel', 'No channel ID in response', {
+        response: data
+      });
+      throw new Error('No channel ID returned from Slack');
+    }
+
     logInfo('openDMChannel', 'Successfully opened DM channel', {
-      channelId: data.channel.id
+      channelId: data.channel.id,
+      isIM: data.channel.is_im,
+      userId: data.channel.user
     });
     
     return data.channel;
@@ -103,12 +133,17 @@ export async function openDMChannel(token: string, userId: string) {
 
 export async function sendMessage(token: string, channelId: string, message: string) {
   try {
-    logInfo('sendMessage', 'Sending message to channel', { 
+    logInfo('sendMessage', 'Preparing to send message', { 
       channelId,
-      messageLength: message.length
+      messageLength: message.length,
+      tokenPrefix: token.substring(0, 10) + '...'
     });
 
-    // Remove as_user flag since we're using user token
+    // Validate channel ID before attempting to send
+    if (!channelId) {
+      throw new Error('Invalid channel ID provided');
+    }
+
     const response = await fetch('https://slack.com/api/chat.postMessage', {
       method: 'POST',
       headers: {
@@ -126,14 +161,18 @@ export async function sendMessage(token: string, channelId: string, message: str
     if (!data.ok) {
       logError('sendMessage', 'Failed to send message', {
         error: data.error,
-        details: data
+        warning: data.warning,
+        details: data,
+        channelId
       });
       throw new Error(`Failed to send message: ${data.error}`);
     }
 
     logInfo('sendMessage', 'Message successfully sent', {
       messageTs: data.ts,
-      channelId: data.channel
+      channelId: data.channel,
+      threadTs: data.thread_ts,
+      responseMetadata: data.response_metadata
     });
 
     return data;
@@ -142,4 +181,3 @@ export async function sendMessage(token: string, channelId: string, message: str
     throw error;
   }
 }
-
