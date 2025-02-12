@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -6,6 +7,7 @@ export class SlackService {
     try {
       console.log('Starting sendMessage operation:', { message, channelName, slackAccountId });
       
+      // Build the payload with slackAccountId included in the arguments
       const payload = {
         message: {
           toolCalls: [{
@@ -15,12 +17,14 @@ export class SlackService {
                 userIdentifier: channelName,
                 Message: message,
                 Send_message_approval: true,
-                slackAccountId: slackAccountId
+                slackAccountId: slackAccountId  // Explicitly include slackAccountId
               })
             }
           }]
         }
       };
+
+      console.log('Sending payload:', payload);
 
       const { error, data } = await supabase.functions.invoke('slack/dms/send-message', {
         body: payload
