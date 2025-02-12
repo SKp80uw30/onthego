@@ -15,22 +15,17 @@ Deno.serve(async (req) => {
 
     // Normalize the payload structure
     let normalizedBody;
-    
     if (reqBody.message?.toolCalls?.[0]?.function) {
-      // Handle nested toolCalls structure
       const toolCall = reqBody.message.toolCalls[0];
-      const args = typeof toolCall.function.arguments === 'string' 
+      const args = typeof toolCall.function.arguments === 'string'
         ? JSON.parse(toolCall.function.arguments)
         : toolCall.function.arguments;
-      
       normalizedBody = {
         ...args,
-        slackAccountId: args.slackAccountId || reqBody.slackAccountId // Try args first, then fallback to top level
+        slackAccountId: args.slackAccountId || reqBody.slackAccountId
       };
-      
       logInfo('send-message', 'Normalized nested toolCalls payload:', normalizedBody);
     } else {
-      // Handle flat structure
       normalizedBody = reqBody;
       logInfo('send-message', 'Using flat payload structure:', normalizedBody);
     }

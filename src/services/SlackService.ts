@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -7,25 +6,24 @@ export class SlackService {
     try {
       console.log('Starting sendMessage operation:', { message, channelName, slackAccountId });
       
-      // Create a payload that matches the expected format exactly
-      const messagePayload = {
-        userIdentifier: channelName,
-        Message: message, // Capital M
-        Send_message_approval: true, // Exact casing
-        slackAccountId // Include slackAccountId in the arguments
+      const payload = {
+        message: {
+          toolCalls: [{
+            function: {
+              name: 'send_direct_message',
+              arguments: JSON.stringify({
+                userIdentifier: channelName,
+                Message: message,
+                Send_message_approval: true,
+                slackAccountId: slackAccountId
+              })
+            }
+          }]
+        }
       };
 
       const { error, data } = await supabase.functions.invoke('slack/dms/send-message', {
-        body: {
-          message: {
-            toolCalls: [{
-              function: {
-                name: "send_direct_message",
-                arguments: JSON.stringify(messagePayload)
-              }
-            }]
-          }
-        }
+        body: payload
       });
 
       if (error) {
@@ -61,7 +59,6 @@ export class SlackService {
         fetchMentions
       });
       
-      // First validate the Slack account exists
       const { data: account, error: accountError } = await supabase
         .from('slack_accounts')
         .select('*')
