@@ -191,7 +191,6 @@ export type Database = {
           needs_reauth: boolean | null
           slack_bot_token: string
           slack_user_handle: string | null
-          slack_user_token: string | null
           slack_workspace_id: string
           slack_workspace_name: string | null
           user_id: string | null
@@ -202,7 +201,6 @@ export type Database = {
           needs_reauth?: boolean | null
           slack_bot_token: string
           slack_user_handle?: string | null
-          slack_user_token?: string | null
           slack_workspace_id: string
           slack_workspace_name?: string | null
           user_id?: string | null
@@ -213,7 +211,6 @@ export type Database = {
           needs_reauth?: boolean | null
           slack_bot_token?: string
           slack_user_handle?: string | null
-          slack_user_token?: string | null
           slack_workspace_id?: string
           slack_workspace_name?: string | null
           user_id?: string | null
